@@ -27,10 +27,10 @@ function CartPage() {
             {cart.itemsWithProduct.map((it, i) => (
               <div key={i} className="flex gap-4 p-3 border-2 border-foreground rounded-2xl bg-card">
                 <div
-                  className="h-24 w-24 rounded-xl flex items-center justify-center text-4xl shrink-0"
+                  className="h-24 w-24 rounded-xl flex items-center justify-center font-display text-2xl text-foreground/70 shrink-0 border-2 border-foreground"
                   style={{ background: `linear-gradient(135deg, ${it.product.swatch[0]}, ${it.product.swatch[1]})` }}
                 >
-                  {it.product.emoji}
+                  {it.product.name.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase()).join("")}
                 </div>
                 <div className="flex-1">
                   <Link to="/producto/$slug" params={{ slug: it.product.slug }} className="font-bold">{it.product.name}</Link>
