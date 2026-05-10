@@ -11,6 +11,7 @@ import { CartProvider } from "@/context/cart";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { CartDrawer } from "@/components/cart/CartDrawer";
+import { VibeChooserModal } from "@/components/home/VibeChooserModal";
 
 function NotFoundComponent() {
   return (
@@ -89,6 +90,7 @@ function RootComponent() {
           </main>
           <Footer />
           <CartDrawer />
+          <VibeChooserModal />
         </div>
       </CartProvider>
     </QueryClientProvider>
