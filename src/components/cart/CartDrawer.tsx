@@ -28,7 +28,7 @@ export function CartDrawer() {
         <div className="flex-1 overflow-auto p-4 space-y-3">
           {cart.itemsWithProduct.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center gap-3 py-12">
-              <div className="text-7xl wobble">🐙</div>
+              <OctopusMark className="h-24 w-24 text-foreground" />
               <div className="font-display text-xl">Tu carrito está vacío</div>
               <p className="text-sm text-muted-foreground">Aún no has elegido tu vibra.</p>
               <Link
