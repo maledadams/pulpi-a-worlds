@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCart } from "@/context/cart";
 import { formatPrice } from "@/data/products";
 import { useState } from "react";
+import { OctopusMark } from "@/components/ui/Decor";
 
 export const Route = createFileRoute("/carrito")({
   head: () => ({ meta: [{ title: "Carrito — Pulpiña RD" }] }),
