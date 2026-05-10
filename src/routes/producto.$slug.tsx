@@ -36,10 +36,12 @@ function ProductPage() {
       <div className="grid md:grid-cols-2 gap-8">
         <div className="grid grid-cols-2 gap-3">
           <div
-            className="aspect-square col-span-2 rounded-3xl border-2 border-foreground overflow-hidden flex items-center justify-center text-9xl"
+            className="aspect-square col-span-2 rounded-3xl border-2 border-foreground overflow-hidden flex items-center justify-center relative grain"
             style={{ background: `linear-gradient(135deg, ${product.swatch[0]}, ${product.swatch[1]})` }}
           >
-            <span className="wobble">{product.emoji}</span>
+            <span className="font-display text-[8rem] md:text-[10rem] leading-none text-foreground/70 mix-blend-multiply select-none">
+              {product.name.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase()).join("")}
+            </span>
           </div>
           {[0, 1, 2].map((i) => (
             <div
