@@ -46,7 +46,7 @@ function Admin() {
             {PRODUCTS.map((p) => (
               <tr key={p.id} className="border-t border-border">
                 <td className="p-3 flex items-center gap-2">
-                  <span className="h-8 w-8 rounded-lg flex items-center justify-center text-lg" style={{ background: `linear-gradient(135deg,${p.swatch[0]},${p.swatch[1]})` }}>{p.emoji}</span>
+                  <span className="h-8 w-8 rounded-lg border border-foreground/20" style={{ background: `linear-gradient(135deg,${p.swatch[0]},${p.swatch[1]})` }} />
                   <span className="font-semibold">{p.name}</span>
                 </td>
                 <td className="p-3">{VIBES[p.vibe].name}</td>
