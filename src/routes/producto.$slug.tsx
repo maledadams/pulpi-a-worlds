@@ -13,9 +13,8 @@ export const Route = createFileRoute("/producto/$slug")({
   },
   notFoundComponent: () => (
     <div className="mx-auto max-w-3xl px-4 py-20 text-center">
-      <div className="text-6xl">🐙</div>
-      <h1 className="font-display text-3xl mt-3">Producto no encontrado</h1>
-      <Link to="/tienda" className="mt-4 inline-block underline">Volver a la tienda</Link>
+      <h1 className="font-display text-5xl">Producto no encontrado</h1>
+      <Link to="/tienda" className="mt-4 inline-block underline underline-offset-4">Volver a la tienda</Link>
     </div>
   ),
   errorComponent: ({ error }) => <div className="p-10 text-center">{error.message}</div>,
