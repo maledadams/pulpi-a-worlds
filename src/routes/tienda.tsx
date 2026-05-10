@@ -127,9 +127,8 @@ function Tienda() {
           <div className="text-sm text-muted-foreground mb-3">{filtered.length} productos</div>
           {filtered.length === 0 ? (
             <div className="text-center py-20">
-              <div className="text-6xl">🐙</div>
-              <p className="mt-3 font-display text-xl">Nada por aquí</p>
-              <Link to="/tienda" onClick={() => { setQ(""); setVibes(new Set()); setCats(new Set()); }} className="text-sm underline">Limpiar filtros</Link>
+              <p className="font-display text-3xl">Nada por aquí</p>
+              <Link to="/tienda" onClick={() => { setQ(""); setVibes(new Set()); setCats(new Set()); }} className="mt-3 inline-block text-sm underline underline-offset-4">Limpiar filtros</Link>
             </div>
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
