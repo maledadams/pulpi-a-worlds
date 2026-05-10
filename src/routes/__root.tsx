@@ -90,6 +90,7 @@ function RootComponent() {
           </main>
           <Footer />
           <CartDrawer />
+          <VibeChooserModal />
         </div>
       </CartProvider>
     </QueryClientProvider>
