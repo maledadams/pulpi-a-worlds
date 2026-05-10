@@ -47,7 +47,7 @@ export function VibeChooserModal() {
 
         <div className="px-6 pt-8 pb-4 text-center">
           <span className="inline-block px-3 py-1 rounded-full bg-accent text-accent-foreground text-xs font-bold uppercase tracking-widest border-2 border-foreground">
-            Bienvenid@ a Pulpiña 🐙
+            Bienvenid@ a Pulpiña
           </span>
           <h2 className="mt-3 font-display text-3xl md:text-4xl">Elige tu versión</h2>
           <p className="mt-1 text-sm text-muted-foreground">

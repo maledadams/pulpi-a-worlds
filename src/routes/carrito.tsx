@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCart } from "@/context/cart";
 import { formatPrice } from "@/data/products";
 import { useState } from "react";
+import { OctopusMark } from "@/components/ui/Decor";
 
 export const Route = createFileRoute("/carrito")({
   head: () => ({ meta: [{ title: "Carrito — Pulpiña RD" }] }),
@@ -16,7 +17,7 @@ function CartPage() {
       <h1 className="text-4xl md:text-6xl">Tu carrito</h1>
       {cart.itemsWithProduct.length === 0 ? (
         <div className="mt-10 text-center py-16 rounded-3xl border-2 border-dashed border-foreground">
-          <div className="text-7xl wobble inline-block">🐙</div>
+          <OctopusMark className="h-20 w-20 mx-auto text-foreground wobble" />
           <p className="mt-3 font-display text-2xl">Aún no hay nada por aquí</p>
           <Link to="/tienda" className="sticker mt-5 inline-block px-6 py-3 rounded-full bg-accent text-accent-foreground font-bold uppercase border-2 border-foreground">Ir a la tienda</Link>
         </div>
@@ -26,10 +27,10 @@ function CartPage() {
             {cart.itemsWithProduct.map((it, i) => (
               <div key={i} className="flex gap-4 p-3 border-2 border-foreground rounded-2xl bg-card">
                 <div
-                  className="h-24 w-24 rounded-xl flex items-center justify-center text-4xl shrink-0"
+                  className="h-24 w-24 rounded-xl flex items-center justify-center font-display text-2xl text-foreground/70 shrink-0 border-2 border-foreground"
                   style={{ background: `linear-gradient(135deg, ${it.product.swatch[0]}, ${it.product.swatch[1]})` }}
                 >
-                  {it.product.emoji}
+                  {it.product.name.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase()).join("")}
                 </div>
                 <div className="flex-1">
                   <Link to="/producto/$slug" params={{ slug: it.product.slug }} className="font-bold">{it.product.name}</Link>
