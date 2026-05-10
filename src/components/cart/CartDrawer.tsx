@@ -43,10 +43,10 @@ export function CartDrawer() {
             cart.itemsWithProduct.map((it, i) => (
               <div key={i} className="flex gap-3 border-2 border-foreground rounded-2xl p-2 bg-card">
                 <div
-                  className="h-20 w-20 rounded-xl flex items-center justify-center text-3xl shrink-0"
+                  className="h-20 w-20 rounded-xl flex items-center justify-center text-xl font-display text-foreground/70 shrink-0 border-2 border-foreground"
                   style={{ background: `linear-gradient(135deg, ${it.product.swatch[0]}, ${it.product.swatch[1]})` }}
                 >
-                  {it.product.emoji}
+                  {it.product.name.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase()).join("")}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-bold truncate">{it.product.name}</div>
