@@ -17,8 +17,7 @@ function NotFoundComponent() {
   return (
     <div className="min-h-[70vh] flex items-center justify-center px-4 text-center">
       <div>
-        <div className="text-7xl mb-4">🐙</div>
-        <h1 className="font-display text-5xl">404</h1>
+        <h1 className="font-display text-7xl">404</h1>
         <p className="mt-2 text-muted-foreground">Esta vibra no existe.</p>
         <Link to="/" className="sticker mt-6 inline-block px-5 py-2.5 rounded-full bg-accent text-accent-foreground font-bold border-2 border-foreground">
           Volver al inicio
