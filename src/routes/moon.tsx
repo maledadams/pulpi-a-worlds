@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { VibePage } from "@/components/collections/VibePage";
+import { Eye, Heart } from "@/components/ui/Decor";
 import logo from "@/assets/logo-moon.png";
 import mood from "@/assets/mood-moon.jpg";
 
@@ -15,7 +16,12 @@ export const Route = createFileRoute("/moon")({
         bg: "linear-gradient(135deg,#0a0408,#2a0a14 60%,#5a0a14)",
         logo,
         mood,
-        decor: <><span className="absolute top-4 left-0 text-5xl">🥀</span><span className="absolute bottom-0 right-2 text-5xl">🌑</span></>,
+        decor: (
+          <>
+            <Eye className="absolute top-2 left-0 h-14 w-14 text-primary" />
+            <Heart className="absolute bottom-0 right-0 h-12 w-12 text-primary/80" />
+          </>
+        ),
       }}
     />
   ),
