@@ -17,7 +17,7 @@ function CartPage() {
       <h1 className="text-4xl md:text-6xl">Tu carrito</h1>
       {cart.itemsWithProduct.length === 0 ? (
         <div className="mt-10 text-center py-16 rounded-3xl border-2 border-dashed border-foreground">
-          <div className="text-7xl wobble inline-block">🐙</div>
+          <OctopusMark className="h-20 w-20 mx-auto text-foreground wobble" />
           <p className="mt-3 font-display text-2xl">Aún no hay nada por aquí</p>
           <Link to="/tienda" className="sticker mt-5 inline-block px-6 py-3 rounded-full bg-accent text-accent-foreground font-bold uppercase border-2 border-foreground">Ir a la tienda</Link>
         </div>
