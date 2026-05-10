@@ -10,7 +10,7 @@ export function ProductCard({ product }: { product: Product }) {
       params={{ slug: product.slug }}
       className="group relative block"
     >
-      <div className="sticker rounded-3xl overflow-hidden border-2 border-foreground bg-card">
+      <div className="chunky rounded-3xl overflow-hidden border-2 border-foreground bg-card group-hover:-rotate-1 transition">
         <div
           className="aspect-square relative overflow-hidden"
           style={{
