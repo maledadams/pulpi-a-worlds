@@ -2,6 +2,7 @@ import { useCart } from "@/context/cart";
 import { formatPrice } from "@/data/products";
 import { Link } from "@tanstack/react-router";
 import { X, Minus, Plus, Trash2 } from "lucide-react";
+import { OctopusMark } from "@/components/ui/Decor";
 
 export function CartDrawer() {
   const cart = useCart();
