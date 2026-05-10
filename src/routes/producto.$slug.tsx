@@ -1,6 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useState } from "react";
-import { PRODUCTS, formatPrice, VIBES } from "@/data/products";
+import { PRODUCTS, formatPrice, VIBES, type Product } from "@/data/products";
 import { ProductCard } from "@/components/product/ProductCard";
 import { useCart } from "@/context/cart";
 import { useVibe } from "@/hooks/use-vibe";
@@ -23,7 +23,7 @@ export const Route = createFileRoute("/producto/$slug")({
 });
 
 function ProductPage() {
-  const { product } = Route.useLoaderData();
+  const { product } = Route.useLoaderData() as { product: Product };
   const cart = useCart();
   useVibe(product.vibe);
   const [size, setSize] = useState(product.sizes[0]);
