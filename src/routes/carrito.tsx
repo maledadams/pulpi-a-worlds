@@ -1,8 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { OctopusMark } from "@/components/ui/Decor";
 import { useCart } from "@/context/cart";
 import { formatPrice } from "@/data/products";
-import { useState } from "react";
-import { OctopusMark } from "@/components/ui/Decor";
 
 export const Route = createFileRoute("/carrito")({
   head: () => ({ meta: [{ title: "Carrito — Pulpiña RD" }] }),
@@ -11,61 +10,126 @@ export const Route = createFileRoute("/carrito")({
 
 function CartPage() {
   const cart = useCart();
-  const [code, setCode] = useState("");
+
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10">
-      <h1 className="text-4xl md:text-6xl">Tu carrito</h1>
-      {cart.itemsWithProduct.length === 0 ? (
-        <div className="mt-10 text-center py-16 rounded-3xl border-2 border-dashed border-foreground">
-          <OctopusMark className="h-20 w-20 mx-auto text-foreground wobble" />
-          <p className="mt-3 font-display text-2xl">Aún no hay nada por aquí</p>
-          <Link to="/tienda" className="sticker mt-5 inline-block px-6 py-3 rounded-full bg-accent text-accent-foreground font-bold uppercase border-2 border-foreground">Ir a la tienda</Link>
+    <div className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
+      <h1 className="text-3xl sm:text-4xl md:text-6xl">Tu carrito</h1>
+      {!cart.configured && (
+        <p className="mt-3 text-sm text-muted-foreground">
+          Estás viendo el carrito en modo preview. Cuando conectes Shopify, este flujo pasará a usar
+          el checkout real.
+        </p>
+      )}
+
+      {cart.lines.length === 0 ? (
+        <div className="mt-8 rounded-3xl border-2 border-dashed border-foreground py-12 text-center sm:mt-10 sm:py-16">
+          <OctopusMark className="mx-auto h-16 w-16 text-foreground wobble sm:h-20 sm:w-20" />
+          <p className="mt-3 font-display text-xl sm:text-2xl">Aún no hay nada por aquí</p>
+          <Link
+            to="/tienda"
+            className="sticker mt-5 inline-block rounded-full border-2 border-foreground bg-accent px-6 py-3 font-bold uppercase text-accent-foreground"
+          >
+            Ir a la tienda
+          </Link>
         </div>
       ) : (
-        <div className="mt-8 grid md:grid-cols-[1fr_340px] gap-8">
+        <div className="mt-8 grid gap-6 md:grid-cols-[1fr_320px] lg:grid-cols-[1fr_340px] lg:gap-8">
           <div className="space-y-3">
-            {cart.itemsWithProduct.map((it, i) => (
-              <div key={i} className="flex gap-4 p-3 border-2 border-foreground rounded-2xl bg-card">
-                <div
-                  className="h-24 w-24 rounded-xl flex items-center justify-center font-display text-2xl text-foreground/70 shrink-0 border-2 border-foreground"
-                  style={{ background: `linear-gradient(135deg, ${it.product.swatch[0]}, ${it.product.swatch[1]})` }}
-                >
-                  {it.product.name.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase()).join("")}
-                </div>
+            {cart.lines.map((line) => (
+              <div
+                key={line.id}
+                className="flex flex-col gap-3 rounded-2xl border-2 border-foreground bg-card p-3 sm:flex-row sm:gap-4"
+              >
+                {line.image ? (
+                  <img
+                    src={line.image.url}
+                    alt={line.image.altText ?? line.productTitle}
+                    className="h-28 w-full rounded-xl border-2 border-foreground object-cover sm:h-24 sm:w-24 sm:shrink-0"
+                  />
+                ) : (
+                  <div className="flex h-28 w-full items-center justify-center rounded-xl border-2 border-foreground bg-muted font-display text-2xl text-foreground/70 sm:h-24 sm:w-24 sm:shrink-0">
+                    {line.productTitle
+                      .split(" ")
+                      .slice(0, 2)
+                      .map((word) => word[0]?.toUpperCase())
+                      .join("")}
+                  </div>
+                )}
                 <div className="flex-1">
-                  <Link to="/producto/$slug" params={{ slug: it.product.slug }} className="font-bold">{it.product.name}</Link>
-                  <div className="text-xs text-muted-foreground">Talla {it.size} · {it.color}</div>
-                  <div className="mt-2 flex items-center gap-3">
-                    <div className="flex items-center border-2 border-foreground rounded-full">
-                      <button onClick={() => cart.update(i, it.qty - 1)} className="px-3 py-1">−</button>
-                      <span className="px-2 text-sm font-bold">{it.qty}</span>
-                      <button onClick={() => cart.update(i, it.qty + 1)} className="px-3 py-1">+</button>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <Link
+                        to="/producto/$slug"
+                        params={{ slug: line.productHandle }}
+                        className="font-bold"
+                      >
+                        {line.productTitle}
+                      </Link>
+                      {line.selectedOptions.length > 0 && (
+                        <div className="text-xs text-muted-foreground">
+                          {line.selectedOptions
+                            .map((option) => `${option.name}: ${option.value}`)
+                            .join(" · ")}
+                        </div>
+                      )}
                     </div>
-                    <button onClick={() => cart.remove(i)} className="text-sm underline text-muted-foreground">Eliminar</button>
+                    <div className="text-left font-bold sm:text-right">
+                      {formatPrice(line.price * line.quantity, line.currencyCode)}
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <div className="flex items-center rounded-full border-2 border-foreground">
+                      <button
+                        onClick={() => void cart.update(line.id, line.quantity - 1)}
+                        className="px-3 py-1"
+                      >
+                        −
+                      </button>
+                      <span className="px-2 text-sm font-bold">{line.quantity}</span>
+                      <button
+                        onClick={() => void cart.update(line.id, line.quantity + 1)}
+                        className="px-3 py-1"
+                      >
+                        +
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => void cart.remove(line.id)}
+                      className="text-sm text-muted-foreground underline"
+                    >
+                      Eliminar
+                    </button>
                   </div>
                 </div>
-                <div className="font-bold">{formatPrice((it.product.salePrice ?? it.product.price) * it.qty)}</div>
               </div>
             ))}
           </div>
-          <aside className="self-start p-5 rounded-3xl border-2 border-foreground bg-card sticky top-20">
+
+          <aside className="sticky top-20 self-start rounded-3xl border-2 border-foreground bg-card p-5">
             <div className="font-display text-2xl">Resumen</div>
             <div className="mt-4 space-y-2 text-sm">
-              <div className="flex justify-between"><span>Subtotal</span><span>{formatPrice(cart.subtotal)}</span></div>
-              <div className="flex justify-between text-muted-foreground"><span>Envío</span><span>Calculado en checkout</span></div>
-            </div>
-            <div className="mt-4">
-              <label className="text-xs font-bold uppercase">Código de descuento</label>
-              <div className="flex gap-2 mt-1">
-                <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="PULPINA10" className="flex-1 px-3 py-2 rounded-full border-2 border-foreground bg-background text-sm" />
-                <button className="px-4 py-2 rounded-full border-2 border-foreground bg-card font-bold text-sm">Aplicar</button>
+              <div className="flex justify-between">
+                <span>Subtotal</span>
+                <span>{formatPrice(cart.subtotal, cart.currencyCode)}</span>
+              </div>
+              <div className="flex justify-between text-muted-foreground">
+                <span>Envío</span>
+                <span>{cart.checkoutUrl ? "Calculado en checkout" : "Preview"}</span>
               </div>
             </div>
-            <div className="mt-4 flex justify-between font-display text-xl border-t border-border pt-3">
-              <span>Total</span><span>{formatPrice(cart.subtotal)}</span>
+            <div className="mt-4 flex justify-between border-t border-border pt-3 font-display text-xl">
+              <span>Total</span>
+              <span>{formatPrice(cart.subtotal, cart.currencyCode)}</span>
             </div>
-            <Link to="/checkout" className="sticker block text-center mt-5 px-6 py-3 rounded-full bg-foreground text-background font-bold uppercase border-2 border-foreground">Finalizar compra</Link>
-            <Link to="/tienda" className="block text-center mt-2 text-sm font-semibold hover:underline">Continuar comprando</Link>
+            <Link
+              to="/checkout"
+              className="sticker mt-5 block rounded-full border-2 border-foreground bg-foreground px-6 py-3 text-center font-bold uppercase text-background"
+            >
+              Finalizar compra
+            </Link>
+            <Link to="/tienda" className="mt-2 block text-center text-sm font-semibold hover:underline">
+              Continuar comprando
+            </Link>
           </aside>
         </div>
       )}

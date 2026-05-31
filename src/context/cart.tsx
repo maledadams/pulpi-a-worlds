@@ -1,80 +1,280 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { PRODUCTS, type Product } from "@/data/products";
-
-export type CartLine = {
-  productId: string;
-  size: string;
-  color: string;
-  qty: number;
-};
+import {
+  createContext,
+  startTransition,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
+import { getFallbackVariantById, type Cart, type CartLine } from "@/data/products";
+import { addCartLine, getCart, removeCartLine, updateCartLine } from "@/lib/shopify";
 
 type CartCtx = {
-  lines: CartLine[];
+  cart: Cart | null;
+  lines: Cart["lines"];
   open: boolean;
+  loading: boolean;
+  configured: boolean;
+  checkoutUrl: string | null;
   setOpen: (v: boolean) => void;
-  add: (line: CartLine) => void;
-  update: (i: number, qty: number) => void;
-  remove: (i: number) => void;
+  add: (line: { variantId: string; quantity: number }) => Promise<void>;
+  update: (lineId: string, quantity: number) => Promise<void>;
+  remove: (lineId: string) => Promise<void>;
   clear: () => void;
   count: number;
   subtotal: number;
-  itemsWithProduct: (CartLine & { product: Product })[];
+  currencyCode: string;
 };
 
 const Ctx = createContext<CartCtx | null>(null);
-const KEY = "pulpina_cart_id"; // mock — stores serialized lines
+const KEY = "pulpina_cart_id";
+const PREVIEW_KEY = "pulpina_preview_cart_lines";
+const PREVIEW_CART_ID = "preview-cart";
+
+function persistCartId(cartId: string | null) {
+  if (typeof window === "undefined") return;
+  if (cartId) {
+    localStorage.setItem(KEY, cartId);
+    return;
+  }
+  localStorage.removeItem(KEY);
+}
+
+function buildPreviewCart(lines: CartLine[]): Cart {
+  return {
+    id: PREVIEW_CART_ID,
+    checkoutUrl: "",
+    totalQuantity: lines.reduce((sum, line) => sum + line.quantity, 0),
+    subtotal: lines.reduce((sum, line) => sum + line.price * line.quantity, 0),
+    currencyCode: lines[0]?.currencyCode ?? "DOP",
+    lines,
+  };
+}
+
+function loadPreviewLines() {
+  if (typeof window === "undefined") return [] as CartLine[];
+
+  try {
+    const raw = localStorage.getItem(PREVIEW_KEY);
+    if (!raw) return [] as CartLine[];
+    const parsed = JSON.parse(raw) as CartLine[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [] as CartLine[];
+  }
+}
+
+function persistPreviewLines(lines: CartLine[]) {
+  if (typeof window === "undefined") return;
+  if (lines.length > 0) {
+    localStorage.setItem(PREVIEW_KEY, JSON.stringify(lines));
+    return;
+  }
+  localStorage.removeItem(PREVIEW_KEY);
+}
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [lines, setLines] = useState<CartLine[]>([]);
+  const [cart, setCart] = useState<Cart | null>(null);
   const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [configured, setConfigured] = useState(true);
+
+  const applyCart = (nextCart: Cart | null) => {
+    startTransition(() => {
+      setCart(nextCart);
+      if (nextCart?.id && nextCart.id !== PREVIEW_CART_ID) {
+        persistCartId(nextCart.id);
+      } else {
+        persistCartId(null);
+      }
+      persistPreviewLines(nextCart?.id === PREVIEW_CART_ID ? nextCart.lines : []);
+    });
+  };
+
+  const applyPreviewLines = (lines: CartLine[]) => {
+    setConfigured(false);
+    applyCart(lines.length > 0 ? buildPreviewCart(lines) : null);
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    try {
-      const raw = localStorage.getItem(KEY);
-      if (raw) setLines(JSON.parse(raw));
-    } catch {}
+
+    const previewLines = loadPreviewLines();
+    if (previewLines.length > 0) {
+      applyPreviewLines(previewLines);
+    }
+
+    const cartId = localStorage.getItem(KEY);
+    if (!cartId) return;
+
+    let cancelled = false;
+    setLoading(true);
+
+    void getCart({ data: { cartId } })
+      .then((result) => {
+        if (cancelled) return;
+        setConfigured(result.configured);
+        if (result.configured) {
+          applyCart(result.cart);
+        } else if (previewLines.length > 0) {
+          applyPreviewLines(previewLines);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem(KEY, JSON.stringify(lines));
-  }, [lines]);
+  const add = async ({ variantId, quantity }: { variantId: string; quantity: number }) => {
+    if (!configured) {
+      const fallback = getFallbackVariantById(variantId);
+      if (!fallback) return;
 
-  const add = (line: CartLine) => {
-    setLines((cur) => {
-      const i = cur.findIndex(
-        (l) => l.productId === line.productId && l.size === line.size && l.color === line.color,
-      );
-      if (i >= 0) {
-        const copy = [...cur];
-        copy[i] = { ...copy[i], qty: copy[i].qty + line.qty };
-        return copy;
+      const currentLines = cart?.id === PREVIEW_CART_ID ? cart.lines : loadPreviewLines();
+      const existing = currentLines.findIndex((line) => line.merchandiseId === variantId);
+      const nextLines = [...currentLines];
+
+      if (existing >= 0) {
+        nextLines[existing] = {
+          ...nextLines[existing],
+          quantity: nextLines[existing].quantity + quantity,
+        };
+      } else {
+        nextLines.push({
+          id: `preview-${variantId}`,
+          quantity,
+          merchandiseId: fallback.variant.id,
+          title: fallback.variant.title,
+          productTitle: fallback.product.name,
+          productHandle: fallback.product.slug,
+          image: fallback.variant.image ?? fallback.product.featuredImage,
+          price: fallback.variant.price,
+          currencyCode: fallback.variant.currencyCode,
+          selectedOptions: fallback.variant.selectedOptions,
+        });
       }
-      return [...cur, line];
-    });
-    setOpen(true);
+
+      applyPreviewLines(nextLines);
+      setOpen(true);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await addCartLine({
+        data: {
+          cartId: cart?.id,
+          variantId,
+          quantity,
+        },
+      });
+      if (!result.configured) {
+        setConfigured(false);
+        const fallback = getFallbackVariantById(variantId);
+        if (fallback) {
+          applyPreviewLines([
+            ...(cart?.id === PREVIEW_CART_ID ? cart.lines : loadPreviewLines()),
+            {
+              id: `preview-${variantId}`,
+              quantity,
+              merchandiseId: fallback.variant.id,
+              title: fallback.variant.title,
+              productTitle: fallback.product.name,
+              productHandle: fallback.product.slug,
+              image: fallback.variant.image ?? fallback.product.featuredImage,
+              price: fallback.variant.price,
+              currencyCode: fallback.variant.currencyCode,
+              selectedOptions: fallback.variant.selectedOptions,
+            },
+          ]);
+          setOpen(true);
+        }
+        return;
+      }
+      setConfigured(true);
+      applyCart(result.cart);
+      if (result.cart) setOpen(true);
+    } finally {
+      setLoading(false);
+    }
   };
-  const update = (i: number, qty: number) =>
-    setLines((cur) => cur.map((l, idx) => (idx === i ? { ...l, qty: Math.max(1, qty) } : l)));
-  const remove = (i: number) => setLines((cur) => cur.filter((_, idx) => idx !== i));
-  const clear = () => setLines([]);
 
-  const itemsWithProduct = lines
-    .map((l) => {
-      const product = PRODUCTS.find((p) => p.id === l.productId);
-      return product ? { ...l, product } : null;
-    })
-    .filter(Boolean) as (CartLine & { product: Product })[];
+  const update = async (lineId: string, quantity: number) => {
+    if (!configured) {
+      const currentLines = cart?.id === PREVIEW_CART_ID ? cart.lines : loadPreviewLines();
+      const nextLines = currentLines.map((line) =>
+        line.id === lineId ? { ...line, quantity: Math.max(1, quantity) } : line,
+      );
+      applyPreviewLines(nextLines);
+      return;
+    }
 
-  const count = lines.reduce((s, l) => s + l.qty, 0);
-  const subtotal = itemsWithProduct.reduce(
-    (s, it) => s + (it.product.salePrice ?? it.product.price) * it.qty,
-    0,
-  );
+    if (!cart?.id) return;
+    setLoading(true);
+    try {
+      const result = await updateCartLine({
+        data: {
+          cartId: cart.id,
+          lineId,
+          quantity: Math.max(1, quantity),
+        },
+      });
+      setConfigured(result.configured);
+      applyCart(result.cart);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const remove = async (lineId: string) => {
+    if (!configured) {
+      const currentLines = cart?.id === PREVIEW_CART_ID ? cart.lines : loadPreviewLines();
+      const nextLines = currentLines.filter((line) => line.id !== lineId);
+      applyPreviewLines(nextLines);
+      return;
+    }
+
+    if (!cart?.id) return;
+    setLoading(true);
+    try {
+      const result = await removeCartLine({
+        data: {
+          cartId: cart.id,
+          lineId,
+        },
+      });
+      setConfigured(result.configured);
+      applyCart(result.cart);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const clear = () => applyCart(null);
 
   return (
-    <Ctx.Provider value={{ lines, open, setOpen, add, update, remove, clear, count, subtotal, itemsWithProduct }}>
+    <Ctx.Provider
+      value={{
+        cart,
+        lines: cart?.lines ?? [],
+        open,
+        loading,
+        configured,
+        checkoutUrl: cart?.checkoutUrl ?? null,
+        setOpen,
+        add,
+        update,
+        remove,
+        clear,
+        count: cart?.totalQuantity ?? 0,
+        subtotal: cart?.subtotal ?? 0,
+        currencyCode: cart?.currencyCode ?? "DOP",
+      }}
+    >
       {children}
     </Ctx.Provider>
   );

@@ -1,5 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { PRODUCTS, formatPrice, VIBES, type Product } from "@/data/products";
 import { ProductCard } from "@/components/product/ProductCard";
 import { useCart } from "@/context/cart";
@@ -25,31 +26,86 @@ function ProductPage() {
   const { product } = Route.useLoaderData() as { product: Product };
   const cart = useCart();
   useVibe(product.vibe);
-  const [size, setSize] = useState(product.sizes[0]);
-  const [color, setColor] = useState(product.colors[0].name);
+  const galleryImages =
+    product.images.length > 0 ? product.images : product.featuredImage ? [product.featuredImage] : [];
+  const sizes = product.sizes ?? product.options.find((option) => option.name === "Talla")?.values ?? ["Única"];
+  const colors =
+    product.colors ??
+    (product.options.find((option) => option.name === "Color")?.values ?? ["Único"]).map((name, index) => ({
+      name,
+      hex: product.swatch[index % product.swatch.length],
+    }));
+  const selectedVariant =
+    product.variants.find((variant) =>
+      variant.selectedOptions.every((option) => {
+        if (option.name === "Talla") return option.value === sizes[0];
+        if (option.name === "Color") return option.value === colors[0]?.name;
+        return true;
+      }),
+    ) ?? product.variants[0];
+  const [size, setSize] = useState(sizes[0]);
+  const [color, setColor] = useState(colors[0]?.name ?? "Único");
   const [qty, setQty] = useState(1);
+  const [imageIndex, setImageIndex] = useState(0);
   const onSale = product.salePrice && product.salePrice < product.price;
   const related = PRODUCTS.filter((p) => p.vibe === product.vibe && p.id !== product.id).slice(0, 4);
+  const currentImage = galleryImages[imageIndex] ?? null;
+  const averageLuma =
+    product.swatch
+      .map((hex) => {
+        const clean = hex.replace("#", "");
+        const normalized =
+          clean.length === 3 ? clean.split("").map((char) => `${char}${char}`).join("") : clean;
+        const value = Number.parseInt(normalized, 16);
+        const r = (value >> 16) & 255;
+        const g = (value >> 8) & 255;
+        const b = value & 255;
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      })
+      .reduce((total, value) => total + value, 0) / product.swatch.length;
+  const arrowToneClass = averageLuma < 140 ? "text-white" : "text-black";
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10">
       <div className="grid md:grid-cols-2 gap-8">
-        <div className="grid grid-cols-2 gap-3">
+        <div>
           <div
-            className="aspect-square col-span-2 rounded-3xl border-2 border-foreground overflow-hidden flex items-center justify-center relative grain"
+            className="aspect-square rounded-3xl border-2 border-foreground overflow-hidden flex items-center justify-center relative grain"
             style={{ background: `linear-gradient(135deg, ${product.swatch[0]}, ${product.swatch[1]})` }}
           >
-            <span className="font-display text-[8rem] md:text-[10rem] leading-none text-foreground/70 mix-blend-multiply select-none">
-              {product.name.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase()).join("")}
-            </span>
+            {currentImage ? (
+              <img
+                src={currentImage.url}
+                alt={currentImage.altText ?? product.name}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span className="font-display text-[8rem] md:text-[10rem] leading-none text-foreground/70 mix-blend-multiply select-none">
+                {product.name.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase()).join("")}
+              </span>
+            )}
           </div>
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className="aspect-square rounded-2xl border-2 border-border opacity-70"
-              style={{ background: `linear-gradient(${135 + i * 40}deg, ${product.swatch[1]}, ${product.swatch[0]})` }}
-            />
-          ))}
+          {galleryImages.length > 1 && (
+            <div className={`mt-3 flex items-center justify-end gap-3 text-sm font-black uppercase ${arrowToneClass}`}>
+              <button
+                onClick={() => setImageIndex((current) => (current === 0 ? galleryImages.length - 1 : current - 1))}
+                className="transition hover:opacity-60"
+                aria-label="Imagen anterior"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="text-[10px] tracking-[0.24em] opacity-80">
+                {imageIndex + 1} / {galleryImages.length}
+              </span>
+              <button
+                onClick={() => setImageIndex((current) => (current === galleryImages.length - 1 ? 0 : current + 1))}
+                className="transition hover:opacity-60"
+                aria-label="Imagen siguiente"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
         </div>
         <div>
           <span className="inline-block text-xs font-bold uppercase px-2 py-1 rounded-full text-white" style={{ background: VIBES[product.vibe].color }}>
@@ -68,7 +124,7 @@ function ProductPage() {
           <div className="mt-6">
             <div className="text-xs font-bold uppercase mb-2">Tallas</div>
             <div className="flex flex-wrap gap-2">
-              {product.sizes.map((s) => (
+              {sizes.map((s) => (
                 <button key={s} onClick={() => setSize(s)} className={`px-4 py-2 rounded-full border-2 border-foreground text-sm font-bold ${size === s ? "bg-foreground text-background" : "bg-card"}`}>
                   {s}
                 </button>
@@ -79,7 +135,7 @@ function ProductPage() {
           <div className="mt-5">
             <div className="text-xs font-bold uppercase mb-2">Colores</div>
             <div className="flex flex-wrap gap-2">
-              {product.colors.map((c) => (
+              {colors.map((c) => (
                 <button key={c.name} onClick={() => setColor(c.name)} className={`px-3 py-2 rounded-full border-2 border-foreground text-sm font-bold flex items-center gap-2 ${color === c.name ? "bg-foreground text-background" : "bg-card"}`}>
                   <span className="h-3 w-3 rounded-full border" style={{ background: c.hex }} /> {c.name}
                 </button>
@@ -95,7 +151,19 @@ function ProductPage() {
             </div>
             <button
               disabled={!product.available}
-              onClick={() => cart.add({ productId: product.id, size, color, qty })}
+              onClick={() =>
+                cart.add({
+                  variantId:
+                    product.variants.find((variant) =>
+                      variant.selectedOptions.every((option) => {
+                        if (option.name === "Talla") return option.value === size;
+                        if (option.name === "Color") return option.value === color;
+                        return true;
+                      }),
+                    )?.id ?? selectedVariant.id,
+                  quantity: qty,
+                })
+              }
               className="sticker flex-1 px-6 py-3 rounded-full bg-primary text-primary-foreground font-bold uppercase border-2 border-foreground disabled:opacity-50"
             >
               Agregar al carrito

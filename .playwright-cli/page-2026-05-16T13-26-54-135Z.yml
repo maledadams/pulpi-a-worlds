@@ -1,0 +1,182 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "Pulpiña Pulpiña RD" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - img "Pulpiña" [ref=e6]
+        - generic [ref=e7]: Pulpiña RD
+      - generic [ref=e8]:
+        - link "Buscar" [ref=e9] [cursor=pointer]:
+          - /url: /tienda
+          - img [ref=e10]
+        - button "Carrito" [ref=e13]:
+          - img [ref=e14]
+        - button "Menú" [ref=e17]:
+          - img [ref=e18]
+  - main [ref=e19]:
+    - generic [ref=e20]:
+      - generic [ref=e21]:
+        - generic [ref=e25]: YM
+        - generic [ref=e26]:
+          - generic [ref=e27]: Pulpiña Sunshine
+          - heading "Y2K Mini Skirt" [level=1] [ref=e28]
+          - generic [ref=e29]:
+            - generic [ref=e30]: RD$1,800.00
+            - generic [ref=e31]: RD$2,200.00
+          - generic [ref=e33]: Disponible · 12 en stock
+          - paragraph [ref=e34]: Pieza alternativa diseñada en RD. Edición limitada del universo Pulpiña.
+          - generic [ref=e35]:
+            - generic [ref=e36]:
+              - img [ref=e37]
+              - paragraph [ref=e42]: Envíos en RD y checkout real con Shopify cuando la tienda esté conectada.
+            - generic [ref=e43]:
+              - img [ref=e44]
+              - paragraph [ref=e47]: Precio, stock, variantes y disponibilidad reflejados desde el catálogo.
+            - generic [ref=e48]:
+              - img [ref=e49]
+              - paragraph [ref=e52]: La vibra visual se adapta a Men, Moon y Sunshine sin cambiar el layout base.
+          - generic [ref=e53]:
+            - generic [ref=e54]: Talla
+            - generic [ref=e55]:
+              - button "XS" [ref=e56]
+              - button "S" [ref=e57]
+              - button "M" [ref=e58]
+              - button "L" [ref=e59]
+              - button "XL" [ref=e60]
+          - generic [ref=e61]:
+            - generic [ref=e62]: Color
+            - button "Bubblegum" [ref=e64]
+          - generic [ref=e65]:
+            - generic [ref=e66]:
+              - button [ref=e67]:
+                - img [ref=e68]
+              - generic [ref=e69]: "1"
+              - button [ref=e70]:
+                - img [ref=e71]
+            - button "Add to cart" [ref=e72]
+          - generic [ref=e73]:
+            - group [ref=e74]:
+              - generic "Detalles" [ref=e75] [cursor=pointer]
+            - group [ref=e76]:
+              - generic "Cuidado" [ref=e77] [cursor=pointer]
+            - group [ref=e78]:
+              - generic "Envío" [ref=e79] [cursor=pointer]
+      - generic [ref=e80]:
+        - generic [ref=e81]:
+          - generic [ref=e82]: Just for your vibe
+          - heading "Más de esta línea" [level=2] [ref=e83]
+        - generic [ref=e84]:
+          - link [ref=e85] [cursor=pointer]:
+            - /url: /producto/leopardo-rosa-set
+            - article [ref=e86]:
+              - generic [ref=e87]:
+                - generic [ref=e88]: Nuevo
+                - generic [ref=e91]: LR
+              - generic [ref=e92]:
+                - generic [ref=e93]:
+                  - generic [ref=e94]: Prendas de otro mundo
+                  - heading "Leopardo Rosa Set" [level=3] [ref=e95]
+                - paragraph [ref=e96]: Pieza alternativa diseñada en RD. Edición limitada del universo Pulpiña.
+                - generic [ref=e98]:
+                  - generic [ref=e99]: Precio
+                  - generic [ref=e101]: RD$3,200.00
+          - link [ref=e102] [cursor=pointer]:
+            - /url: /producto/perlas-collar
+            - article [ref=e103]:
+              - generic [ref=e107]: CD
+              - generic [ref=e108]:
+                - generic [ref=e109]:
+                  - generic [ref=e110]: Prendas de otro mundo
+                  - heading "Collar de Perlas Bling" [level=3] [ref=e111]
+                - paragraph [ref=e112]: Pieza alternativa diseñada en RD. Edición limitada del universo Pulpiña.
+                - generic [ref=e114]:
+                  - generic [ref=e115]: Precio
+                  - generic [ref=e117]: RD$950.00
+          - link [ref=e118] [cursor=pointer]:
+            - /url: /producto/telefono-bag
+            - article [ref=e119]:
+              - generic [ref=e123]: MP
+              - generic [ref=e124]:
+                - generic [ref=e125]:
+                  - generic [ref=e126]: Prendas de otro mundo
+                  - heading "Mini Phone Bag" [level=3] [ref=e127]
+                - paragraph [ref=e128]: Pieza alternativa diseñada en RD. Edición limitada del universo Pulpiña.
+                - generic [ref=e130]:
+                  - generic [ref=e131]: Precio
+                  - generic [ref=e133]: RD$1,500.00
+          - link [ref=e134] [cursor=pointer]:
+            - /url: /producto/kawaii-platforms
+            - article [ref=e135]:
+              - generic [ref=e136]:
+                - generic [ref=e137]: Nuevo
+                - generic [ref=e140]: KP
+              - generic [ref=e141]:
+                - generic [ref=e142]:
+                  - generic [ref=e143]: Prendas de otro mundo
+                  - heading "Kawaii Platforms" [level=3] [ref=e144]
+                - paragraph [ref=e145]: Pieza alternativa diseñada en RD. Edición limitada del universo Pulpiña.
+                - generic [ref=e147]:
+                  - generic [ref=e148]: Precio
+                  - generic [ref=e150]: RD$4,500.00
+  - contentinfo [ref=e151]:
+    - generic [ref=e153]:
+      - generic [ref=e154]: PULPIÑA RD ✦ PRENDAS DE OTRO MUNDO ✦
+      - generic [ref=e155]: PULPIÑA RD ✦ PRENDAS DE OTRO MUNDO ✦
+      - generic [ref=e156]: PULPIÑA RD ✦ PRENDAS DE OTRO MUNDO ✦
+      - generic [ref=e157]: PULPIÑA RD ✦ PRENDAS DE OTRO MUNDO ✦
+      - generic [ref=e158]: PULPIÑA RD ✦ PRENDAS DE OTRO MUNDO ✦
+      - generic [ref=e159]: PULPIÑA RD ✦ PRENDAS DE OTRO MUNDO ✦
+      - generic [ref=e160]: PULPIÑA RD ✦ PRENDAS DE OTRO MUNDO ✦
+      - generic [ref=e161]: PULPIÑA RD ✦ PRENDAS DE OTRO MUNDO ✦
+    - generic [ref=e162]:
+      - generic [ref=e163]:
+        - generic [ref=e164]: Pulpiña RD
+        - paragraph [ref=e165]: Marca dominicana de moda alternativa con tres vibes y una tienda completa.
+      - generic [ref=e166]:
+        - generic [ref=e167]: Vibes
+        - list [ref=e168]:
+          - listitem [ref=e169]:
+            - link "Tienda" [ref=e170] [cursor=pointer]:
+              - /url: /tienda
+          - listitem [ref=e171]:
+            - link "Pulpiña Men" [ref=e172] [cursor=pointer]:
+              - /url: /men
+          - listitem [ref=e173]:
+            - link "Pulpiña Moon" [ref=e174] [cursor=pointer]:
+              - /url: /moon
+          - listitem [ref=e175]:
+            - link "Pulpiña Sunshine" [ref=e176] [cursor=pointer]:
+              - /url: /sunshine
+      - generic [ref=e177]:
+        - generic [ref=e178]: Ayuda
+        - list [ref=e179]:
+          - listitem [ref=e180]:
+            - link "Contáctanos" [ref=e181] [cursor=pointer]:
+              - /url: /contacto
+          - listitem [ref=e182]:
+            - link "Envíos & Devoluciones" [ref=e183] [cursor=pointer]:
+              - /url: /politicas
+          - listitem [ref=e184]:
+            - link "Privacidad" [ref=e185] [cursor=pointer]:
+              - /url: /politicas
+      - generic [ref=e186]:
+        - generic [ref=e187]: Síguenos
+        - generic [ref=e188]:
+          - link [ref=e189] [cursor=pointer]:
+            - /url: https://instagram.com
+            - img [ref=e190]
+          - link [ref=e193] [cursor=pointer]:
+            - /url: mailto:hola@pulpina.do
+            - img [ref=e194]
+        - paragraph [ref=e197]: © 2026 Pulpiña RD. Hecho con cariño en RD.
+  - complementary [ref=e198]:
+    - generic [ref=e199]:
+      - generic [ref=e200]: Tu carrito
+      - button [ref=e201]:
+        - img [ref=e202]
+    - generic [ref=e206]:
+      - img [ref=e207]
+      - generic [ref=e215]: Tu carrito está vacío
+      - paragraph [ref=e216]: Aún no has elegido tu vibra.
+      - link "Ir a la tienda" [ref=e217] [cursor=pointer]:
+        - /url: /tienda

@@ -5,6 +5,7 @@ import {
   createRootRouteWithContext,
   HeadContent,
   Scripts,
+  useLocation,
 } from "@tanstack/react-router";
 import appCss from "../styles.css?url";
 import { CartProvider } from "@/context/cart";
@@ -79,18 +80,24 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const location = useLocation();
+  const isAdminRoute = location.pathname === "/admin" || location.pathname.startsWith("/admin/");
   return (
     <QueryClientProvider client={queryClient}>
       <CartProvider>
-        <div className="min-h-screen flex flex-col">
-          <Header />
-          <main className="flex-1">
-            <Outlet />
-          </main>
-          <Footer />
-          <CartDrawer />
-          <VibeChooserModal />
-        </div>
+        {isAdminRoute ? (
+          <Outlet />
+        ) : (
+          <div className="min-h-screen flex flex-col">
+            <Header />
+            <main className="flex-1">
+              <Outlet />
+            </main>
+            <Footer />
+            <CartDrawer />
+            <VibeChooserModal />
+          </div>
+        )}
       </CartProvider>
     </QueryClientProvider>
   );

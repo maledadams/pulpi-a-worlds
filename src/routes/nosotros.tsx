@@ -12,41 +12,53 @@ export const Route = createFileRoute("/nosotros")({
 function About() {
   return (
     <div>
-      <section className="mx-auto max-w-5xl px-4 py-16 text-center">
-        <img src={logo} alt="Pulpiña" className="mx-auto h-32 wobble" />
-        <h1 className="mt-4 text-5xl md:text-7xl">Somos Pulpiña</h1>
-        <p className="mt-4 max-w-2xl mx-auto text-lg text-muted-foreground">
-          Una marca dominicana de moda alternativa con cuatro universos de estilo.
-          Nacimos para vestir a quienes no encajan en una sola caja.
+      <section className="mx-auto max-w-5xl px-4 py-12 text-center sm:py-16">
+        <img src={logo} alt="Pulpiña" className="mx-auto h-24 wobble sm:h-32" />
+        <h1 className="mt-4 text-4xl sm:text-5xl md:text-7xl">Somos Pulpiña</h1>
+        <p className="mx-auto mt-4 max-w-2xl text-base text-muted-foreground sm:text-lg">
+          Una marca dominicana de moda alternativa con tres vibes bien marcadas. Nacimos para vestir
+          a quienes no encajan en una sola caja.
         </p>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-8 grid md:grid-cols-3 gap-6">
+      <section className="mx-auto grid max-w-6xl gap-4 px-4 py-6 sm:gap-6 sm:py-8 md:grid-cols-3">
         {[
           { logo: logoMen, name: "Men", desc: "Punk underground. Cuero, púas y actitud." },
           { logo: logoMoon, name: "Moon", desc: "Romance gótico. Encajes, rosas y misterio." },
           { logo: logoSun, name: "Sunshine", desc: "Kawaii y Y2K. Rosa, brillo y glamour." },
-        ].map((s) => (
-          <div key={s.name} className="sticker p-6 rounded-3xl border-2 border-foreground bg-card text-center">
-            <img src={s.logo} alt={s.name} className="h-32 mx-auto" />
-            <h3 className="mt-3 font-display text-2xl">{s.name}</h3>
-            <p className="text-sm text-muted-foreground mt-1">{s.desc}</p>
+        ].map((section) => (
+          <div
+            key={section.name}
+            className="sticker rounded-3xl border-2 border-foreground bg-card p-5 text-center sm:p-6"
+          >
+            <img src={section.logo} alt={section.name} className="mx-auto h-24 sm:h-32" />
+            <h3 className="mt-3 font-display text-2xl">{section.name}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{section.desc}</p>
           </div>
         ))}
       </section>
 
-      <section className="mx-auto max-w-3xl px-4 py-16">
-        <h2 className="text-3xl md:text-4xl">Nuestra historia</h2>
-        <p className="mt-4 text-muted-foreground">
-          Pulpiña empezó como un espacio para personas que aman vestirse fuera del molde.
-          Hoy somos una marca con presencia en eventos como ComicCon RD y desfiles propios,
-          construyendo una comunidad que celebra lo alternativo, lo expresivo y lo auténtico.
+      <section className="mx-auto max-w-3xl px-4 py-12 sm:py-16">
+        <h2 className="text-2xl sm:text-3xl md:text-4xl">Nuestra historia</h2>
+        <p className="mt-4 text-sm text-muted-foreground sm:text-base">
+          Pulpiña empezó como un espacio para personas que aman vestirse fuera del molde. Hoy somos
+          una marca con presencia en eventos como ComicCon RD y desfiles propios, construyendo una
+          comunidad que celebra lo alternativo, lo expresivo y lo auténtico.
         </p>
-        <div className="mt-6 grid grid-cols-2 gap-3">
-          <div className="aspect-[4/3] rounded-2xl border-2 border-foreground bg-muted flex items-center justify-center text-muted-foreground text-sm">Foto desfile</div>
-          <div className="aspect-[4/3] rounded-2xl border-2 border-foreground bg-muted flex items-center justify-center text-muted-foreground text-sm">Foto ComicCon</div>
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <div className="flex aspect-[4/3] items-center justify-center rounded-2xl border-2 border-foreground bg-muted text-sm text-muted-foreground">
+            Foto desfile
+          </div>
+          <div className="flex aspect-[4/3] items-center justify-center rounded-2xl border-2 border-foreground bg-muted text-sm text-muted-foreground">
+            Foto ComicCon
+          </div>
         </div>
-        <Link to="/tienda" className="sticker mt-8 inline-block px-6 py-3 rounded-full bg-foreground text-background font-bold uppercase border-2 border-foreground">Ver la tienda</Link>
+        <Link
+          to="/tienda"
+          className="sticker mt-8 inline-block rounded-full border-2 border-foreground bg-foreground px-6 py-3 font-bold uppercase text-background"
+        >
+          Ver la tienda
+        </Link>
       </section>
     </div>
   );

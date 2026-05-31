@@ -8,9 +8,27 @@ import logoSun from "@/assets/logo-sunshine.png";
 const STORAGE_KEY = "pulpina_vibe_chooser_seen";
 
 const OPTIONS = [
-  { to: "/sunshine" as const, name: "Pulpiña Sunshine", tag: "Kawaii · Y2K · Glossy", logo: logoSun, bg: "linear-gradient(135deg,#ff8fc9,#ffe66a 60%,#c5f56a)" },
-  { to: "/men" as const, name: "Pulpiña Men", tag: "Punk · Underground", logo: logoMen, bg: "linear-gradient(135deg,#0a0a0a,#1a1a1a 60%,#3a0a0a)" },
-  { to: "/moon" as const, name: "Pulpiña Moon", tag: "Romance gótico", logo: logoMoon, bg: "linear-gradient(135deg,#0a0408,#2a0a14 60%,#5a0a14)" },
+  {
+    to: "/sunshine" as const,
+    name: "Pulpiña Sunshine",
+    tag: "Kawaii · Y2K · Glossy",
+    logo: logoSun,
+    bg: "linear-gradient(135deg,#ff8fc9,#ffe66a 60%,#c5f56a)",
+  },
+  {
+    to: "/men" as const,
+    name: "Pulpiña Men",
+    tag: "Punk · Underground",
+    logo: logoMen,
+    bg: "linear-gradient(135deg,#0a0a0a,#1a1a1a 60%,#3a0a0a)",
+  },
+  {
+    to: "/moon" as const,
+    name: "Pulpiña Moon",
+    tag: "Romance gótico",
+    logo: logoMoon,
+    bg: "linear-gradient(135deg,#0a0408,#2a0a14 60%,#5a0a14)",
+  },
 ];
 
 export function VibeChooserModal() {
@@ -28,7 +46,9 @@ export function VibeChooserModal() {
   }, [loc.pathname]);
 
   const close = () => {
-    try { localStorage.setItem(STORAGE_KEY, "1"); } catch {}
+    try {
+      localStorage.setItem(STORAGE_KEY, "1");
+    } catch {}
     setOpen(false);
   };
 
@@ -49,10 +69,8 @@ export function VibeChooserModal() {
           <span className="inline-block px-3 py-1 rounded-full bg-accent text-accent-foreground text-xs font-bold uppercase tracking-widest border-2 border-foreground">
             Bienvenid@ a Pulpiña
           </span>
-          <h2 className="mt-3 font-display text-3xl md:text-4xl">Elige tu versión</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            ¿Qué universo Pulpiña quieres explorar hoy?
-          </p>
+          <h2 className="mt-3 font-display text-3xl md:text-4xl">Elige tu vibe</h2>
+          <p className="mt-1 text-sm text-muted-foreground">¿Qué vibe quieres explorar hoy?</p>
         </div>
 
         <div className="px-6 grid sm:grid-cols-3 gap-3">
@@ -74,7 +92,9 @@ export function VibeChooserModal() {
               </div>
               <div className="p-3 text-center">
                 <div className="font-display text-base leading-tight">{o.name}</div>
-                <div className="text-[10px] uppercase tracking-widest text-muted-foreground mt-0.5">{o.tag}</div>
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground mt-0.5">
+                  {o.tag}
+                </div>
               </div>
             </Link>
           ))}
@@ -85,7 +105,7 @@ export function VibeChooserModal() {
             onClick={close}
             className="text-sm font-semibold underline underline-offset-4 hover:text-accent transition"
           >
-            No, quiero continuar con la vista general →
+            No, quiero seguir en la tienda →
           </button>
         </div>
       </div>

@@ -12,4 +12,19 @@ export default defineConfig({
   tanstackStart: {
     server: { entry: "server" },
   },
+  vite: {
+    optimizeDeps: {
+      exclude: ["@tanstack/router-core", "@tanstack/react-router", "@tanstack/react-start"],
+    },
+    server: {
+      host: "127.0.0.1",
+      port: 5173,
+      strictPort: true,
+    },
+    preview: {
+      host: "127.0.0.1",
+      port: 5173,
+      strictPort: true,
+    },
+  },
 });

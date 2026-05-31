@@ -1,68 +1,146 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { PRODUCTS, formatPrice, VIBES } from "@/data/products";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { BarChart3, CreditCard, PackageSearch, ShoppingBag } from "lucide-react";
+import { AdminPanel, AdminShell, AdminStatCard, AdminTag } from "@/components/admin/AdminShell";
+import { enforceAdminAccess } from "@/lib/admin-access";
+import {
+  ADMIN_ORDERS,
+  getAdminDashboardSnapshot,
+  getInventoryStatus,
+  getInventoryStatusTone,
+  getOrderRevenueLabel,
+  getVibeLabel,
+} from "@/lib/admin-service";
 
 export const Route = createFileRoute("/admin")({
-  head: () => ({ meta: [{ title: "Admin Preview — Pulpiña RD" }] }),
-  component: Admin,
+  beforeLoad: () => enforceAdminAccess(),
+  loader: () => ({
+    snapshot: getAdminDashboardSnapshot(),
+    revenueLabel: getOrderRevenueLabel(),
+  }),
+  head: () => ({ meta: [{ title: "Admin - Resumen" }] }),
+  component: AdminDashboardPage,
 });
 
-function Admin() {
+function AdminDashboardPage() {
+  const { snapshot, revenueLabel } = Route.useLoaderData();
+
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10">
-      <div className="flex items-end justify-between mb-6">
-        <div>
-          <h1 className="text-4xl md:text-5xl">Admin Preview</h1>
-          <p className="text-muted-foreground text-sm mt-1">Concepto del panel de administración. Conectado a Shopify en producción.</p>
-        </div>
-        <span className="text-xs px-3 py-1 rounded-full bg-muted">Mockup</span>
+    <AdminShell
+      section="resumen"
+      title="Resumen operativo"
+      subtitle="Vista compacta para revisar stock, pedidos y salud general de la tienda sin perderse en pantallas gigantes."
+      actions={
+        <>
+          <Link to="/admin/pedidos" className="rounded-2xl border-2 border-[#231717] bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.18em]">
+            Ver pedidos
+          </Link>
+          <Link to="/admin/productos" className="rounded-2xl border-2 border-[#231717] bg-[#231717] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-white">
+            Gestionar catalogo
+          </Link>
+        </>
+      }
+    >
+      <div className="grid gap-4 lg:grid-cols-4">
+        <AdminStatCard label="Productos" value={String(snapshot.productCount)} help="Catalogo visible actualmente" icon={PackageSearch} />
+        <AdminStatCard label="Pedidos" value={String(snapshot.orderCount)} help="Pedidos en el snapshot local" icon={ShoppingBag} />
+        <AdminStatCard label="Pendiente pago" value={String(snapshot.pendingPaymentCount)} help="Ordenes que esperan validacion manual" icon={CreditCard} />
+        <AdminStatCard label="Inventario bruto" value={revenueLabel} help="Valor aproximado segun precio actual y stock" icon={BarChart3} />
       </div>
 
-      <div className="grid sm:grid-cols-3 gap-3 mb-8">
-        {[
-          { l: "Productos", v: PRODUCTS.length },
-          { l: "En stock", v: PRODUCTS.filter((p) => p.available).length },
-          { l: "Agotados", v: PRODUCTS.filter((p) => !p.available).length },
-        ].map((s) => (
-          <div key={s.l} className="p-5 rounded-2xl border-2 border-foreground bg-card">
-            <div className="text-xs uppercase font-bold text-muted-foreground">{s.l}</div>
-            <div className="font-display text-3xl mt-1">{s.v}</div>
+      <div className="mt-4 grid gap-4 xl:grid-cols-[1.2fr_1fr]">
+        <AdminPanel title="Poco stock" eyebrow="Accion rapida">
+          <div className="grid gap-3">
+            {snapshot.lowStockProducts.length === 0 ? (
+              <p className="text-sm text-[#6b5a55]">No hay productos por debajo del umbral de poco stock.</p>
+            ) : (
+              snapshot.lowStockProducts.map((product) => (
+                <div key={product.id} className="flex items-center justify-between gap-3 rounded-2xl border border-[#231717]/10 px-3 py-3">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-bold">{product.name}</div>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      <AdminTag>{getVibeLabel(product.vibe)}</AdminTag>
+                      <AdminTag tone="warn">{product.stock ?? 0} unidades</AdminTag>
+                    </div>
+                  </div>
+                  <div className={`rounded-xl px-2.5 py-1 text-[11px] font-black uppercase ${getInventoryStatusTone(product)}`}>
+                    {getInventoryStatus(product)}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
-        ))}
+        </AdminPanel>
+
+        <AdminPanel title="Mix por subtienda" eyebrow="Distribucion">
+          <div className="grid gap-3">
+            {snapshot.productsByVibe.map((entry) => (
+              <div key={entry.vibe} className="rounded-2xl border border-[#231717]/10 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm font-bold">{getVibeLabel(entry.vibe)}</div>
+                  <div className="text-lg font-black">{entry.count}</div>
+                </div>
+                <div className="mt-2 h-2 rounded-full bg-[#f3eadf]">
+                  <div
+                    className="h-2 rounded-full bg-[#231717]"
+                    style={{ width: `${Math.max((entry.count / snapshot.productCount) * 100, 10)}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </AdminPanel>
       </div>
 
-      <div className="rounded-3xl border-2 border-foreground bg-card overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-muted">
-            <tr className="text-left">
-              <th className="p-3">Producto</th>
-              <th className="p-3">Línea</th>
-              <th className="p-3">Categoría</th>
-              <th className="p-3">Precio</th>
-              <th className="p-3">Stock</th>
-              <th className="p-3">Estado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {PRODUCTS.map((p) => (
-              <tr key={p.id} className="border-t border-border">
-                <td className="p-3 flex items-center gap-2">
-                  <span className="h-8 w-8 rounded-lg border border-foreground/20" style={{ background: `linear-gradient(135deg,${p.swatch[0]},${p.swatch[1]})` }} />
-                  <span className="font-semibold">{p.name}</span>
-                </td>
-                <td className="p-3">{VIBES[p.vibe].name}</td>
-                <td className="p-3 capitalize">{p.category}</td>
-                <td className="p-3">{formatPrice(p.salePrice ?? p.price)}</td>
-                <td className="p-3">{p.stock}</td>
-                <td className="p-3">
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${p.available ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground"}`}>
-                    {p.available ? "Activo" : "Agotado"}
-                  </span>
-                </td>
-              </tr>
+      <div className="mt-4 grid gap-4 xl:grid-cols-[1.2fr_1fr]">
+        <AdminPanel title="Pedidos recientes" eyebrow="Seguimiento">
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">
+                <tr>
+                  <th className="pb-3 pr-3">Pedido</th>
+                  <th className="pb-3 pr-3">Cliente</th>
+                  <th className="pb-3 pr-3">Estado</th>
+                  <th className="pb-3 pr-3">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {snapshot.recentOrders.map((order) => (
+                  <tr key={order.id} className="border-t border-[#231717]/10 align-top">
+                    <td className="py-3 pr-3 font-bold">{order.orderNumber}</td>
+                    <td className="py-3 pr-3">
+                      <div>{order.customerName}</div>
+                      <div className="text-xs text-[#6b5a55]">{order.customerEmail}</div>
+                    </td>
+                    <td className="py-3 pr-3">
+                      <AdminTag tone={order.status === "pending_payment" ? "warn" : "soft"}>
+                        {order.status}
+                      </AdminTag>
+                    </td>
+                    <td className="py-3 pr-3 font-bold">
+                      RD${order.total.toLocaleString("en-US")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </AdminPanel>
+
+        <AdminPanel title="Metodos activos" eyebrow="Cobro actual">
+          <div className="grid gap-3">
+            {[
+              ["Transferencia", "Manual con validacion y comprobante"],
+              ["PayPal", "Manual: se confirma fuera de la web"],
+              ["WhatsApp", "Canal directo para cerrar pedidos y dudas"],
+            ].map(([label, description]) => (
+              <div key={label} className="rounded-2xl border border-[#231717]/10 p-3">
+                <div className="text-sm font-bold">{label}</div>
+                <div className="mt-1 text-xs leading-5 text-[#6b5a55]">{description}</div>
+              </div>
             ))}
-          </tbody>
-        </table>
+          </div>
+        </AdminPanel>
       </div>
-    </div>
+    </AdminShell>
   );
 }
