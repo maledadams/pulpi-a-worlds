@@ -80,10 +80,10 @@ export const VIBES: Record<
     color: string;
   }
 > = {
-  pulpina: { name: "Tienda", subtitle: "Storewide", color: "#e94560" },
+  pulpina: { name: "Tienda", subtitle: "General", color: "#e94560" },
   men: { name: "Pulpiña Men", subtitle: "Punk · Underground", color: "#c0392b" },
-  moon: { name: "Pulpiña Moon", subtitle: "Romance gótico", color: "#7a0e1c" },
-  sunshine: { name: "Pulpiña Sunshine", subtitle: "Prendas de otro mundo", color: "#ff5fa2" },
+  moon: { name: "Pulpiña Moon", subtitle: "Romance Gótico", color: "#7a0e1c" },
+  sunshine: { name: "Pulpiña Sunshine", subtitle: "Kawaii · Y2K", color: "#ff5fa2" },
 };
 
 export const VIBE_LAYOUTS: Record<
@@ -247,9 +247,9 @@ function createMockProduct({
     vibe,
     category,
     categories: categories ?? [category],
-    description: "Pieza alternativa diseñada en RD. Edición limitada del universo Pulpiña.",
+    description: "Pieza alternativa diseñada en República Dominicana. Edición limitada del universo Pulpiña.",
     descriptionHtml:
-      "<p>Pieza alternativa diseñada en RD. Edición limitada del universo Pulpiña.</p>",
+      "<p>Pieza alternativa diseñada en República Dominicana. Edición limitada del universo Pulpiña.</p>",
     price,
     compareAtPrice,
     currencyCode: "DOP",

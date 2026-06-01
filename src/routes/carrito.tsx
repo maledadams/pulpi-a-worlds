@@ -13,7 +13,7 @@ function CartPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
-      <h1 className="text-3xl sm:text-4xl md:text-6xl">Tu carrito</h1>
+      <h1 className="text-2xl sm:text-3xl md:text-4xl">Tu carrito</h1>
       {!cart.configured && (
         <p className="mt-3 text-sm text-muted-foreground">
           Estás viendo el carrito en modo preview. Cuando conectes Shopify, este flujo pasará a usar
@@ -22,12 +22,12 @@ function CartPage() {
       )}
 
       {cart.lines.length === 0 ? (
-        <div className="mt-8 rounded-3xl border-2 border-dashed border-foreground py-12 text-center sm:mt-10 sm:py-16">
+        <div className="mt-8 rounded-xl border border-dashed border-foreground/25 py-12 text-center sm:mt-10 sm:py-16">
           <OctopusMark className="mx-auto h-16 w-16 text-foreground wobble sm:h-20 sm:w-20" />
           <p className="mt-3 font-display text-xl sm:text-2xl">Aún no hay nada por aquí</p>
           <Link
             to="/tienda"
-            className="sticker mt-5 inline-block rounded-full border-2 border-foreground bg-accent px-6 py-3 font-bold uppercase text-accent-foreground"
+            className="sticker mt-5 inline-block rounded-full border border-foreground/20 bg-accent px-6 py-3 font-bold uppercase text-accent-foreground"
           >
             Ir a la tienda
           </Link>
@@ -38,16 +38,16 @@ function CartPage() {
             {cart.lines.map((line) => (
               <div
                 key={line.id}
-                className="flex flex-col gap-3 rounded-2xl border-2 border-foreground bg-card p-3 sm:flex-row sm:gap-4"
+                className="flex flex-col gap-3 rounded-xl border border-foreground/20 bg-card p-3 sm:flex-row sm:gap-4"
               >
                 {line.image ? (
                   <img
                     src={line.image.url}
                     alt={line.image.altText ?? line.productTitle}
-                    className="h-28 w-full rounded-xl border-2 border-foreground object-cover sm:h-24 sm:w-24 sm:shrink-0"
+                    className="h-28 w-full rounded-xl border border-foreground/20 object-cover sm:h-24 sm:w-24 sm:shrink-0"
                   />
                 ) : (
-                  <div className="flex h-28 w-full items-center justify-center rounded-xl border-2 border-foreground bg-muted font-display text-2xl text-foreground/70 sm:h-24 sm:w-24 sm:shrink-0">
+                  <div className="flex h-28 w-full items-center justify-center rounded-xl border border-foreground/20 bg-muted font-display text-2xl text-foreground/70 sm:h-24 sm:w-24 sm:shrink-0">
                     {line.productTitle
                       .split(" ")
                       .slice(0, 2)
@@ -78,7 +78,7 @@ function CartPage() {
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-3">
-                    <div className="flex items-center rounded-full border-2 border-foreground">
+                    <div className="flex items-center rounded-full border border-foreground/20">
                       <button
                         onClick={() => void cart.update(line.id, line.quantity - 1)}
                         className="px-3 py-1"
@@ -105,7 +105,7 @@ function CartPage() {
             ))}
           </div>
 
-          <aside className="sticky top-20 self-start rounded-3xl border-2 border-foreground bg-card p-5">
+          <aside className="sticky top-20 self-start rounded-xl border border-foreground/20 bg-card p-5">
             <div className="font-display text-2xl">Resumen</div>
             <div className="mt-4 space-y-2 text-sm">
               <div className="flex justify-between">
@@ -123,7 +123,7 @@ function CartPage() {
             </div>
             <Link
               to="/checkout"
-              className="sticker mt-5 block rounded-full border-2 border-foreground bg-foreground px-6 py-3 text-center font-bold uppercase text-background"
+              className="sticker mt-5 block rounded-full border border-foreground/20 bg-foreground px-6 py-3 text-center font-bold uppercase text-background"
             >
               Finalizar compra
             </Link>

@@ -139,7 +139,7 @@ function AdminCategoriesPage() {
     <AdminShell
       section="categorias"
       title="Categorias"
-      subtitle="Taxonomia compacta con editor lateral. La meta aqui es mantener claro que existe, que es NSFW y en cuales subtiendas debe aparecer."
+      subtitle="Taxonomía con editor lateral. Mantén claro qué categorías existen, cuáles son NSFW y en qué subtiendas aparecen."
       actions={
         <AdminButton tone="primary" onClick={handleCreate}>
           Nueva categoria
@@ -262,7 +262,7 @@ function AdminCategoriesPage() {
                         type="button"
                         onClick={() => toggleVibe(vibe)}
                         className={`rounded-2xl border px-3 py-3 text-sm font-bold transition ${
-                          active ? "border-[#231717] bg-[#231717] text-white" : "border-[#231717]/12 bg-[#faf6f0] text-[#5f4941]"
+                          active ? "border-[#231717] bg-[#231717] text-white" : "border-[#231717]/20 bg-[#faf6f0] text-[#5f4941]"
                         }`}
                       >
                         {getVibeLabel(vibe)}

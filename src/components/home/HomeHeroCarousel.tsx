@@ -1,85 +1,102 @@
-import { useEffect, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import logoMoon from "@/assets/logo-moon.png";
 import logoSun from "@/assets/logo-sunshine.png";
 import logoMen from "@/assets/logo-men.png";
-import moodMoon from "@/assets/mood-moon.jpg";
-import moodSun from "@/assets/mood-sunshine.jpg";
-import moodMen from "@/assets/mood-men.jpg";
 
 const SLIDES = [
   {
-    to: "/moon",
-    cta: "Shop Moon",
-    image: moodMoon,
+    key: "moon",
     logo: logoMoon,
-    overlay: "linear-gradient(90deg, rgba(9,3,5,0.78) 0%, rgba(9,3,5,0.28) 45%, rgba(9,3,5,0.1) 100%)",
+    bg: "linear-gradient(135deg, #0a0408 0%, #2a0a14 50%, #5a1420 100%)",
   },
   {
-    to: "/sunshine",
-    cta: "Shop Sunshine",
-    image: moodSun,
+    key: "sunshine",
     logo: logoSun,
-    overlay: "linear-gradient(90deg, rgba(58,20,28,0.34) 0%, rgba(58,20,28,0.08) 46%, rgba(58,20,28,0.04) 100%)",
+    bg: "linear-gradient(135deg, #ff8fc9 0%, #ffe66a 55%, #c5f56a 100%)",
   },
   {
-    to: "/men",
-    cta: "Shop Men",
-    image: moodMen,
+    key: "men",
     logo: logoMen,
-    overlay: "linear-gradient(90deg, rgba(10,10,10,0.74) 0%, rgba(10,10,10,0.28) 45%, rgba(10,10,10,0.08) 100%)",
+    bg: "linear-gradient(135deg, #0a0a0a 0%, #1c1010 55%, #3a0808 100%)",
   },
 ] as const;
 
+const INTERVAL = 5000;
+
 export function HomeHeroCarousel() {
   const [active, setActive] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      setActive((current) => (current + 1) % SLIDES.length);
-    }, 5000);
-
-    return () => window.clearInterval(id);
+  const startTimer = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setActive((c) => (c + 1) % SLIDES.length);
+    }, INTERVAL);
   }, []);
 
+  useEffect(() => {
+    startTimer();
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [startTimer]);
+
+  const goTo = (index: number) => {
+    setActive(index);
+    startTimer();
+  };
+
+  const prev = () => goTo((active - 1 + SLIDES.length) % SLIDES.length);
+  const next = () => goTo((active + 1) % SLIDES.length);
+
+  const arrowCls =
+    "absolute top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/20 text-white backdrop-blur-sm transition hover:bg-black/40 active:scale-95";
+
   return (
-    <section className="relative w-full overflow-hidden border-b-2 border-foreground">
+    <section className="relative w-full overflow-hidden border-b border-foreground/10">
+      {/* Slides strip */}
       <div
         className="flex transition-transform duration-700 ease-out"
         style={{ transform: `translateX(-${active * 100}%)` }}
       >
         {SLIDES.map((slide) => (
-          <div key={slide.to} className="relative min-w-full">
-            <div className="relative h-[360px] w-full sm:h-[440px] lg:h-[540px]">
-              <img src={slide.image} alt="" className="absolute inset-0 h-full w-full object-cover" />
-              <div className="absolute inset-0" style={{ background: slide.overlay }} />
-              <div className="relative mx-auto flex h-full max-w-7xl items-end justify-between px-4 py-8 sm:py-10">
-                <Link
-                  to={slide.to}
-                  className="rounded-full border-2 border-foreground bg-background px-5 py-3 text-sm font-black uppercase tracking-[0.14em] text-foreground shadow-[0_10px_24px_-16px_rgba(0,0,0,0.45)]"
-                >
-                  {slide.cta}
-                </Link>
-                <img
-                  src={slide.logo}
-                  alt=""
-                  className="max-h-[170px] w-auto max-w-[52%] object-contain drop-shadow-[0_20px_40px_rgba(0,0,0,0.28)] sm:max-h-[220px] lg:max-h-[270px]"
-                />
-              </div>
+          <div
+            key={slide.key}
+            className="relative min-w-full"
+            style={{ background: slide.bg }}
+          >
+            <div className="relative flex h-[320px] w-full items-center justify-center sm:h-[400px] lg:h-[480px]">
+              <img
+                src={slide.logo}
+                alt={slide.key}
+                className="relative z-10 max-h-[200px] w-auto max-w-[55%] object-contain drop-shadow-[0_24px_48px_rgba(0,0,0,0.35)] sm:max-h-[260px] lg:max-h-[310px]"
+              />
             </div>
           </div>
         ))}
       </div>
 
+      {/* ← Arrow */}
+      <button onClick={prev} className={`${arrowCls} left-3 sm:left-5`} aria-label="Anterior">
+        <ChevronLeft className="h-5 w-5" />
+      </button>
+
+      {/* → Arrow */}
+      <button onClick={next} className={`${arrowCls} right-3 sm:right-5`} aria-label="Siguiente">
+        <ChevronRight className="h-5 w-5" />
+      </button>
+
+      {/* Dots */}
       <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2">
-        {SLIDES.map((slide, index) => (
+        {SLIDES.map((slide, i) => (
           <button
-            key={slide.to}
-            onClick={() => setActive(index)}
-            className={`h-2.5 rounded-full border border-foreground/40 transition ${
-              active === index ? "w-8 bg-background" : "w-2.5 bg-background/55"
+            key={slide.key}
+            onClick={() => goTo(i)}
+            aria-label={`Slide ${i + 1}`}
+            className={`h-1.5 rounded-full transition-all duration-300 ${
+              active === i ? "w-7 bg-white" : "w-1.5 bg-white/40 hover:bg-white/65"
             }`}
-            aria-label={`Go to slide ${index + 1}`}
           />
         ))}
       </div>

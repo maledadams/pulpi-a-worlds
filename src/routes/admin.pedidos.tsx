@@ -234,6 +234,7 @@ function AdminOrdersPage() {
                         )
                       }
                     >
+                      <option value="azul">AZUL (tarjeta)</option>
                       <option value="transferencia">Transferencia</option>
                       <option value="paypal">PayPal</option>
                       <option value="whatsapp">WhatsApp</option>

@@ -11,118 +11,130 @@ export function CartDrawer() {
     <>
       {cart.open && (
         <div
-          className="fixed inset-0 z-50 bg-foreground/40 backdrop-blur-sm"
+          className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm"
           onClick={() => cart.setOpen(false)}
         />
       )}
       <aside
-        className={`fixed right-0 top-0 z-50 flex h-full w-full flex-col border-l-2 border-foreground bg-background transition-transform duration-300 sm:w-[420px] ${
+        className={`fixed right-0 top-0 z-50 flex h-full w-full flex-col border-l border-foreground/10 bg-background shadow-2xl transition-transform duration-300 sm:w-[400px] ${
           cart.open ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="flex items-center justify-between border-b-2 border-foreground p-4">
-          <div className="font-display text-xl sm:text-2xl">Tu carrito</div>
-          <button onClick={() => cart.setOpen(false)} className="rounded-full p-2 hover:bg-muted">
-            <X className="h-5 w-5" />
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-foreground/8 px-4 py-3.5">
+          <span className="font-display text-lg">Tu carrito</span>
+          <button
+            onClick={() => cart.setOpen(false)}
+            className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="flex-1 space-y-3 overflow-auto p-4">
+
+        {/* Items */}
+        <div className="flex-1 overflow-y-auto px-4 py-3">
           {cart.lines.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 py-12 text-center">
-              <OctopusMark className="h-20 w-20 text-foreground sm:h-24 sm:w-24" />
-              <div className="font-display text-xl">Tu carrito está vacío</div>
-              <p className="text-sm text-muted-foreground">
-                {cart.configured
-                  ? "Aún no has elegido tu vibra."
-                  : "Conecta Shopify para habilitar el carrito."}
-              </p>
+              <OctopusMark className="h-16 w-16 text-foreground/20" />
+              <p className="font-display text-lg">Tu carrito está vacío</p>
+              <p className="text-sm text-muted-foreground">Aún no has elegido tu vibra.</p>
               <Link
                 to="/tienda"
                 onClick={() => cart.setOpen(false)}
-                className="sticker mt-2 rounded-full border-2 border-foreground bg-accent px-5 py-2.5 text-sm font-bold uppercase text-accent-foreground"
+                className="mt-1 rounded-full bg-foreground px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-background hover:opacity-90"
               >
                 Ir a la tienda
               </Link>
             </div>
           ) : (
-            cart.lines.map((line) => (
-              <div
-                key={line.id}
-                className="flex gap-3 rounded-2xl border-2 border-foreground bg-card p-2"
-              >
-                {line.image ? (
-                  <img
-                    src={line.image.url}
-                    alt={line.image.altText ?? line.productTitle}
-                    className="h-20 w-20 shrink-0 rounded-xl border-2 border-foreground object-cover"
-                  />
-                ) : (
-                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl border-2 border-foreground bg-muted font-display text-xl text-foreground/70">
-                    {line.productTitle
-                      .split(" ")
-                      .slice(0, 2)
-                      .map((word) => word[0]?.toUpperCase())
-                      .join("")}
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="truncate font-bold">{line.productTitle}</div>
-                  {line.selectedOptions.length > 0 && (
-                    <div className="text-xs text-muted-foreground">
-                      {line.selectedOptions
-                        .map((option) => `${option.name}: ${option.value}`)
-                        .join(" · ")}
+            <div className="space-y-2">
+              {cart.lines.map((line) => (
+                <div
+                  key={line.id}
+                  className="flex gap-3 rounded-xl border border-foreground/8 bg-card p-2.5"
+                >
+                  {/* Thumbnail */}
+                  {line.image ? (
+                    <img
+                      src={line.image.url}
+                      alt={line.image.altText ?? line.productTitle}
+                      className="h-18 w-18 shrink-0 rounded-lg object-cover"
+                      style={{ height: "4.5rem", width: "4.5rem" }}
+                    />
+                  ) : (
+                    <div
+                      className="flex shrink-0 items-center justify-center rounded-lg bg-muted font-display text-base text-foreground/40"
+                      style={{ height: "4.5rem", width: "4.5rem" }}
+                    >
+                      {line.productTitle.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase()).join("")}
                     </div>
                   )}
-                  <div className="mt-2 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1 rounded-full border border-foreground">
-                      <button
-                        onClick={() => void cart.update(line.id, line.quantity - 1)}
-                        className="p-1.5"
-                      >
-                        <Minus className="h-3 w-3" />
-                      </button>
-                      <span className="w-6 text-center text-sm">{line.quantity}</span>
-                      <button
-                        onClick={() => void cart.update(line.id, line.quantity + 1)}
-                        className="p-1.5"
-                      >
-                        <Plus className="h-3 w-3" />
-                      </button>
-                    </div>
-                    <div className="text-sm font-bold">
-                      {formatPrice(line.price * line.quantity, line.currencyCode)}
+
+                  {/* Details */}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{line.productTitle}</p>
+                    {line.selectedOptions.length > 0 && (
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {line.selectedOptions.map((o) => `${o.name}: ${o.value}`).join(" · ")}
+                      </p>
+                    )}
+                    <div className="mt-2 flex items-center gap-3">
+                      {/* Qty control */}
+                      <div className="flex items-center rounded-full border border-foreground/15">
+                        <button
+                          onClick={() => void cart.update(line.id, line.quantity - 1)}
+                          className="px-2.5 py-1 text-muted-foreground hover:text-foreground"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <span className="min-w-[1.25rem] text-center text-xs font-bold">
+                          {line.quantity}
+                        </span>
+                        <button
+                          onClick={() => void cart.update(line.id, line.quantity + 1)}
+                          className="px-2.5 py-1 text-muted-foreground hover:text-foreground"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      </div>
+                      <span className="text-sm font-bold">
+                        {formatPrice(line.price * line.quantity, line.currencyCode)}
+                      </span>
                     </div>
                   </div>
+
+                  {/* Remove */}
+                  <button
+                    onClick={() => void cart.remove(line.id)}
+                    className="self-start p-1 text-muted-foreground/60 hover:text-destructive"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
-                <button
-                  onClick={() => void cart.remove(line.id)}
-                  className="self-start p-1.5 text-muted-foreground hover:text-destructive"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            ))
+              ))}
+            </div>
           )}
         </div>
+
+        {/* Footer */}
         {cart.lines.length > 0 && (
-          <div className="space-y-3 border-t-2 border-foreground p-4">
-            <div className="flex items-center justify-between font-display text-lg">
-              <span>Subtotal</span>
-              <span>{formatPrice(cart.subtotal, cart.currencyCode)}</span>
+          <div className="border-t border-foreground/8 px-4 py-4 space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span className="font-bold">{formatPrice(cart.subtotal, cart.currencyCode)}</span>
             </div>
             <Link
               to="/checkout"
               onClick={() => cart.setOpen(false)}
-              className="sticker block rounded-full border-2 border-foreground bg-foreground px-5 py-3 text-center text-sm font-bold uppercase text-background"
+              className="block w-full rounded-full bg-foreground py-3 text-center text-sm font-bold uppercase tracking-wider text-background hover:opacity-90"
             >
               Finalizar compra
             </Link>
             <button
               onClick={() => cart.setOpen(false)}
-              className="block w-full rounded-full px-5 py-2 text-center text-sm font-semibold hover:bg-muted"
+              className="block w-full rounded-full py-2 text-center text-xs font-semibold text-muted-foreground hover:text-foreground"
             >
-              Continuar comprando
+              Seguir comprando
             </button>
           </div>
         )}

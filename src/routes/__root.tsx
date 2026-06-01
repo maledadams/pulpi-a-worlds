@@ -46,7 +46,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Pulpiña RD — Prendas de otro mundo" },
-      { name: "description", content: "Marca dominicana de moda alternativa: Pulpiña, Men, Moon y Sunshine." },
+      { name: "description", content: "Marca dominicana de moda alternativa: Pulpiña, Men, Moon y Sunshine. Diseñado en RD." },
     ],
     links: [
       { rel: "stylesheet", href: appCss },

@@ -16,7 +16,7 @@ export function AdminButton({
         "rounded-2xl border-2 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] transition disabled:cursor-not-allowed disabled:opacity-50",
         tone === "primary" && "border-[#231717] bg-[#231717] text-white hover:bg-[#3a2924]",
         tone === "secondary" && "border-[#231717] bg-white text-[#231717] hover:bg-[#f7f2ec]",
-        tone === "ghost" && "border-[#231717]/12 bg-[#f7f2ec] text-[#5f4941] hover:border-[#231717]/30",
+        tone === "ghost" && "border-[#231717]/20 bg-[#f7f2ec] text-[#5f4941] hover:border-[#231717]/40",
         tone === "danger" && "border-[#8b2f1e] bg-[#8b2f1e] text-white hover:bg-[#6f2618]",
         className,
       )}

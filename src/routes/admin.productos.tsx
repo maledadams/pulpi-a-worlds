@@ -184,7 +184,7 @@ function AdminProductsPage() {
     <AdminShell
       section="productos"
       title="Productos"
-      subtitle="Catalogo compacto con busqueda, paginacion corta y editor lateral. La idea es que puedan trabajar rapido sin perderse entre cards gigantes."
+      subtitle="Catálogo compacto con búsqueda, paginación y editor lateral. Gestiona productos sin perderte entre pantallas gigantes."
       actions={
         <>
           <AdminButton tone="secondary" onClick={handleDuplicate} disabled={!draft}>
@@ -380,7 +380,7 @@ function AdminProductsPage() {
                         type="button"
                         onClick={() => toggleCategory(category.id)}
                         className={`rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] transition ${
-                          active ? "border-[#231717] bg-[#231717] text-white" : "border-[#231717]/12 bg-[#faf6f0] text-[#5f4941]"
+                          active ? "border-[#231717] bg-[#231717] text-white" : "border-[#231717]/20 bg-[#faf6f0] text-[#5f4941]"
                         }`}
                       >
                         {category.label}

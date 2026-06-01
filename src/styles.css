@@ -46,13 +46,15 @@
   --color-sun: var(--sun);
   --color-blood: var(--blood);
   --color-charcoal: var(--charcoal);
+  /* scrollbar accent per vibe */
+  --scrollbar-thumb: oklch(0.25 0.02 280 / 0.35);
+  --scrollbar-track: transparent;
 }
 
 :root {
-  --radius: 1rem;
-  /* Pulpiña general — playful neutral bridge */
+  --radius: 0.625rem;
   --cream: oklch(0.97 0.02 80);
-  --ink: oklch(0.18 0.02 280);
+  --ink: oklch(0.18 0.03 50);
   --bubblegum: oklch(0.74 0.21 350);
   --lime: oklch(0.85 0.21 130);
   --sun: oklch(0.88 0.18 95);
@@ -67,17 +69,19 @@
   --popover-foreground: var(--ink);
   --primary: var(--ink);
   --primary-foreground: var(--cream);
-  --secondary: oklch(0.93 0.04 80);
+  --secondary: oklch(0.93 0.03 70);
   --secondary-foreground: var(--ink);
-  --muted: oklch(0.93 0.02 80);
-  --muted-foreground: oklch(0.45 0.02 280);
+  /* warm beige muted — no gray */
+  --muted: oklch(0.93 0.03 70);
+  --muted-foreground: oklch(0.50 0.05 55);
   --accent: var(--bubblegum);
   --accent-foreground: oklch(1 0 0);
   --destructive: oklch(0.55 0.22 25);
   --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.18 0.02 280 / 0.12);
-  --input: oklch(0.18 0.02 280 / 0.15);
+  --border: oklch(0.18 0.03 50 / 0.10);
+  --input: oklch(0.18 0.03 50 / 0.12);
   --ring: var(--bubblegum);
+  --scrollbar-thumb: oklch(0.40 0.05 55 / 0.30);
 }
 
 /* === SUB-BRAND THEMES === */
@@ -96,9 +100,10 @@
   --muted-foreground: oklch(0.7 0.02 280);
   --accent: oklch(0.55 0.24 25);
   --accent-foreground: oklch(1 0 0);
-  --border: oklch(1 0 0 / 0.12);
-  --input: oklch(1 0 0 / 0.15);
+  --border: oklch(1 0 0 / 0.10);
+  --input: oklch(1 0 0 / 0.12);
   --ring: oklch(0.55 0.24 25);
+  --scrollbar-thumb: oklch(0.55 0.24 25 / 0.70);
 }
 
 [data-vibe="moon"] {
@@ -116,13 +121,14 @@
   --muted-foreground: oklch(0.72 0.04 30);
   --accent: oklch(0.5 0.21 22);
   --accent-foreground: oklch(0.98 0.01 30);
-  --border: oklch(0.5 0.18 25 / 0.25);
-  --input: oklch(1 0 0 / 0.12);
+  --border: oklch(0.5 0.18 25 / 0.22);
+  --input: oklch(1 0 0 / 0.10);
   --ring: oklch(0.5 0.21 22);
+  --scrollbar-thumb: oklch(0.45 0.20 22 / 0.70);
 }
 
 [data-vibe="sunshine"] {
-  --background: oklch(0.96 0.04 350);
+  --background: oklch(0.97 0.03 350);
   --foreground: oklch(0.25 0.12 350);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.25 0.12 350);
@@ -130,27 +136,67 @@
   --popover-foreground: oklch(0.25 0.12 350);
   --primary: oklch(0.7 0.24 350);
   --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.92 0.08 350);
+  --secondary: oklch(0.93 0.07 350);
   --secondary-foreground: oklch(0.3 0.15 350);
   --muted: oklch(0.94 0.05 350);
   --muted-foreground: oklch(0.5 0.12 350);
   --accent: oklch(0.85 0.21 130);
   --accent-foreground: oklch(0.25 0.12 350);
-  --border: oklch(0.7 0.24 350 / 0.25);
-  --input: oklch(0.7 0.24 350 / 0.2);
+  --border: oklch(0.7 0.24 350 / 0.20);
+  --input: oklch(0.7 0.24 350 / 0.15);
   --ring: oklch(0.7 0.24 350);
+  --scrollbar-thumb: oklch(0.7 0.24 350 / 0.65);
+}
+
+/* ============================================
+   GLOBAL SCROLLBAR
+   ============================================ */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  opacity: 1;
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
 @layer base {
   * { border-color: var(--color-border); }
-  html { scroll-behavior: smooth; }
+
+  html {
+    scroll-behavior: smooth;
+    /* CSS vars animate on html, propagate to all children via var() */
+    transition: background-color 0.45s cubic-bezier(0.4,0,0.2,1), color 0.45s cubic-bezier(0.4,0,0.2,1);
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-body);
     font-feature-settings: "ss01", "cv02";
     overflow-x: clip;
-    transition: background-color 0.4s ease, color 0.4s ease;
+    transition:
+      background-color 0.45s cubic-bezier(0.4,0,0.2,1),
+      color 0.45s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  /* Smooth theme transitions on common surfaces */
+  header, footer, main, section, article, aside, nav,
+  .bg-background, .bg-card, .bg-muted {
+    transition:
+      background-color 0.45s cubic-bezier(0.4,0,0.2,1),
+      color 0.45s cubic-bezier(0.4,0,0.2,1),
+      border-color 0.45s cubic-bezier(0.4,0,0.2,1);
   }
   h1, h2, h3 { font-family: var(--font-display); letter-spacing: 0.01em; }
   [data-vibe="moon"] h1, [data-vibe="moon"] h2 { font-family: var(--font-gothic); letter-spacing: 0.02em; }
@@ -158,17 +204,21 @@
 }
 
 @layer utilities {
+  /* ---- Sticker (reserved for primary CTAs only) ---- */
   .sticker {
-    box-shadow: 0 6px 0 0 var(--color-ink), 0 8px 16px -4px rgb(0 0 0 / 0.25);
-    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    box-shadow: 0 4px 0 0 var(--color-ink), 0 6px 14px -4px rgb(0 0 0 / 0.22);
+    transition: transform 0.16s ease, box-shadow 0.16s ease;
   }
-  .sticker:hover { transform: translateY(-2px) rotate(-0.5deg); }
-  .sticker:active { transform: translateY(2px); box-shadow: 0 2px 0 0 var(--color-ink); }
+  .sticker:hover { transform: translateY(-2px); }
+  .sticker:active { transform: translateY(1px); box-shadow: 0 1px 0 0 var(--color-ink); }
 
+  /* ---- Grain texture ---- */
   .grain {
     background-image: radial-gradient(rgb(0 0 0 / 0.04) 1px, transparent 1px);
     background-size: 4px 4px;
   }
+
+  /* ---- Leopard pattern ---- */
   .leopard {
     background-color: oklch(0.92 0.06 350);
     background-image:
@@ -178,17 +228,33 @@
       radial-gradient(ellipse 16px 12px at 85% 20%, oklch(0.55 0.18 350) 40%, transparent 42%);
     background-size: 80px 80px;
   }
-  .marquee {
-    animation: marquee 28s linear infinite;
+
+  /* ---- Marquee (seamless infinite loop) ---- */
+  .marquee-track {
+    display: inline-flex;
+    white-space: nowrap;
+    animation: marquee-scroll 32s linear infinite;
+    will-change: transform;
   }
-  @keyframes marquee {
+  @keyframes marquee-scroll {
     from { transform: translateX(0); }
-    to { transform: translateX(-50%); }
+    to   { transform: translateX(-50%); }
   }
-  .wobble:hover { animation: wobble 0.6s ease; }
+
+  /* ---- Wobble (hover only, opt-in) ---- */
+  .wobble-hover:hover { animation: wobble 0.55s ease; }
   @keyframes wobble {
     0%, 100% { transform: rotate(0); }
-    25% { transform: rotate(-3deg); }
-    75% { transform: rotate(3deg); }
+    25%       { transform: rotate(-3deg); }
+    75%       { transform: rotate(3deg); }
+  }
+
+  /* ---- Product card hover lift ---- */
+  .card-lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .card-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px -8px rgb(0 0 0 / 0.18);
   }
 }

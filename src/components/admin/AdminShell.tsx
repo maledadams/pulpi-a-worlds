@@ -48,7 +48,7 @@ export function AdminShell({
               <div className="text-[11px] font-black uppercase tracking-[0.24em] text-[#7c665f]">
                 Admin
               </div>
-              <div className="truncate text-sm font-bold">Pulpina Store</div>
+              <div className="truncate text-sm font-bold">Pulpiña Store</div>
             </div>
           </div>
 

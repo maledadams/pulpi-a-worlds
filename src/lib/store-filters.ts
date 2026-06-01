@@ -319,7 +319,7 @@ export function filterCatalogProducts(products: Product[], filters: CatalogFilte
 export function getDepartmentOptions(products: Product[]) {
   return DEPARTMENTS.map((vibe) => ({
     value: vibe,
-    label: VIBES[vibe].name.replace("Pulpina ", "").replace("Pulpina ", "").replace("Pulpiña ", ""),
+    label: VIBES[vibe].name.replace("Pulpiña ", ""),
     count: products.filter((product) => product.vibe === vibe).length,
   })).filter((option) => option.count > 0);
 }

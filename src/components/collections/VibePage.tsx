@@ -29,7 +29,7 @@ export function VibePage({
 
   return (
     <div>
-      <section className="relative overflow-hidden border-b-2 border-border">
+      <section className="relative overflow-hidden border-b-2 border-foreground">
         <div className="absolute inset-0" style={{ background: cfg.bg }} />
         {cfg.mood && (
           <img

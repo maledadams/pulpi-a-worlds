@@ -32,7 +32,7 @@ function Policies() {
         {SECTIONS.map((section) => (
           <details
             key={section.title}
-            className="rounded-2xl border-2 border-foreground bg-card p-4 sm:p-5"
+            className="rounded-2xl border border-foreground/15 bg-card p-4 sm:p-5"
             open
           >
             <summary className="cursor-pointer font-display text-lg sm:text-xl">

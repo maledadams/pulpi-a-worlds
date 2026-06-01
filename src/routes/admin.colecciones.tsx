@@ -281,7 +281,7 @@ function AdminCollectionsPage() {
                         type="button"
                         onClick={() => toggleCategory(category.id)}
                         className={`rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] transition ${
-                          active ? "border-[#231717] bg-[#231717] text-white" : "border-[#231717]/12 bg-[#faf6f0] text-[#5f4941]"
+                          active ? "border-[#231717] bg-[#231717] text-white" : "border-[#231717]/20 bg-[#faf6f0] text-[#5f4941]"
                         }`}
                       >
                         {category.label}

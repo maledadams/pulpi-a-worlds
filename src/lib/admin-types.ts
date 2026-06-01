@@ -10,7 +10,7 @@ export type AdminSection =
   | "media"
   | "configuracion";
 
-export type AdminPaymentMethod = "transferencia" | "paypal" | "whatsapp";
+export type AdminPaymentMethod = "transferencia" | "paypal" | "whatsapp" | "azul";
 
 export type AdminOrderStatus =
   | "pending_payment"
@@ -121,6 +121,9 @@ export type AdminSettingsRecord = {
   bankAccountType: string;
   bankAccountNumber: string;
   bankAccountOwner: string;
+  azulMerchantId: string;
+  azulMerchantName: string;
+  azulMerchantType: string;
   shippingNote: string;
   adminAllowedEmails: string[];
 };

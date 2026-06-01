@@ -280,7 +280,7 @@ export const ADMIN_MEDIA: AdminMediaRecord[] = ADMIN_PRODUCTS.map((product) => (
 }));
 
 export const ADMIN_SETTINGS: AdminSettingsRecord = {
-  businessName: "Pulpina RD",
+  businessName: "Pulpiña RD",
   supportEmail: "hola@pulpina.do",
   whatsappNumber: "18095550199",
   whatsappLabel: "+1 (809) 555-0199",
@@ -288,9 +288,12 @@ export const ADMIN_SETTINGS: AdminSettingsRecord = {
   bankName: "Banco Popular Dominicano",
   bankAccountType: "Cuenta corriente",
   bankAccountNumber: "123456789",
-  bankAccountOwner: "Pulpina RD",
+  bankAccountOwner: "Pulpiña RD",
+  azulMerchantId: "",
+  azulMerchantName: "PULPINA RD",
+  azulMerchantType: "E-Commerce",
   shippingNote:
-    "Enviaremos confirmacion manual por WhatsApp cuando el pago este validado. El tiempo de despacho depende del stock y la ciudad.",
+    "Enviaremos confirmación manual por WhatsApp cuando el pago esté validado. El tiempo de despacho depende del stock y la ciudad.",
   adminAllowedEmails: ["owner@pulpina.do", "ops@pulpina.do"],
 };
 
@@ -330,6 +333,7 @@ export function formatAdminPaymentMethod(method: AdminPaymentMethod) {
     transferencia: "Transferencia",
     paypal: "PayPal",
     whatsapp: "WhatsApp",
+    azul: "AZUL",
   }[method];
 }
 
