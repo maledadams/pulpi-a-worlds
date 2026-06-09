@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { AdminPanel, AdminShell, AdminTag } from "@/components/admin/AdminShell";
+import { AdminPanel, AdminShell } from "@/components/admin/AdminShell";
 import {
   AdminButton,
   AdminField,
@@ -20,25 +20,10 @@ export const Route = createFileRoute("/admin/configuracion")({
 function AdminSettingsPage() {
   const { settings } = Route.useLoaderData();
   const [form, setForm] = useState(settings);
-  const [pendingEmail, setPendingEmail] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
 
-  const addAllowedEmail = () => {
-    const value = pendingEmail.trim().toLowerCase();
-    if (!value || form.adminAllowedEmails.includes(value)) return;
-    setForm((current) => ({ ...current, adminAllowedEmails: [...current.adminAllowedEmails, value] }));
-    setPendingEmail("");
-  };
-
-  const removeAllowedEmail = (email: string) => {
-    setForm((current) => ({
-      ...current,
-      adminAllowedEmails: current.adminAllowedEmails.filter((entry) => entry !== email),
-    }));
-  };
-
   const handleSave = () => {
-    setSaveMessage("Configuracion lista en la interfaz. Falta persistencia real y enlace a secrets/env.");
+    setSaveMessage("Configuracion lista en la interfaz. Falta persistencia real. El acceso admin se controla por Cloudflare Access y env del servidor.");
   };
 
   return (
@@ -54,7 +39,7 @@ function AdminSettingsPage() {
     >
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_390px]">
         <div className="grid gap-4">
-          <AdminPanel title="Pago con AZUL" eyebrow="Tarjeta de crédito">
+          <AdminPanel title="Pago con AZUL" eyebrow="Tarjeta de credito">
             <div className="mb-3 rounded-2xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2 text-xs leading-5 text-[#5f4941]">
               AZUL es la pasarela de pagos dominicana. Configura tus credenciales de merchant para habilitar pagos con tarjeta en el checkout.
             </div>
@@ -92,7 +77,7 @@ function AdminSettingsPage() {
                 <AdminInput value={form.paypalEmail} onChange={(e) => setForm({ ...form, paypalEmail: e.target.value })} />
               </AdminField>
               <div className="md:col-span-2">
-                <AdminField label="Nota de envío y confirmación">
+                <AdminField label="Nota de envio y confirmacion">
                   <AdminTextarea value={form.shippingNote} onChange={(e) => setForm({ ...form, shippingNote: e.target.value })} rows={4} />
                 </AdminField>
               </div>
@@ -125,37 +110,25 @@ function AdminSettingsPage() {
             ) : null}
 
             <div className="rounded-2xl bg-[#f7f2ec] p-3 text-sm leading-6 text-[#5f4941]">
-              En local el admin queda abierto mientras uses <code>pnpm dev</code>. Fuera de local, la ruta debe quedar detrás de Cloudflare Access con login Google y hosts permitidos.
+              En local el admin queda abierto mientras uses <code>pnpm dev</code>. Fuera de local, la ruta exige Cloudflare Access y una identidad reenviada por Cloudflare.
             </div>
 
             <div className="mt-4 grid gap-3">
-              <AdminField label="Agregar correo autorizado">
-                <div className="flex gap-2">
-                  <AdminInput value={pendingEmail} onChange={(e) => setPendingEmail(e.target.value)} placeholder="team@pulpina.do" />
-                  <AdminButton tone="secondary" onClick={addAllowedEmail}>
-                    Agregar
-                  </AdminButton>
-                </div>
-              </AdminField>
-              <div className="flex flex-wrap gap-2">
-                {form.adminAllowedEmails.map((email) => (
-                  <button
-                    key={email}
-                    type="button"
-                    onClick={() => removeAllowedEmail(email)}
-                    className="rounded-xl bg-[#f3eadf] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-[#5f4941]"
-                  >
-                    {email}
-                  </button>
-                ))}
+              <div className="rounded-2xl border border-[#231717]/10 bg-white px-3 py-3 text-sm leading-6 text-[#5f4941]">
+                <p><code>ADMIN_ALLOWED_HOSTS</code> limita en que host corre el admin.</p>
+                <p><code>ADMIN_ALLOWED_EMAILS</code> y <code>ADMIN_ALLOWED_EMAIL_DOMAINS</code> limitan quien entra si Cloudflare ya autentico la solicitud.</p>
+                <p>La policy principal sigue viviendo en Cloudflare Zero Trust sobre <code>/admin*</code>.</p>
+              </div>
+              <div className="rounded-2xl border border-dashed border-[#231717]/15 bg-white/70 px-3 py-3 text-xs leading-5 text-[#6b5a55]">
+                Esta pantalla ya no edita correos autorizados. Cambia la policy de Cloudflare o los env del servidor para modificar acceso real.
               </div>
             </div>
           </AdminPanel>
 
-          <AdminPanel title="Notas técnicas" eyebrow="Infra">
+          <AdminPanel title="Notas tecnicas" eyebrow="Infra">
             <div className="grid gap-2 text-sm leading-6 text-[#5f4941]">
-              <p>D1 guardará catálogo, pedidos y settings reales.</p>
-              <p>R2 será la capa de imágenes cuando conectemos upload real.</p>
+              <p>D1 guardara catalogo, pedidos y settings reales.</p>
+              <p>R2 sera la capa de imagenes cuando conectemos upload real.</p>
               <p>El checkout soporta AZUL (tarjeta), transferencia, PayPal y WhatsApp.</p>
             </div>
           </AdminPanel>

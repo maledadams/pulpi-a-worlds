@@ -294,7 +294,7 @@ export const ADMIN_SETTINGS: AdminSettingsRecord = {
   azulMerchantType: "E-Commerce",
   shippingNote:
     "Enviaremos confirmación manual por WhatsApp cuando el pago esté validado. El tiempo de despacho depende del stock y la ciudad.",
-  adminAllowedEmails: ["owner@pulpina.do", "ops@pulpina.do"],
+  adminAllowedEmails: [],
 };
 
 export function getAdminDashboardSnapshot(): AdminDashboardSnapshot {

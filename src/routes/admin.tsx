@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   BarChart3, Boxes, CreditCard, FolderKanban, Image,
   LayoutGrid, Package2, PackageSearch, Percent,
-  Settings2, ShoppingBag, Store, X,
+  Settings2, ShoppingBag, Store,
 } from "lucide-react";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { formatPrice, getCategoryLabel } from "@/data/products";
@@ -863,11 +863,7 @@ function MediaPanel() {
 ───────────────────────────────────────────────────── */
 function ConfigPanel() {
   const [form,setForm]=useState(ADMIN_SETTINGS);
-  const [pendingEmail,setPendingEmail]=useState("");
   const [msg,setMsg]=useState("");
-
-  const addEmail=()=>{const v=pendingEmail.trim().toLowerCase();if(!v||form.adminAllowedEmails.includes(v))return;setForm((f)=>({...f,adminAllowedEmails:[...f.adminAllowedEmails,v]}));setPendingEmail("");};
-  const removeEmail=(e:string)=>setForm((f)=>({...f,adminAllowedEmails:f.adminAllowedEmails.filter((x)=>x!==e)}));
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_390px]">
@@ -904,21 +900,16 @@ function ConfigPanel() {
       <div className="grid gap-4 content-start">
         <Panel title="Acceso del equipo" eyebrow="Cloudflare Access">
           <div className="rounded-lg bg-muted/40 p-3 text-sm leading-6 text-[#5f4941]">
-            En local el admin queda abierto mientras uses <code>pnpm dev</code>. En producción, protege la ruta con Cloudflare Access.
+            En local el admin queda abierto mientras uses <code>pnpm dev</code>. Fuera de local, la ruta exige Cloudflare Access y una identidad reenviada por Cloudflare.
           </div>
           <div className="mt-4 grid gap-3">
-            <Field label="Agregar correo autorizado">
-              <div className="flex gap-2">
-                <Input value={pendingEmail} onChange={(e)=>setPendingEmail(e.target.value)} placeholder="team@pulpina.do" onKeyDown={(e)=>e.key==="Enter"&&addEmail()} />
-                <Btn tone="secondary" onClick={addEmail}>Agregar</Btn>
-              </div>
-            </Field>
-            <div className="flex flex-wrap gap-2">
-              {form.adminAllowedEmails.map((email)=>(
-                <button key={email} type="button" onClick={()=>removeEmail(email)} className="flex items-center gap-1.5 rounded-xl bg-[#f3eadf] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-[#5f4941] hover:bg-[#ffd8c4]">
-                  {email} <X className="h-3 w-3" />
-                </button>
-              ))}
+            <div className="rounded-2xl border border-foreground/10 bg-white px-3 py-3 text-sm leading-6 text-[#5f4941]">
+              <p><code>ADMIN_ALLOWED_HOSTS</code> limita en qué host corre el admin.</p>
+              <p><code>ADMIN_ALLOWED_EMAILS</code> y <code>ADMIN_ALLOWED_EMAIL_DOMAINS</code> limitan quién entra si Cloudflare ya autenticó la solicitud.</p>
+              <p>La policy principal sigue viviendo en Cloudflare Zero Trust sobre <code>/admin*</code>.</p>
+            </div>
+            <div className="rounded-2xl border border-dashed border-foreground/15 bg-white/70 px-3 py-3 text-xs leading-5 text-[#6b5a55]">
+              Esta pantalla ya no edita correos autorizados. Cambia la policy de Cloudflare o los env del servidor para modificar acceso real.
             </div>
           </div>
         </Panel>
@@ -929,7 +920,7 @@ function ConfigPanel() {
             <p>El checkout soporta AZUL, transferencia, PayPal y WhatsApp.</p>
           </div>
         </Panel>
-        <div className="flex justify-end"><Btn tone="primary" onClick={()=>setMsg("Configuración guardada en la interfaz.")}>Guardar cambios</Btn></div>
+        <div className="flex justify-end"><Btn tone="primary" onClick={()=>setMsg("Configuración guardada en la interfaz. El acceso admin se controla por Cloudflare Access y env del servidor.")}>Guardar cambios</Btn></div>
       </div>
     </div>
   );

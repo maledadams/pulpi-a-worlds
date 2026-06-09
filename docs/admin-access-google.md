@@ -1,33 +1,30 @@
 # Admin Access con Google
 
-Este admin esta pensado para protegerse con `Cloudflare Access`, no con login publico dentro de la app.
+Este admin debe vivir detras de `Cloudflare Access`. La app no trae login publico propio.
 
-## Objetivo
+## Que protege ahora el repo
 
-- Login facil para el equipo
-- Sin contrasenas propias en la app al inicio
-- Solo correos aprobados pueden entrar a `/admin`
+- En `pnpm dev`, el admin sigue abierto para desarrollo local.
+- Fuera de local, `/admin` solo entra si:
+  - el host esta en `ADMIN_ALLOWED_HOSTS`
+  - Cloudflare Access reenvia identidad al request
+  - si defines `ADMIN_ALLOWED_EMAILS` o `ADMIN_ALLOWED_EMAIL_DOMAINS`, el email tambien cae en ese allowlist
+
+La app espera el header de Access `cf-access-authenticated-user-email` y una solicitud ya autenticada por Cloudflare Access.
 
 ## Setup recomendado
 
 1. En Cloudflare Zero Trust, crea una aplicacion `Self-hosted`.
-2. Usa la ruta `/admin*` del dominio del proyecto.
-3. Anade `Google` como identity provider.
-4. Crea una policy `Allow` con los correos del equipo.
-5. Opcional: deja `One-Time PIN` como fallback para invitadas externas.
+2. Protege la ruta `/admin*` del dominio real.
+3. Usa `Google` como identity provider.
+4. Crea una policy `Allow` con los correos o el dominio del equipo.
+5. En el servidor define:
+   - `ADMIN_ALLOWED_HOSTS=pulpina.do,www.pulpina.do`
+   - `ADMIN_ALLOWED_EMAILS=owner@pulpina.do,ops@pulpina.do`
+   - o `ADMIN_ALLOWED_EMAIL_DOMAINS=@pulpina.do`
 
-## Importante para este repo
+## Importante
 
-- En `npm run dev`, el admin entra libre.
-- Fuera de local, el admin queda bloqueado por codigo si el host no esta en `ADMIN_ALLOWED_HOSTS` o `VITE_ADMIN_ALLOWED_HOSTS`.
-- En produccion real, define por ejemplo:
-  - `ADMIN_ALLOWED_HOSTS=pulpina.do,www.pulpina.do`
-
-## Correos iniciales sugeridos
-
-- `owner@pulpina.do`
-- `ops@pulpina.do`
-
-## Nota
-
-Esta configuracion ocurre en Cloudflare, no dentro del repo. El frontend solo asume que `/admin` ya esta protegido a nivel de acceso.
+- `ADMIN_ALLOWED_EMAILS` y `ADMIN_ALLOWED_EMAIL_DOMAINS` viven en env del servidor, no en `VITE_*`.
+- La pantalla de configuracion del admin ya no es fuente de verdad para acceso.
+- Si algun dia agregas mutaciones reales con `createServerFn`, valida auth dentro de cada handler tambien. El guard de ruta no protege RPC por si solo.

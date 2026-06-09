@@ -57,7 +57,10 @@ Sigue estos pasos para levantar el entorno de desarrollo local:
    SHOPIFY_STOREFRONT_ACCESS_TOKEN=tu_token_de_acceso_storefront
    SHOPIFY_API_VERSION=2026-04
    ADMIN_ALLOWED_HOSTS=localhost,admin.tudominio.com
+   ADMIN_ALLOWED_EMAILS=owner@tudominio.com,ops@tudominio.com
+   ADMIN_ALLOWED_EMAIL_DOMAINS=
    ```
+   El acceso real a `/admin` debe venir de Cloudflare Access; estos env son defensa adicional del lado servidor.
 
 4. **Iniciar el servidor de desarrollo**:
    ```bash
