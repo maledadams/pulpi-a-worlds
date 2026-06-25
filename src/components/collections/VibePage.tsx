@@ -1,5 +1,6 @@
-import { PRODUCTS, type Vibe } from "@/data/products";
+import { type Vibe } from "@/data/products";
 import { CatalogBrowser } from "@/components/catalog/CatalogBrowser";
+import { useCatalogProducts } from "@/context/catalog";
 import { useVibe } from "@/hooks/use-vibe";
 import { type CatalogSearch } from "@/lib/store-filters";
 import type { ReactNode } from "react";
@@ -9,6 +10,9 @@ type Cfg = {
   title: string;
   tagline: string;
   intro: string;
+  catalogHeading: string;
+  heroBorderClassName?: string;
+  searchPlaceholderClassName?: string;
   bg: string;
   logo: string;
   mood: string | null;
@@ -25,11 +29,11 @@ export function VibePage({
   onSearchChange: (next: CatalogSearch) => void;
 }) {
   useVibe(cfg.vibe);
-  const products = PRODUCTS.filter((p) => p.vibe === cfg.vibe);
+  const products = useCatalogProducts().filter((product) => product.vibe === cfg.vibe);
 
   return (
     <div>
-      <section className="relative overflow-hidden border-b-2 border-foreground">
+      <section className={`relative overflow-hidden border-b-2 ${cfg.heroBorderClassName ?? "border-foreground"}`}>
         <div className="absolute inset-0" style={{ background: cfg.bg }} />
         {cfg.mood && (
           <img
@@ -55,7 +59,7 @@ export function VibePage({
       </section>
 
       <section id="shop" className="mx-auto max-w-7xl px-4 py-12">
-        <h2 className="mb-4 text-3xl md:text-4xl">Toda la linea</h2>
+        <h2 className="mb-4 text-3xl md:text-4xl">{cfg.catalogHeading}</h2>
         <CatalogBrowser
           products={products}
           search={search}
@@ -65,6 +69,7 @@ export function VibePage({
           soldOutMode="vibe"
           emptyTitle="Nada en esta linea todavia"
           vibeScope={cfg.vibe}
+          searchPlaceholderClassName={cfg.searchPlaceholderClassName}
         />
       </section>
     </div>

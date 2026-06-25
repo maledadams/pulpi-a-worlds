@@ -1,0 +1,98 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - img [ref=e7]
+      - generic [ref=e11]:
+        - generic [ref=e12]: Admin
+        - generic [ref=e13]: Pulpiña Store
+    - navigation [ref=e14]:
+      - link "Resumen" [ref=e15] [cursor=pointer]:
+        - /url: /admin
+        - img [ref=e16]
+        - generic [ref=e21]: Resumen
+      - link "Productos" [ref=e22] [cursor=pointer]:
+        - /url: /admin/productos
+        - img [ref=e23]
+        - generic [ref=e25]: Productos
+      - link "Categorias" [ref=e26] [cursor=pointer]:
+        - /url: /admin/categorias
+        - img [ref=e27]
+        - generic [ref=e37]: Categorias
+      - link "Colecciones" [ref=e38] [cursor=pointer]:
+        - /url: /admin/colecciones
+        - img [ref=e39]
+        - generic [ref=e41]: Colecciones
+      - link "Pedidos" [ref=e42] [cursor=pointer]:
+        - /url: /admin/pedidos
+        - img [ref=e43]
+        - generic [ref=e46]: Pedidos
+      - link "Descuentos" [ref=e47] [cursor=pointer]:
+        - /url: /admin/descuentos
+        - img [ref=e48]
+        - generic [ref=e52]: Descuentos
+      - link "Admin" [ref=e53] [cursor=pointer]:
+        - /url: /admin/configuracion
+        - img [ref=e54]
+        - generic [ref=e57]: Admin
+  - generic [ref=e58]:
+    - banner [ref=e59]:
+      - generic [ref=e60]:
+        - heading "Descuentos" [level=1] [ref=e62]
+        - button "Nuevo descuento" [ref=e64]
+    - main [ref=e65]:
+      - generic [ref=e66]:
+        - generic [ref=e67]:
+          - heading "Promociones" [level=2] [ref=e70]
+          - generic [ref=e71]:
+            - generic [ref=e72]:
+              - textbox "Buscar por codigo o nombre" [ref=e73]
+              - generic [ref=e74]: 2 descuentos
+            - generic [ref=e75]:
+              - button "NEW10 Bienvenida general Activo 10% General" [ref=e76]:
+                - generic [ref=e77]:
+                  - generic [ref=e78]:
+                    - generic [ref=e79]: NEW10
+                    - generic [ref=e80]: Bienvenida general
+                  - generic [ref=e81]: Activo
+                - generic [ref=e82]: 10%
+                - generic [ref=e83]: General
+              - button "MOON500 Drop Moon Pausado RD$500 Moon" [ref=e84]:
+                - generic [ref=e85]:
+                  - generic [ref=e86]:
+                    - generic [ref=e87]: MOON500
+                    - generic [ref=e88]: Drop Moon
+                  - generic [ref=e89]: Pausado
+                - generic [ref=e90]: RD$500
+                - generic [ref=e91]: Moon
+        - generic [ref=e92]:
+          - generic [ref=e93]:
+            - heading "MOON500" [level=2] [ref=e95]
+            - generic [ref=e96]:
+              - button "Eliminar" [ref=e97]
+              - button "Guardar" [ref=e98]
+          - generic [ref=e100]:
+            - generic [ref=e101]:
+              - generic [ref=e102]: Codigo
+              - textbox "Codigo" [ref=e103]: MOON500
+            - generic [ref=e104]:
+              - generic [ref=e105]: Nombre interno
+              - textbox "Nombre interno" [ref=e106]: Drop Moon
+            - generic [ref=e107]:
+              - generic [ref=e108]:
+                - generic [ref=e109]: Tipo
+                - combobox "Tipo" [ref=e110]:
+                  - option "Porcentaje"
+                  - option "Monto fijo" [selected]
+              - generic [ref=e111]:
+                - generic [ref=e112]: Valor
+                - spinbutton "Valor" [ref=e113]: "500"
+            - generic [ref=e114]:
+              - generic [ref=e115]: Aplica a
+              - combobox "Aplica a" [ref=e116]:
+                - option "General"
+                - option "Moon" [selected]
+                - option "Sunshine"
+                - option "Men"
+            - generic [ref=e117]:
+              - checkbox "Descuento activo" [ref=e118]
+              - generic [ref=e120]: Descuento activo

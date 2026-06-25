@@ -1,19 +1,37 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { PRODUCTS } from "@/data/products";
+import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { TurnstileWidget } from "@/components/forms/TurnstileWidget";
 import { ProductCard } from "@/components/product/ProductCard";
-import { OctopusMark, Star } from "@/components/ui/Decor";
-import { HomeHeroCarousel } from "@/components/home/HomeHeroCarousel";
-import logoMen from "@/assets/logo-men.png";
-import logoMoon from "@/assets/logo-moon.png";
-import logoSun from "@/assets/logo-sunshine.png";
-import moodMen from "@/assets/mood-men.jpg";
-import moodMoon from "@/assets/mood-moon.jpg";
-import moodSun from "@/assets/mood-sunshine.jpg";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  type CarouselApi,
+} from "@/components/ui/carousel";
+import { useCatalogProducts } from "@/context/catalog";
+import type { Product } from "@/data/products";
+import { getStorefrontHomeCollections, getStorefrontSettings } from "@/lib/admin-content";
+import { subscribeNewsletter } from "@/lib/public-forms";
+import men1 from "@/assets/men 1.svg";
+import men2 from "@/assets/men 2.svg";
+import men3 from "@/assets/men 3.svg";
+import moon1 from "@/assets/moon 1.svg";
+import moon2 from "@/assets/moon 2.svg";
+import moon3 from "@/assets/moon 3.svg";
+import sunshine1 from "@/assets/sunshine 1.svg";
+import sunshine2 from "@/assets/sunshine 2.svg";
+import sunshine3 from "@/assets/sunshine 3.svg";
 
 export const Route = createFileRoute("/")({
+  ssr: false,
+  loader: async () => ({
+    homeCollections: await getStorefrontHomeCollections(),
+    settings: await getStorefrontSettings(),
+  }),
   head: () => ({
     meta: [
-      { title: "Pulpiña RD — Prendas de otro mundo" },
+      { title: "Pulpiña RD - Prendas de otro mundo" },
       {
         name: "description",
         content: "Tienda dominicana de moda alternativa. Vibes Moon, Sunshine y Men.",
@@ -23,240 +41,251 @@ export const Route = createFileRoute("/")({
   component: Home,
 });
 
-const TICKER_ITEMS = [
-  "Moon", "·", "Sunshine", "·", "Men", "·", "Tienda", "·", "New In", "·",
-  "Moon", "·", "Sunshine", "·", "Men", "·", "Tienda", "·", "New In", "·",
-  "Moon", "·", "Sunshine", "·", "Men", "·", "Tienda", "·", "New In", "·",
-  "Moon", "·", "Sunshine", "·", "Men", "·", "Tienda", "·", "New In", "·",
-];
-
 const VIBES_EDITORIAL = [
   {
     to: "/moon" as const,
     name: "Moon",
-    tag: "Romance Gótico",
-    logo: logoMoon,
-    mood: moodMoon,
-    bg: "linear-gradient(160deg,#0a0408 0%,#2a0a14 60%,#5a0a14 100%)",
-    cta: "Explorar Moon",
+    images: [moon1, moon2, moon3],
   },
   {
     to: "/sunshine" as const,
     name: "Sunshine",
-    tag: "Kawaii · Y2K",
-    logo: logoSun,
-    mood: moodSun,
-    bg: "linear-gradient(160deg,#ff8fc9 0%,#ffe66a 60%,#c5f56a 100%)",
-    cta: "Explorar Sunshine",
+    images: [sunshine1, sunshine2, sunshine3],
   },
   {
     to: "/men" as const,
     name: "Men",
-    tag: "Punk · Underground",
-    logo: logoMen,
-    mood: moodMen,
-    bg: "linear-gradient(160deg,#0a0a0a 0%,#1a1a1a 60%,#3a0a0a 100%)",
-    cta: "Explorar Men",
+    images: [men1, men2, men3],
   },
 ] as const;
 
-function SectionHeader({
-  eyebrow,
+function HomeRailSection({
+  products,
   title,
-  cta,
-  ctaTo,
 }: {
-  eyebrow: string;
+  products: Product[];
   title: string;
-  cta?: string;
-  ctaTo?: string;
 }) {
+  const [api, setApi] = useState<CarouselApi>();
+  const [canScrollPrev, setCanScrollPrev] = useState(false);
+  const [canScrollNext, setCanScrollNext] = useState(false);
+
+  useEffect(() => {
+    if (!api) {
+      setCanScrollPrev(false);
+      setCanScrollNext(false);
+      return;
+    }
+
+    const sync = () => {
+      setCanScrollPrev(api.canScrollPrev());
+      setCanScrollNext(api.canScrollNext());
+    };
+
+    sync();
+    api.on("select", sync);
+    api.on("reInit", sync);
+
+    return () => {
+      api.off("select", sync);
+      api.off("reInit", sync);
+    };
+  }, [api]);
+
+  if (products.length === 0) return null;
+
   return (
-    <div className="mb-6 flex items-end justify-between">
-      <div>
-        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-          {eyebrow}
-        </p>
-        <h2 className="mt-1 text-2xl md:text-3xl">{title}</h2>
+    <section className="mx-auto max-w-7xl px-4 pb-14">
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <h2 className="text-2xl md:text-3xl">{title}</h2>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            aria-label={`Anterior en ${title}`}
+            disabled={!canScrollPrev}
+            onClick={() => api?.scrollPrev()}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-foreground/20 bg-background text-foreground transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-35"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            aria-label={`Siguiente en ${title}`}
+            disabled={!canScrollNext}
+            onClick={() => api?.scrollNext()}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-foreground/20 bg-background text-foreground transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-35"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
       </div>
-      {cta && ctaTo && (
-        <Link
-          to={ctaTo}
-          className="hidden text-xs font-bold uppercase tracking-widest text-muted-foreground underline underline-offset-4 hover:text-foreground md:block"
-        >
-          {cta}
-        </Link>
-      )}
-    </div>
+
+      <Carousel
+        setApi={setApi}
+        opts={{
+          align: "start",
+          containScroll: "trimSnaps",
+          dragFree: true,
+        }}
+      >
+        <CarouselContent>
+          {products.map((product) => (
+            <CarouselItem
+              key={product.id}
+              className="basis-[74%] sm:basis-[42%] md:basis-[31%] lg:basis-[24%] xl:basis-[20%]"
+            >
+              <ProductCard
+                product={product}
+                soldOutMode="standard"
+                showSubtitle={false}
+                tone="store"
+              />
+            </CarouselItem>
+          ))}
+        </CarouselContent>
+      </Carousel>
+    </section>
   );
 }
 
 function Home() {
-  const newOnes = PRODUCTS.filter((p) => p.newArrival).slice(0, 8);
+  const { homeCollections, settings } = Route.useLoaderData();
+  const products = useCatalogProducts();
+  const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [newsletterStatus, setNewsletterStatus] = useState("");
+  const [newsletterSubmitting, setNewsletterSubmitting] = useState(false);
+  const [newsletterTurnstileToken, setNewsletterTurnstileToken] = useState("");
+  const [newsletterTurnstileVersion, setNewsletterTurnstileVersion] = useState(0);
+
+  const homeSections = useMemo(() => {
+    const productMap = new Map(products.map((product) => [product.id, product]));
+    return homeCollections
+      .map((collection) => ({
+        id: collection.id,
+        title: collection.name,
+        products: collection.productIds
+          .map((productId) => productMap.get(productId))
+          .filter((product): product is Product => Boolean(product))
+          .slice(0, 12),
+      }))
+      .filter((section) => section.products.length > 0);
+  }, [homeCollections, products]);
 
   return (
     <div>
-      {/* ── Hero carousel ── */}
-      <HomeHeroCarousel />
+      <section className="flex min-h-[calc(100vh-4.75rem)] w-full items-start px-4 pt-10 pb-16 md:pb-20">
+        <div
+          className="relative w-full overflow-hidden rounded-[2rem] border border-[#f4e9df]/10 px-5 py-12 sm:px-8 md:px-10 md:py-14"
+        >
+          <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(7,7,8,0.99)_0%,rgba(14,14,15,0.98)_52%,rgba(22,22,24,0.98)_100%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_50%,rgba(116,36,62,0.26),transparent_24%),radial-gradient(circle_at_82%_50%,rgba(146,146,152,0.2),transparent_24%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.6)_0%,transparent_14%,transparent_86%,rgba(0,0,0,0.62)_100%),linear-gradient(180deg,rgba(0,0,0,0.42)_0%,transparent_18%,transparent_82%,rgba(0,0,0,0.46)_100%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(0,0,0,0.82),transparent_30%),radial-gradient(circle_at_top_right,rgba(0,0,0,0.8),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(0,0,0,0.76),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(0,0,0,0.82),transparent_30%)]" />
 
-      {/* ── Ticker ── */}
-      <div className="overflow-hidden border-b border-foreground/15 bg-foreground text-background">
-        <div className="flex py-2.5">
-          <div className="marquee-track">
-            {TICKER_ITEMS.map((item, i) => (
-              <span
-                key={i}
-                className={`font-display text-sm uppercase tracking-widest ${
-                  item === "·" ? "mx-4 opacity-40" : "mx-3"
-                }`}
-              >
-                {item}
-              </span>
-            ))}
-          </div>
-          {/* duplicate for seamless loop */}
-          <div className="marquee-track" aria-hidden>
-            {TICKER_ITEMS.map((item, i) => (
-              <span
-                key={i}
-                className={`font-display text-sm uppercase tracking-widest ${
-                  item === "·" ? "mx-4 opacity-40" : "mx-3"
-                }`}
-              >
-                {item}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Brand intro ── */}
-      <section className="mx-auto max-w-3xl px-4 py-12 text-center">
-        <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-muted-foreground">
-          Bienvenida a Pulpiña RD
-        </p>
-        <h2 className="mt-2 text-2xl md:text-3xl">Una marca. Tres mundos.</h2>
-        <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground md:text-base">
-          Moda alternativa diseñada en República Dominicana. Encuentra tu vibra entre
-          {" "}<strong>Moon</strong>, <strong>Sunshine</strong> y <strong>Men</strong>.
-        </p>
-      </section>
-
-      {/* ── Vibe editorial cards ── */}
-      <section className="mx-auto max-w-7xl px-4 pb-14">
-        <div className="grid gap-3 sm:grid-cols-3">
-          {VIBES_EDITORIAL.map((vibe) => (
-            <Link
-              key={vibe.to}
-              to={vibe.to}
-              className="group relative overflow-hidden rounded-xl"
-              style={{ aspectRatio: "2/3" }}
-            >
-              {/* Background */}
-              <div className="absolute inset-0" style={{ background: vibe.bg }} />
-              <img
-                src={vibe.mood}
-                alt=""
-                className="absolute inset-0 h-full w-full object-cover opacity-50 transition-opacity duration-500 group-hover:opacity-60"
-              />
-              {/* Gradient overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-
-              {/* Content */}
-              <div className="absolute inset-x-0 bottom-0 p-5">
-                <img
-                  src={vibe.logo}
-                  alt={vibe.name}
-                  className="mb-3 h-12 object-contain"
-                />
-                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/70">
-                  {vibe.tag}
-                </p>
-                <span className="mt-3 inline-block rounded-full border border-white/50 bg-white/10 px-4 py-2 text-xs font-bold uppercase tracking-widest text-white backdrop-blur-sm transition group-hover:bg-white/20">
-                  {vibe.cta}
-                </span>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Nuevos arrivals ── */}
-      <section className="mx-auto max-w-7xl px-4 pb-14">
-        <SectionHeader
-          eyebrow="Recién llegado"
-          title="New In"
-          cta="Ver todo"
-          ctaTo="/tienda"
-        />
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {newOnes.map((p) => (
-            <ProductCard
-              key={p.id}
-              product={p}
-              soldOutMode="standard"
-              showSubtitle={false}
-              tone="store"
-            />
-          ))}
-        </div>
-        <div className="mt-6 text-center md:hidden">
-          <Link
-            to="/tienda"
-            className="inline-block rounded-full border border-foreground px-6 py-2.5 text-xs font-bold uppercase tracking-widest hover:bg-foreground hover:text-background"
-          >
-            Ver todo
-          </Link>
-        </div>
-      </section>
-
-      {/* ── Banner strip ── */}
-      <section className="mx-auto max-w-7xl px-4 pb-14">
-        <div className="relative overflow-hidden rounded-2xl bg-foreground px-8 py-12 text-background md:px-14">
-          <div className="relative z-10 max-w-lg">
-            <OctopusMark className="mb-4 h-12 w-12 text-accent" />
-            <h2 className="text-2xl md:text-3xl">Hecho en RD, para el mundo.</h2>
-            <p className="mt-3 text-sm text-background/70 md:text-base">
-              Cada prenda Pulpiña es diseñada en República Dominicana para personas que no encajan en una sola caja.
+          <div className="relative mb-10 text-center md:mb-12">
+            <h2 className="text-2xl text-white md:text-3xl">{settings.homeSelectionTitle}</h2>
+            <p className="mx-auto mt-3 max-w-2xl text-sm text-white/72">
+              {settings.homeSelectionSubtitle}
             </p>
+          </div>
+
+          <div className="relative grid gap-8 sm:grid-cols-3">
+            {VIBES_EDITORIAL.map((vibe) => (
+              <div key={vibe.to} className="text-center">
+                <Link
+                  to={vibe.to}
+                  className="group relative mx-auto block aspect-square w-full max-w-[27.75rem] transition-transform duration-300 ease-out hover:scale-[1.04] focus-visible:scale-[1.04] md:max-w-[28.5rem]"
+                  aria-label={vibe.name}
+                >
+                  {vibe.images.map((image, index) => (
+                    <img
+                      key={image}
+                      src={image}
+                      alt={index === 2 ? vibe.name : ""}
+                      className="absolute inset-[6%] h-[88%] w-[88%] object-contain"
+                    />
+                  ))}
+                </Link>
+              </div>
+            ))}
+          </div>
+
+          <div className="relative mt-8 flex justify-center md:mt-10">
             <Link
-              to="/nosotros"
-              className="mt-6 inline-block rounded-full border border-background/40 px-6 py-2.5 text-xs font-bold uppercase tracking-widest text-background hover:bg-background/10"
+              to="/tienda"
+              className="inline-flex items-center gap-2 text-sm font-normal text-white/54 transition hover:text-white/78"
             >
-              Nuestra historia
+              <span>{settings.homeGeneralStoreCtaLabel}</span>
+              <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
-          {/* Decorative */}
-          <div
-            className="absolute -right-16 -top-16 h-64 w-64 rounded-full opacity-10"
-            style={{ background: "radial-gradient(circle,#fff,transparent)" }}
-          />
         </div>
       </section>
 
-      {/* ── Newsletter ── */}
+      {homeSections.map((section) => (
+        <HomeRailSection key={section.id} title={section.title} products={section.products} />
+      ))}
+
       <section className="border-t border-foreground/10 bg-muted/40 px-4 py-14 text-center">
-        <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-muted-foreground">
-          Club Pulpiña
-        </p>
-        <h2 className="mt-2 text-2xl md:text-3xl">Descuento de cumpleaños</h2>
+        <h2 className="text-2xl md:text-3xl">{settings.newsletterTitle}</h2>
         <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-          Suscríbete y recibe un cupón especial el día de tu cumpleaños.
+          {settings.newsletterDescription}
         </p>
         <form
           className="mx-auto mt-5 flex max-w-sm flex-col gap-2 sm:flex-row"
-          onSubmit={(e) => e.preventDefault()}
+          onSubmit={(event) => {
+            event.preventDefault();
+            setNewsletterStatus("");
+            setNewsletterSubmitting(true);
+
+            void subscribeNewsletter({
+              data: {
+                email: newsletterEmail,
+                turnstileToken: newsletterTurnstileToken,
+              },
+            })
+              .then((result) => {
+                setNewsletterStatus(result.message);
+                if (result.ok) {
+                  setNewsletterEmail("");
+                  setNewsletterTurnstileToken("");
+                }
+              })
+              .catch(() => {
+                setNewsletterStatus("No se pudo validar la suscripcion ahora mismo.");
+              })
+              .finally(() => {
+                setNewsletterSubmitting(false);
+                setNewsletterTurnstileVersion((value) => value + 1);
+              });
+          }}
         >
           <input
             type="email"
             required
+            value={newsletterEmail}
             placeholder="tu@correo.com"
             className="flex-1 rounded-full border border-foreground/20 bg-background px-4 py-2.5 text-sm outline-none focus:border-foreground"
+            onChange={(event) => setNewsletterEmail(event.target.value)}
           />
-          <button className="rounded-full bg-foreground px-5 py-2.5 text-sm font-bold uppercase tracking-widest text-background hover:opacity-90">
-            Suscribirme
+          <button
+            disabled={newsletterSubmitting || !newsletterTurnstileToken}
+            className="rounded-full bg-foreground px-5 py-2.5 text-sm font-bold uppercase tracking-widest text-background hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {newsletterSubmitting ? "Validando..." : "Suscribirme"}
           </button>
         </form>
+        <div className="mx-auto mt-3 max-w-sm">
+          <TurnstileWidget
+            key={newsletterTurnstileVersion}
+            onTokenChange={setNewsletterTurnstileToken}
+          />
+        </div>
+        {newsletterStatus ? (
+          <p className="mx-auto mt-3 max-w-md text-sm text-muted-foreground">
+            {newsletterStatus}
+          </p>
+        ) : null}
       </section>
     </div>
   );

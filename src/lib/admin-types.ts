@@ -1,4 +1,5 @@
 import type { Product, ProductVariant, Vibe } from "@/data/products";
+import type { AdminSizeFormat, AdminSizeFormatRecord } from "@/lib/product-sizing";
 
 export type AdminSection =
   | "resumen"
@@ -7,16 +8,15 @@ export type AdminSection =
   | "colecciones"
   | "pedidos"
   | "descuentos"
-  | "media"
   | "configuracion";
 
-export type AdminPaymentMethod = "transferencia" | "paypal" | "whatsapp" | "azul";
+export type AdminInquiryChannel = "formulario" | "whatsapp" | "instagram" | "email";
 
-export type AdminOrderStatus =
-  | "pending_payment"
-  | "paid"
-  | "processing"
-  | "shipped"
+export type AdminInquiryStatus =
+  | "new"
+  | "follow_up"
+  | "quoted"
+  | "closed"
   | "cancelled";
 
 export type AdminInventoryStatus = "in_stock" | "low_stock" | "out_of_stock";
@@ -26,18 +26,22 @@ export type AdminProductRecord = {
   slug: string;
   name: string;
   vibe: Vibe;
+  sortOrder: number;
   categories: string[];
   primaryCategory: string;
   description: string;
   price: number;
   compareAtPrice: number | null;
   available: boolean;
+  hidden: boolean;
   stock: number | null;
   featured: boolean;
   newArrival: boolean;
   isNsfw: boolean;
   images: Product["images"];
   featuredImage: Product["featuredImage"];
+  sizes: string[];
+  colors: NonNullable<Product["colors"]>;
   variants: ProductVariant[];
   tags: string[];
   createdAt: string;
@@ -45,11 +49,16 @@ export type AdminProductRecord = {
 
 export type AdminCategoryRecord = {
   id: string;
+  previousId?: string;
   label: string;
   isNsfw: boolean;
   vibes: Vibe[];
+  sizeFormat: AdminSizeFormat;
   productCount: number;
+  sortOrder: number;
 };
+
+export type { AdminSizeFormatRecord };
 
 export type AdminCollectionRecord = {
   id: string;
@@ -57,38 +66,47 @@ export type AdminCollectionRecord = {
   name: string;
   description: string;
   vibe: Vibe | "store";
+  published: boolean;
   featured: boolean;
+  showOnHome: boolean;
+  homeOrder: number;
   categoryIds: string[];
   productIds: string[];
 };
 
-export type AdminOrderLine = {
+export type AdminInquiryLine = {
   productId: string;
   productName: string;
+  variantId: string;
   variantLabel: string;
   quantity: number;
   unitPrice: number;
 };
 
-export type AdminOrderRecord = {
+export type AdminInquiryRecord = {
   id: string;
-  orderNumber: string;
+  requestNumber: string;
   customerName: string;
   customerEmail: string;
   customerPhone: string;
-  status: AdminOrderStatus;
-  paymentMethod: AdminPaymentMethod;
+  status: AdminInquiryStatus;
+  channel: AdminInquiryChannel;
+  fulfillmentMethod: "pickup" | "delivery";
   subtotal: number;
   shipping: number;
+  discount: number;
   total: number;
   createdAt: string;
   notes: string;
+  paymentStatus: "pending" | "confirmed" | "cancelled";
+  externalReference: string;
+  adminTags: string[];
   shippingAddress: {
     line1: string;
     city: string;
     province: string;
   };
-  lines: AdminOrderLine[];
+  lines: AdminInquiryLine[];
 };
 
 export type AdminDiscountRecord = {
@@ -101,14 +119,27 @@ export type AdminDiscountRecord = {
   scope: "store" | Vibe;
 };
 
-export type AdminMediaRecord = {
+export type AdminAnnouncementRecord = {
   id: string;
-  productId: string;
-  productName: string;
-  vibe: Vibe;
+  text: string;
+  active: boolean;
+};
+
+export type AdminFooterColumnLink = {
   label: string;
-  url: string | null;
-  fallback: [string, string];
+  to: string;
+};
+
+export type AdminContactFaqRecord = {
+  id: string;
+  question: string;
+  answer: string;
+};
+
+export type AdminLegalSectionRecord = {
+  id: string;
+  title: string;
+  body: string;
 };
 
 export type AdminSettingsRecord = {
@@ -116,25 +147,62 @@ export type AdminSettingsRecord = {
   supportEmail: string;
   whatsappNumber: string;
   whatsappLabel: string;
-  paypalEmail: string;
-  bankName: string;
-  bankAccountType: string;
-  bankAccountNumber: string;
-  bankAccountOwner: string;
-  azulMerchantId: string;
-  azulMerchantName: string;
-  azulMerchantType: string;
-  shippingNote: string;
+  instagramHandle: string;
+  instagramUrl: string;
+  contactResponseNote: string;
+  adultAudienceNotice: string;
+  contactPageTitle: string;
+  contactPageIntro: string;
+  contactCardNote: string;
+  contactFaqs: AdminContactFaqRecord[];
+  homeSelectionTitle: string;
+  homeSelectionSubtitle: string;
+  homeGeneralStoreCtaLabel: string;
+  newsletterTitle: string;
+  newsletterDescription: string;
+  aboutPageTitle: string;
+  aboutPageIntro: string;
+  aboutStoryTitle: string;
+  aboutStoryBody: string;
+  aboutCtaLabel: string;
+  moonPageTagline: string;
+  moonPageIntro: string;
+  sunshinePageTagline: string;
+  sunshinePageIntro: string;
+  menPageTagline: string;
+  menPageIntro: string;
+  vibeCatalogHeading: string;
+  productDetailsTitle: string;
+  productDetailsBody: string;
+  productCareTitle: string;
+  productCareBody: string;
+  productShippingTitle: string;
+  productShippingBody: string;
+  footerHeading: string;
+  footerAccent: string;
+  footerCopyright: string;
+  footerShopLinks: AdminFooterColumnLink[];
+  footerHelpLinks: AdminFooterColumnLink[];
+  legalPageTitle: string;
+  legalLastUpdated: string;
+  legalOperatorName: string;
+  legalOperatorEmail: string;
+  legalOperatorPhone: string;
+  legalOperatorAddress: string;
+  legalTaxId: string;
+  legalIntro: string;
+  legalSections: AdminLegalSectionRecord[];
   adminAllowedEmails: string[];
+  announcements: AdminAnnouncementRecord[];
 };
 
 export type AdminDashboardSnapshot = {
   grossInventoryValue: number;
   productCount: number;
-  orderCount: number;
-  pendingPaymentCount: number;
+  inquiryCount: number;
+  openInquiryCount: number;
   lowStockProducts: AdminProductRecord[];
-  recentOrders: AdminOrderRecord[];
+  recentInquiries: AdminInquiryRecord[];
   productsByVibe: Array<{ vibe: Vibe; count: number }>;
 };
 

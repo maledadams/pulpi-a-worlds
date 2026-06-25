@@ -1,4 +1,14 @@
-import { CATEGORIES, PRODUCTS, VIBES, getCategoryLabel, type Product, type Vibe } from "@/data/products";
+import {
+  getCategoryLabel,
+  getCategorySortOrder,
+  isConfiguredNsfwCategory,
+  type Product,
+  type Vibe,
+} from "@/data/products";
+import {
+  PRODUCT_COLOR_PRESETS,
+  normalizeProductColorId,
+} from "@/lib/product-colors";
 
 export const CATALOG_SORTS = [
   { id: "featured", label: "Destacados" },
@@ -16,19 +26,15 @@ export const PRICE_BUCKETS = [
   { id: "$$$$", label: "$$$$", min: 4000, max: Number.POSITIVE_INFINITY },
 ] as const;
 
-export const COLOR_FAMILIES = [
-  { id: "rojo", label: "Rojo", swatch: "#b42318" },
-  { id: "naranja", label: "Naranja", swatch: "#ef7d22" },
-  { id: "amarillo", label: "Amarillo", swatch: "#f3cf3d" },
-  { id: "verde", label: "Verde", swatch: "#5f9f4f" },
-  { id: "azul", label: "Azul", swatch: "#356ec8" },
-  { id: "morado", label: "Morado", swatch: "#7c4dbe" },
-  { id: "rosado", label: "Rosado", swatch: "#f48ab7" },
-  { id: "crema", label: "Crema", swatch: "#ead9bc" },
-  { id: "negro", label: "Negro", swatch: "#171717" },
-  { id: "gris", label: "Gris", swatch: "#9b9b9b" },
-  { id: "blanco", label: "Blanco", swatch: "#f5f3ed" },
-] as const;
+export const COLOR_FAMILIES = PRODUCT_COLOR_PRESETS.map((preset) => ({
+  id: preset.id,
+  label: preset.label,
+  swatch: preset.hex,
+})) as ReadonlyArray<{
+  id: (typeof PRODUCT_COLOR_PRESETS)[number]["id"];
+  label: string;
+  swatch: string;
+}>;
 
 export type CatalogSearch = {
   q?: string;
@@ -61,6 +67,7 @@ export type CatalogFilters = {
 };
 
 const DEPARTMENTS = ["moon", "sunshine", "men"] as const satisfies readonly Vibe[];
+type Department = (typeof DEPARTMENTS)[number];
 export const NSFW_CATEGORIES = ["lingerie", "kinkwear", "sex-toys"] as const;
 
 export function getProductCategories(product: Product) {
@@ -68,7 +75,7 @@ export function getProductCategories(product: Product) {
 }
 
 export function isNsfwCategory(category: string) {
-  return NSFW_CATEGORIES.includes(category as (typeof NSFW_CATEGORIES)[number]);
+  return isConfiguredNsfwCategory(category);
 }
 
 export function isNsfwProduct(product: Product) {
@@ -84,6 +91,10 @@ function splitCsv(value?: string) {
     ?.split(",")
     .map((entry) => entry.trim())
     .filter(Boolean) ?? [];
+}
+
+function categorySortKey(category: string) {
+  return getCategorySortOrder(category);
 }
 
 export function validateCatalogSearch(search: Record<string, unknown>): CatalogSearch {
@@ -110,7 +121,11 @@ export function parseCatalogSearch(search: CatalogSearch): CatalogFilters {
 
   return {
     q: search.q ?? "",
-    departments: new Set(splitCsv(search.shop).filter((entry): entry is Vibe => DEPARTMENTS.includes(entry as Vibe))),
+    departments: new Set(
+      splitCsv(search.shop).filter((entry): entry is Department =>
+        DEPARTMENTS.includes(entry as Department),
+      ),
+    ),
     categories: new Set(splitCsv(search.category)),
     nsfwEnabled: search.nsfw === "1",
     apparelSizes: new Set(splitCsv(search.size)),
@@ -228,34 +243,25 @@ function rgbToHsl(r: number, g: number, b: number) {
 }
 
 export function getColorFamily(name: string, hex: string) {
-  const lower = name.trim().toLowerCase();
-
-  if (/(black|negro)/.test(lower)) return "negro";
-  if (/(white|blanco|ivory)/.test(lower)) return "blanco";
-  if (/(gray|grey|gris|charcoal|silver)/.test(lower)) return "gris";
-  if (/(cream|crema|beige|arena|pearl)/.test(lower)) return "crema";
-  if (/(pink|rosa|rosado|bubblegum|gloss)/.test(lower)) return "rosado";
-  if (/(purple|morado|violet|lavender|merlot)/.test(lower)) return "morado";
-  if (/(blue|azul|navy)/.test(lower)) return "azul";
-  if (/(green|verde|matcha|olive)/.test(lower)) return "verde";
-  if (/(yellow|amarillo|gold)/.test(lower)) return "amarillo";
-  if (/(orange|naranja|coral|peach)/.test(lower)) return "naranja";
-  if (/(red|rojo|wine|oxblood|burgundy|cherry)/.test(lower)) return "rojo";
+  const normalizedByName = normalizeProductColorId(name);
+  if (normalizedByName) return normalizedByName;
 
   const { r, g, b } = hexToRgb(hex);
   const { h, s, l } = rgbToHsl(r, g, b);
 
-  if (l >= 0.93) return "blanco";
-  if (s <= 0.12 && l >= 0.75) return "crema";
-  if (s <= 0.12 && l <= 0.2) return "negro";
-  if (s <= 0.12) return "gris";
-  if (h < 15 || h >= 345) return "rojo";
-  if (h < 45) return "naranja";
-  if (h < 70) return "amarillo";
-  if (h < 160) return "verde";
-  if (h < 250) return "azul";
-  if (h < 300) return "morado";
-  return "rosado";
+  if (l >= 0.93) return "white";
+  if (s <= 0.12 && l >= 0.72) return "beige";
+  if (s <= 0.12 && l <= 0.2) return "black";
+  if (s <= 0.12) return "gray";
+  if (h < 15 || h >= 345) return l <= 0.42 ? "vino" : "red";
+  if (h < 45) return "orange";
+  if (h < 70) return "yellow";
+  if (h < 105) return l >= 0.62 ? "light-green" : "green";
+  if (h < 170) return "green";
+  if (h < 225) return l >= 0.68 ? "light-blue" : "blue";
+  if (h < 265) return "blue";
+  if (h < 320) return "purple";
+  return "pink";
 }
 
 export function priceMatches(product: Product, buckets: Set<string>) {
@@ -269,6 +275,7 @@ export function priceMatches(product: Product, buckets: Set<string>) {
 
 export function filterCatalogProducts(products: Product[], filters: CatalogFilters) {
   let result = products.filter((product) => {
+    if (product.hidden) return false;
     if (filters.q && !`${product.name} ${product.description}`.toLowerCase().includes(filters.q.toLowerCase())) {
       return false;
     }
@@ -319,16 +326,26 @@ export function filterCatalogProducts(products: Product[], filters: CatalogFilte
 export function getDepartmentOptions(products: Product[]) {
   return DEPARTMENTS.map((vibe) => ({
     value: vibe,
-    label: VIBES[vibe].name.replace("Pulpiña ", ""),
+    label: vibe === "moon" ? "Moon" : vibe === "sunshine" ? "Sunshine" : "Men",
     count: products.filter((product) => product.vibe === vibe).length,
   })).filter((option) => option.count > 0);
 }
 
 export function getCategoryOptions(products: Product[]) {
-  return CATEGORIES.map((category) => ({
-    ...category,
-    count: products.filter((product) => getProductCategories(product).includes(category.id)).length,
-  })).filter((option) => option.count > 0);
+  const counts = new Map<string, number>();
+  products.forEach((product) => {
+    getProductCategories(product).forEach((category) => {
+      counts.set(category, (counts.get(category) ?? 0) + 1);
+    });
+  });
+
+  return Array.from(counts.entries())
+    .map(([id, count]) => ({
+      id,
+      label: getCategoryLabel(id),
+      count,
+    }))
+    .sort((a, b) => categorySortKey(a.id) - categorySortKey(b.id) || a.label.localeCompare(b.label));
 }
 
 export function getApparelSizeOptions(products: Product[]) {
@@ -395,27 +412,26 @@ export function getProductCategoryKey(product: Product) {
   return getCategoryLabel(getProductCategories(product)[0] ?? product.category);
 }
 
-export const STORE_MENU_CATEGORIES = [
-  "tops",
-  "bottoms",
-  "dresses",
-  "outerwear",
-  "full-body",
-  "lingerie",
-  "kinkwear",
-  "sex-toys",
-  "cosplay",
-  "shoes",
-  "accessories",
-  "jewelry",
-  "bags",
-];
-
-export function getAvailableMenuCategories(vibe?: Vibe, includeNsfw = true) {
-  const pool = vibe ? PRODUCTS.filter((product) => product.vibe === vibe) : PRODUCTS;
+export function getAvailableMenuCategories(
+  productsOrVibe?: Product[] | Vibe,
+  vibeOrIncludeNsfw?: Vibe | boolean,
+  includeNsfw = true,
+) {
+  const products = Array.isArray(productsOrVibe) ? productsOrVibe : [];
+  const vibe = Array.isArray(productsOrVibe)
+    ? (typeof vibeOrIncludeNsfw === "string" ? vibeOrIncludeNsfw : undefined)
+    : (typeof productsOrVibe === "string" ? productsOrVibe : undefined);
+  const safeIncludeNsfw = Array.isArray(productsOrVibe)
+    ? includeNsfw
+    : (typeof vibeOrIncludeNsfw === "boolean" ? vibeOrIncludeNsfw : includeNsfw);
+  const pool = vibe ? products.filter((product) => product.vibe === vibe) : products;
   const available = new Set(pool.flatMap((product) => getProductCategories(product)));
-  return STORE_MENU_CATEGORIES.filter((category) => available.has(category)).map((category) => ({
-    id: category,
-    label: getCategoryLabel(category),
-  })).filter((category) => includeNsfw || !isNsfwCategory(category.id));
+
+  return Array.from(available)
+    .map((category) => ({
+      id: category,
+      label: getCategoryLabel(category),
+    }))
+    .filter((category) => safeIncludeNsfw || !isNsfwCategory(category.id))
+    .sort((a, b) => categorySortKey(a.id) - categorySortKey(b.id) || a.label.localeCompare(b.label));
 }

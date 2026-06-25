@@ -38,11 +38,15 @@ CREATE TABLE IF NOT EXISTS products (
   primary_category TEXT NOT NULL,
   is_nsfw INTEGER NOT NULL DEFAULT 0,
   is_active INTEGER NOT NULL DEFAULT 1,
+  hidden INTEGER NOT NULL DEFAULT 0,
   featured INTEGER NOT NULL DEFAULT 0,
   new_arrival INTEGER NOT NULL DEFAULT 0,
   price_cents INTEGER NOT NULL,
   compare_at_price_cents INTEGER,
   currency_code TEXT NOT NULL DEFAULT 'DOP',
+  stock INTEGER,
+  product_json TEXT NOT NULL DEFAULT '{}',
+  sort_order INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -110,28 +114,28 @@ CREATE TABLE IF NOT EXISTS addresses (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS orders (
+CREATE TABLE IF NOT EXISTS inquiries (
   id TEXT PRIMARY KEY,
-  order_number TEXT NOT NULL UNIQUE,
+  request_number TEXT NOT NULL UNIQUE,
   customer_id TEXT,
   customer_email TEXT NOT NULL,
   customer_name TEXT,
   customer_phone TEXT,
-  status TEXT NOT NULL DEFAULT 'pending_payment',
-  payment_status TEXT NOT NULL DEFAULT 'pending',
-  payment_method TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'new',
+  channel TEXT NOT NULL,
   subtotal_cents INTEGER NOT NULL,
   shipping_cents INTEGER NOT NULL DEFAULT 0,
   discount_cents INTEGER NOT NULL DEFAULT 0,
   total_cents INTEGER NOT NULL,
   currency_code TEXT NOT NULL DEFAULT 'DOP',
   notes TEXT,
+  items_json TEXT NOT NULL DEFAULT '[]',
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS order_items (
+CREATE TABLE IF NOT EXISTS inquiry_items (
   id TEXT PRIMARY KEY,
-  order_id TEXT NOT NULL,
+  inquiry_id TEXT NOT NULL,
   product_id TEXT NOT NULL,
   variant_id TEXT,
   product_name TEXT NOT NULL,
@@ -151,13 +155,19 @@ CREATE TABLE IF NOT EXISTS discounts (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS order_status_history (
+CREATE TABLE IF NOT EXISTS inquiry_status_history (
   id TEXT PRIMARY KEY,
-  order_id TEXT NOT NULL,
+  inquiry_id TEXT NOT NULL,
   status TEXT NOT NULL,
   note TEXT,
   changed_by TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS order_sequences (
+  key TEXT PRIMARY KEY,
+  current_value INTEGER NOT NULL DEFAULT -1,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS audit_logs (

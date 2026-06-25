@@ -4,7 +4,8 @@ import { useCart } from "@/context/cart";
 import { formatPrice } from "@/data/products";
 
 export const Route = createFileRoute("/carrito")({
-  head: () => ({ meta: [{ title: "Carrito — Pulpiña RD" }] }),
+  ssr: false,
+  head: () => ({ meta: [{ title: "Carrito - Pulpiña RD" }] }),
   component: CartPage,
 });
 
@@ -13,18 +14,13 @@ function CartPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
+      <p className="text-[11px] font-black uppercase tracking-[0.24em] text-muted-foreground">Resumen</p>
       <h1 className="text-2xl sm:text-3xl md:text-4xl">Tu carrito</h1>
-      {!cart.configured && (
-        <p className="mt-3 text-sm text-muted-foreground">
-          Estás viendo el carrito en modo preview. Cuando conectes Shopify, este flujo pasará a usar
-          el checkout real.
-        </p>
-      )}
 
       {cart.lines.length === 0 ? (
         <div className="mt-8 rounded-xl border border-dashed border-foreground/25 py-12 text-center sm:mt-10 sm:py-16">
           <OctopusMark className="mx-auto h-16 w-16 text-foreground wobble sm:h-20 sm:w-20" />
-          <p className="mt-3 font-display text-xl sm:text-2xl">Aún no hay nada por aquí</p>
+          <p className="mt-3 font-display text-xl sm:text-2xl">Aun no hay nada por aqui</p>
           <Link
             to="/tienda"
             className="sticker mt-5 inline-block rounded-full border border-foreground/20 bg-accent px-6 py-3 font-bold uppercase text-accent-foreground"
@@ -65,13 +61,13 @@ function CartPage() {
                       >
                         {line.productTitle}
                       </Link>
-                      {line.selectedOptions.length > 0 && (
+                      {line.selectedOptions.length > 0 ? (
                         <div className="text-xs text-muted-foreground">
                           {line.selectedOptions
                             .map((option) => `${option.name}: ${option.value}`)
                             .join(" · ")}
                         </div>
-                      )}
+                      ) : null}
                     </div>
                     <div className="text-left font-bold sm:text-right">
                       {formatPrice(line.price * line.quantity, line.currencyCode)}
@@ -83,7 +79,7 @@ function CartPage() {
                         onClick={() => void cart.update(line.id, line.quantity - 1)}
                         className="px-3 py-1"
                       >
-                        −
+                        -
                       </button>
                       <span className="px-2 text-sm font-bold">{line.quantity}</span>
                       <button
@@ -113,8 +109,8 @@ function CartPage() {
                 <span>{formatPrice(cart.subtotal, cart.currencyCode)}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
-                <span>Envío</span>
-                <span>{cart.checkoutUrl ? "Calculado en checkout" : "Preview"}</span>
+                <span>Envio</span>
+                <span>Se confirma por mensaje</span>
               </div>
             </div>
             <div className="mt-4 flex justify-between border-t border-border pt-3 font-display text-xl">
@@ -122,12 +118,15 @@ function CartPage() {
               <span>{formatPrice(cart.subtotal, cart.currencyCode)}</span>
             </div>
             <Link
-              to="/checkout"
+              to="/solicitud"
               className="sticker mt-5 block rounded-full border border-foreground/20 bg-foreground px-6 py-3 text-center font-bold uppercase text-background"
             >
-              Finalizar compra
+              Completar pedido
             </Link>
-            <Link to="/tienda" className="mt-2 block text-center text-sm font-semibold hover:underline">
+            <Link
+              to="/tienda"
+              className="mt-2 block text-center text-sm font-semibold hover:underline"
+            >
               Continuar comprando
             </Link>
           </aside>

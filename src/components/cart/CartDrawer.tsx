@@ -124,11 +124,11 @@ export function CartDrawer() {
               <span className="font-bold">{formatPrice(cart.subtotal, cart.currencyCode)}</span>
             </div>
             <Link
-              to="/checkout"
+              to="/solicitud"
               onClick={() => cart.setOpen(false)}
               className="block w-full rounded-full bg-foreground py-3 text-center text-sm font-bold uppercase tracking-wider text-background hover:opacity-90"
             >
-              Finalizar compra
+              Enviar solicitud
             </Link>
             <button
               onClick={() => cart.setOpen(false)}

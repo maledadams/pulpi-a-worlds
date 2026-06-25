@@ -1,0 +1,523 @@
+- generic [ref=e1]:
+  - button "MCP Connected v3.0.2 Output Detail Standard React Components Hide Until Restart Marker Color Clear on copy/send Block page interactions Manage MCP & Webhooks Manage MCP & Webhooks MCP Connection Connected MCP connection allows agents to receive and act on annotations. Learn more Webhooks Auto-Send The webhook URL will receive live annotation changes and annotation data." [ref=e252] [cursor=pointer]:
+    - img [ref=e254]
+    - generic:
+      - generic:
+        - button:
+          - img
+      - generic:
+        - button:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button [disabled]:
+          - img
+      - generic:
+        - button:
+          - img
+        - generic "MCP Connected"
+      - generic:
+        - button:
+          - img
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - link:
+              - /url: https://agentation.com
+              - img
+            - paragraph: v3.0.2
+            - button "Switch to light mode":
+              - generic:
+                - generic:
+                  - img
+          - generic:
+            - generic:
+              - generic:
+                - text: Output Detail
+                - generic:
+                  - img
+              - button "Standard":
+                - generic: Standard
+            - generic:
+              - generic:
+                - text: React Components
+                - generic:
+                  - img
+              - generic:
+                - checkbox [checked]
+            - generic:
+              - generic:
+                - text: Hide Until Restart
+                - generic:
+                  - img
+              - generic:
+                - checkbox
+          - generic:
+            - generic: Marker Color
+            - generic:
+              - button "Indigo"
+              - button "Blue"
+              - button "Cyan"
+              - button "Green"
+              - button "Yellow"
+              - button "Orange"
+              - button "Red"
+          - generic:
+            - generic:
+              - generic:
+                - checkbox "Clear on copy/send"
+                - img
+              - generic: Clear on copy/send
+              - generic:
+                - img
+            - generic:
+              - generic:
+                - checkbox "Block page interactions" [checked]
+                - img
+              - generic: Block page interactions
+          - button "Manage MCP & Webhooks":
+            - generic: Manage MCP & Webhooks
+            - generic:
+              - img
+        - generic:
+          - button "Manage MCP & Webhooks":
+            - img
+            - generic: Manage MCP & Webhooks
+          - generic:
+            - generic:
+              - generic:
+                - text: MCP Connection
+                - generic:
+                  - img
+              - generic "Connected"
+            - paragraph:
+              - text: MCP connection allows agents to receive and act on annotations.
+              - link "Learn more":
+                - /url: https://agentation.dev/mcp
+          - generic:
+            - generic:
+              - generic:
+                - text: Webhooks
+                - generic:
+                  - img
+              - generic:
+                - generic: Auto-Send
+                - generic:
+                  - checkbox "Auto-Send" [checked] [disabled]
+            - paragraph: The webhook URL will receive live annotation changes and annotation data.
+            - textbox "Webhook URL"
+  - generic [ref=e258]:
+    - complementary [ref=e259]:
+      - generic [ref=e260]:
+        - img [ref=e262]
+        - generic [ref=e266]:
+          - generic [ref=e267]: Admin
+          - generic [ref=e268]: Pulpiña Store
+      - navigation [ref=e269]:
+        - link "Resumen" [ref=e270] [cursor=pointer]:
+          - /url: /admin
+          - img [ref=e271]
+          - generic [ref=e276]: Resumen
+        - link "Productos" [ref=e277] [cursor=pointer]:
+          - /url: /admin/productos
+          - img [ref=e278]
+          - generic [ref=e280]: Productos
+        - link "Categorias" [ref=e281] [cursor=pointer]:
+          - /url: /admin/categorias
+          - img [ref=e282]
+          - generic [ref=e292]: Categorias
+        - link "Colecciones" [ref=e293] [cursor=pointer]:
+          - /url: /admin/colecciones
+          - img [ref=e294]
+          - generic [ref=e296]: Colecciones
+        - link "Pedidos" [ref=e297] [cursor=pointer]:
+          - /url: /admin/pedidos
+          - img [ref=e298]
+          - generic [ref=e301]: Pedidos
+        - link "Descuentos" [ref=e302] [cursor=pointer]:
+          - /url: /admin/descuentos
+          - img [ref=e303]
+          - generic [ref=e307]: Descuentos
+        - link "Admin" [ref=e308] [cursor=pointer]:
+          - /url: /admin/configuracion
+          - img [ref=e309]
+          - generic [ref=e312]: Admin
+    - generic [ref=e313]:
+      - banner [ref=e314]:
+        - generic [ref=e315]:
+          - heading "Pedidos" [level=1] [ref=e317]
+          - button "Cerrar manual" [active] [ref=e506]
+      - main [ref=e320]:
+        - generic [ref=e321]:
+          - generic [ref=e322]:
+            - generic [ref=e324]:
+              - button "Todas" [ref=e325]
+              - button "Nueva" [ref=e326]
+              - button "Seguimiento" [ref=e327]
+              - button "Cotizada" [ref=e328]
+              - button "Cerrada" [ref=e329]
+              - button "Cancelada" [ref=e330]
+            - generic [ref=e331]:
+              - generic [ref=e332]:
+                - textbox "Buscar por numero PUL, cliente, email o telefono" [ref=e333]
+                - generic [ref=e334]: 6 pedidos
+              - table [ref=e336]:
+                - rowgroup [ref=e337]:
+                  - row "Pedido Cliente Canal Estado Referencia" [ref=e338]:
+                    - columnheader "Pedido" [ref=e339]
+                    - columnheader "Cliente" [ref=e340]
+                    - columnheader "Canal" [ref=e341]
+                    - columnheader "Estado" [ref=e342]
+                    - columnheader "Referencia" [ref=e343]
+                - rowgroup [ref=e344]:
+                  - row "PUL-000000 14/6/2026 Camila Marte 809-555-0101 WhatsApp Cerrada RD$8,450.00" [ref=e345] [cursor=pointer]:
+                    - cell "PUL-000000 14/6/2026" [ref=e346]:
+                      - generic [ref=e347]: PUL-000000
+                      - generic [ref=e348]: 14/6/2026
+                    - cell "Camila Marte 809-555-0101" [ref=e349]:
+                      - generic [ref=e350]: Camila Marte
+                      - generic [ref=e351]: 809-555-0101
+                    - cell "WhatsApp" [ref=e352]
+                    - cell "Cerrada" [ref=e353]:
+                      - generic [ref=e354]: Cerrada
+                    - cell "RD$8,450.00" [ref=e355]
+                  - row "PUL-000001 10/6/2026 Mia Rosario 829-555-0102 Formulario Cotizada RD$13,150.00" [ref=e356] [cursor=pointer]:
+                    - cell "PUL-000001 10/6/2026" [ref=e357]:
+                      - generic [ref=e358]: PUL-000001
+                      - generic [ref=e359]: 10/6/2026
+                    - cell "Mia Rosario 829-555-0102" [ref=e360]:
+                      - generic [ref=e361]: Mia Rosario
+                      - generic [ref=e362]: 829-555-0102
+                    - cell "Formulario" [ref=e363]
+                    - cell "Cotizada" [ref=e364]:
+                      - generic [ref=e365]: Cotizada
+                    - cell "RD$13,150.00" [ref=e366]
+                  - row "PUL-000002 3/6/2026 Jose Delgado 849-555-0103 Instagram Seguimiento RD$5,600.00" [ref=e367] [cursor=pointer]:
+                    - cell "PUL-000002 3/6/2026" [ref=e368]:
+                      - generic [ref=e369]: PUL-000002
+                      - generic [ref=e370]: 3/6/2026
+                    - cell "Jose Delgado 849-555-0103" [ref=e371]:
+                      - generic [ref=e372]: Jose Delgado
+                      - generic [ref=e373]: 849-555-0103
+                    - cell "Instagram" [ref=e374]
+                    - cell "Seguimiento" [ref=e375]:
+                      - generic [ref=e376]: Seguimiento
+                    - cell "RD$5,600.00" [ref=e377]
+                  - row "PUL-000003 1/6/2026 Laura Pena 809-555-0104 Email Cancelada RD$3,650.00" [ref=e378] [cursor=pointer]:
+                    - cell "PUL-000003 1/6/2026" [ref=e379]:
+                      - generic [ref=e380]: PUL-000003
+                      - generic [ref=e381]: 1/6/2026
+                    - cell "Laura Pena 809-555-0104" [ref=e382]:
+                      - generic [ref=e383]: Laura Pena
+                      - generic [ref=e384]: 809-555-0104
+                    - cell "Email" [ref=e385]
+                    - cell "Cancelada" [ref=e386]:
+                      - generic [ref=e387]: Cancelada
+                    - cell "RD$3,650.00" [ref=e388]
+                  - row "PUL-000004 22/1/2026 Nadia Castillo 849-555-0105 Instagram Cerrada RD$4,150.00" [ref=e389] [cursor=pointer]:
+                    - cell "PUL-000004 22/1/2026" [ref=e390]:
+                      - generic [ref=e391]: PUL-000004
+                      - generic [ref=e392]: 22/1/2026
+                    - cell "Nadia Castillo 849-555-0105" [ref=e393]:
+                      - generic [ref=e394]: Nadia Castillo
+                      - generic [ref=e395]: 849-555-0105
+                    - cell "Instagram" [ref=e396]
+                    - cell "Cerrada" [ref=e397]:
+                      - generic [ref=e398]: Cerrada
+                    - cell "RD$4,150.00" [ref=e399]
+                  - row "PUL-000005 8/11/2025 Erick Santana 809-555-0106 WhatsApp Cerrada RD$5,600.00" [ref=e400] [cursor=pointer]:
+                    - cell "PUL-000005 8/11/2025" [ref=e401]:
+                      - generic [ref=e402]: PUL-000005
+                      - generic [ref=e403]: 8/11/2025
+                    - cell "Erick Santana 809-555-0106" [ref=e404]:
+                      - generic [ref=e405]: Erick Santana
+                      - generic [ref=e406]: 809-555-0106
+                    - cell "WhatsApp" [ref=e407]
+                    - cell "Cerrada" [ref=e408]:
+                      - generic [ref=e409]: Cerrada
+                    - cell "RD$5,600.00" [ref=e410]
+          - generic [ref=e411]:
+            - generic [ref=e507]:
+              - generic [ref=e508]:
+                - heading "Nuevo pedido manual" [level=2] [ref=e510]
+                - button "Crear pedido" [ref=e511]
+              - generic [ref=e513]:
+                - generic [ref=e514]:
+                  - generic [ref=e515]:
+                    - generic [ref=e516]: Nombre
+                    - textbox "Nombre" [ref=e517]
+                  - generic [ref=e518]:
+                    - generic [ref=e519]: Email
+                    - textbox "Email" [ref=e520]
+                - generic [ref=e521]:
+                  - generic [ref=e522]:
+                    - generic [ref=e523]: WhatsApp o telefono
+                    - textbox "WhatsApp o telefono" [ref=e524]
+                  - generic [ref=e525]:
+                    - generic [ref=e526]: Canal
+                    - combobox "Canal" [ref=e527]:
+                      - option "WhatsApp" [selected]
+                      - option "Instagram"
+                      - option "Formulario"
+                      - option "Email"
+                - generic [ref=e528]:
+                  - generic [ref=e529]: Estado inicial
+                  - combobox "Estado inicial" [ref=e530]:
+                    - option "Nueva" [selected]
+                    - option "Seguimiento"
+                    - option "Cotizada"
+                    - option "Cerrada"
+                    - option "Cancelada"
+                - generic [ref=e531]:
+                  - generic [ref=e532]:
+                    - generic [ref=e533]: Envio
+                    - spinbutton "Envio" [ref=e534]: "0"
+                  - generic [ref=e535]:
+                    - generic [ref=e536]: Descuento
+                    - spinbutton "Descuento" [ref=e537]: "0"
+                - generic [ref=e538]:
+                  - generic [ref=e539]:
+                    - generic [ref=e540]: Pago
+                    - combobox "Pago" [ref=e541]:
+                      - option "Pendiente" [selected]
+                      - option "Confirmado"
+                      - option "Cancelado"
+                  - generic [ref=e542]:
+                    - generic [ref=e543]: Referencia externa
+                    - textbox "Referencia externa" [ref=e544]
+                - generic [ref=e545]:
+                  - generic [ref=e546]: Tags internas
+                  - textbox "Tags internas" [ref=e547]:
+                    - /placeholder: manual, instagram, feria
+                - generic [ref=e548]:
+                  - generic [ref=e550]:
+                    - generic [ref=e551]:
+                      - generic [ref=e552]: Producto
+                      - combobox "Producto" [ref=e553]:
+                        - option "Anarchy Distressed Tee" [selected]
+                        - option "Angel Cosplay Set"
+                        - option "Candelabro Bag"
+                        - option "Collar de Perlas Bling"
+                        - option "Combat Boots"
+                        - option "Eclipse Vibe"
+                        - option "Glitter Heart Tee"
+                        - option "Heart Harness"
+                        - option "Kawaii Platforms"
+                        - option "Kraken Cap"
+                        - option "Leopardo Rosa Set"
+                        - option "Listen To The Voiceless Jacket"
+                        - option "Luna Corset"
+                        - option "Midnight Lace Set"
+                        - option "Mini Phone Bag"
+                        - option "Ojo Tote"
+                        - option "Patch Cargo Pants"
+                        - option "Pulpa Hoodie"
+                        - option "Rosa Podrida Dress"
+                        - option "Starlight Catsuit"
+                        - option "Stud Belt"
+                        - option "Tentáculo Tee"
+                        - option "Tercer Ojo Choker"
+                        - option "Veil Lace Skirt"
+                        - option "Velvet Harness"
+                        - option "Y2K Mini Skirt"
+                    - generic [ref=e554]:
+                      - generic [ref=e555]:
+                        - generic [ref=e556]: Variante
+                        - combobox "Variante" [ref=e557]:
+                          - option "XS" [selected]
+                          - option "S"
+                          - option "M"
+                          - option "L"
+                          - option "XL"
+                      - generic [ref=e558]:
+                        - generic [ref=e559]: Cantidad
+                        - spinbutton "Cantidad" [ref=e560]: "1"
+                      - button "Quitar" [disabled] [ref=e562]
+                  - button "Agregar linea" [ref=e563]
+                - generic [ref=e565]:
+                  - generic [ref=e566]: Total de referencia
+                  - generic [ref=e567]: RD$1,600.00
+                - generic [ref=e568]:
+                  - generic [ref=e569]: Notas
+                  - textbox "Notas" [ref=e570]
+            - generic [ref=e412]:
+              - generic [ref=e413]:
+                - heading "Detalles" [level=2] [ref=e415]
+                - button "Guardar" [ref=e416]
+              - generic [ref=e418]:
+                - generic [ref=e419]:
+                  - generic [ref=e420]: PUL-000000
+                  - generic [ref=e421]: Creado el 14/6/2026, 10:35:00 a. m.
+                  - generic [ref=e422]: El cliente debe escribir por WhatsApp y mencionar este numero para completar la compra.
+                - generic [ref=e423]:
+                  - generic [ref=e424]:
+                    - generic [ref=e425]: Nombre
+                    - textbox "Nombre" [ref=e426]: Camila Marte
+                  - generic [ref=e427]:
+                    - generic [ref=e428]: Email
+                    - textbox "Email" [ref=e429]: camila@example.com
+                - generic [ref=e430]:
+                  - generic [ref=e431]:
+                    - generic [ref=e432]: WhatsApp o telefono
+                    - textbox "WhatsApp o telefono" [ref=e433]: 809-555-0101
+                  - generic [ref=e434]:
+                    - generic [ref=e435]: Canal
+                    - combobox "Canal" [ref=e436]:
+                      - option "Formulario"
+                      - option "WhatsApp" [selected]
+                      - option "Instagram"
+                      - option "Email"
+                - generic [ref=e437]:
+                  - generic [ref=e438]:
+                    - generic [ref=e439]: Estado
+                    - combobox "Estado" [ref=e440]:
+                      - option "Nueva"
+                      - option "Seguimiento"
+                      - option "Cotizada"
+                      - option "Cerrada" [selected]
+                      - option "Cancelada"
+                  - generic [ref=e441]:
+                    - generic [ref=e442]:
+                      - generic [ref=e443]: Pago
+                      - combobox "Pago" [ref=e444]:
+                        - option "Pendiente"
+                        - option "Confirmado" [selected]
+                        - option "Cancelado"
+                    - generic [ref=e445]:
+                      - generic [ref=e446]: Referencia externa
+                      - textbox "Referencia externa" [ref=e447]
+                  - generic [ref=e448]:
+                    - generic [ref=e449]:
+                      - generic [ref=e450]: Envio
+                      - spinbutton "Envio" [ref=e451]: "250"
+                    - generic [ref=e452]:
+                      - generic [ref=e453]: Descuento
+                      - spinbutton "Descuento" [ref=e454]: "0"
+                  - generic [ref=e455]:
+                    - generic [ref=e456]: Tags internas
+                    - textbox "Tags internas" [ref=e457]
+                - generic [ref=e458]:
+                  - generic [ref=e459]: Productos
+                  - generic [ref=e460]:
+                    - generic [ref=e461]:
+                      - generic [ref=e462]:
+                        - generic [ref=e463]:
+                          - generic [ref=e464]: Producto
+                          - combobox "Producto" [ref=e465]:
+                            - option "Anarchy Distressed Tee"
+                            - option "Angel Cosplay Set"
+                            - option "Candelabro Bag"
+                            - option "Collar de Perlas Bling"
+                            - option "Combat Boots"
+                            - option "Eclipse Vibe"
+                            - option "Glitter Heart Tee"
+                            - option "Heart Harness"
+                            - option "Kawaii Platforms"
+                            - option "Kraken Cap"
+                            - option "Leopardo Rosa Set"
+                            - option "Listen To The Voiceless Jacket"
+                            - option "Luna Corset"
+                            - option "Midnight Lace Set" [selected]
+                            - option "Mini Phone Bag"
+                            - option "Ojo Tote"
+                            - option "Patch Cargo Pants"
+                            - option "Pulpa Hoodie"
+                            - option "Rosa Podrida Dress"
+                            - option "Starlight Catsuit"
+                            - option "Stud Belt"
+                            - option "Tentáculo Tee"
+                            - option "Tercer Ojo Choker"
+                            - option "Veil Lace Skirt"
+                            - option "Velvet Harness"
+                            - option "Y2K Mini Skirt"
+                        - generic [ref=e466]:
+                          - generic [ref=e467]: Variante
+                          - combobox "Variante" [ref=e468]:
+                            - option "XS / Black Cherry" [selected]
+                            - option "XS / Wine"
+                            - option "S / Black Cherry"
+                            - option "S / Wine"
+                            - option "M / Black Cherry"
+                            - option "M / Wine"
+                            - option "L / Black Cherry"
+                            - option "L / Wine"
+                            - option "XL / Black Cherry"
+                            - option "XL / Wine"
+                        - generic [ref=e469]:
+                          - generic [ref=e470]: Cantidad
+                          - spinbutton "Cantidad" [ref=e471]: "1"
+                      - generic [ref=e472]:
+                        - generic [ref=e473]: XS / Black Cherry / RD$3,600.00 c/u
+                        - button "Quitar linea" [ref=e474]
+                    - generic [ref=e475]:
+                      - generic [ref=e476]:
+                        - generic [ref=e477]:
+                          - generic [ref=e478]: Producto
+                          - combobox "Producto" [ref=e479]:
+                            - option "Anarchy Distressed Tee"
+                            - option "Angel Cosplay Set"
+                            - option "Candelabro Bag"
+                            - option "Collar de Perlas Bling"
+                            - option "Combat Boots"
+                            - option "Eclipse Vibe"
+                            - option "Glitter Heart Tee"
+                            - option "Heart Harness"
+                            - option "Kawaii Platforms"
+                            - option "Kraken Cap"
+                            - option "Leopardo Rosa Set"
+                            - option "Listen To The Voiceless Jacket"
+                            - option "Luna Corset"
+                            - option "Midnight Lace Set"
+                            - option "Mini Phone Bag"
+                            - option "Ojo Tote"
+                            - option "Patch Cargo Pants"
+                            - option "Pulpa Hoodie"
+                            - option "Rosa Podrida Dress"
+                            - option "Starlight Catsuit"
+                            - option "Stud Belt"
+                            - option "Tentáculo Tee"
+                            - option "Tercer Ojo Choker"
+                            - option "Veil Lace Skirt"
+                            - option "Velvet Harness" [selected]
+                            - option "Y2K Mini Skirt"
+                        - generic [ref=e480]:
+                          - generic [ref=e481]: Variante
+                          - combobox "Variante" [ref=e482]:
+                            - option "S / Black"
+                            - option "S / Oxblood" [selected]
+                            - option "M / Black"
+                            - option "M / Oxblood"
+                            - option "L / Black"
+                            - option "L / Oxblood"
+                        - generic [ref=e483]:
+                          - generic [ref=e484]: Cantidad
+                          - spinbutton "Cantidad" [ref=e485]: "2"
+                      - generic [ref=e486]:
+                        - generic [ref=e487]: S / Oxblood / RD$2,300.00 c/u
+                        - button "Quitar linea" [ref=e488]
+                    - button "Agregar linea" [ref=e489]
+                - generic [ref=e490]:
+                  - generic [ref=e491]:
+                    - generic [ref=e492]: Subtotal estimado
+                    - generic [ref=e493]: RD$8,200.00
+                  - generic [ref=e494]:
+                    - generic [ref=e495]: Envio
+                    - generic [ref=e496]: RD$250.00
+                  - generic [ref=e497]:
+                    - generic [ref=e498]: Descuento
+                    - generic [ref=e499]: "-RD$0.00"
+                  - generic [ref=e500]:
+                    - generic [ref=e501]: Total de referencia
+                    - generic [ref=e502]: RD$8,450.00
+                - generic [ref=e503]:
+                  - generic [ref=e504]: Notas
+                  - textbox "Notas" [ref=e505]: Compra cerrada por WhatsApp con entrega local.

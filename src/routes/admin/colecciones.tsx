@@ -9,16 +9,20 @@ import {
   AdminInput,
   AdminPagination,
   AdminSelect,
+  AdminToast,
   AdminTextarea,
+  confirmAdminDestructiveAction,
+  getAdminVibeButtonClassName,
 } from "@/components/admin/AdminControls";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import {
-  ADMIN_CATEGORIES,
-  ADMIN_COLLECTIONS,
-  ADMIN_PRODUCTS,
-  getCompactCategoryLabel,
-  getVibeLabel,
-} from "@/lib/admin-service";
+  deleteAdminCollection,
+  getAdminCategories,
+  getAdminCollections,
+  saveAdminCollection,
+} from "@/lib/admin-content";
+import { getAdminCatalogProducts } from "@/lib/catalog";
+import { getCompactCategoryLabel, getVibeLabel } from "@/lib/admin-service";
 import type { AdminCollectionRecord } from "@/lib/admin-types";
 
 const PAGE_SIZE = 6;
@@ -38,21 +42,44 @@ function createBlankCollection(): AdminCollectionRecord {
     name: "",
     description: "",
     vibe: "store",
+    published: true,
     featured: false,
+    showOnHome: false,
+    homeOrder: 0,
     categoryIds: [],
     productIds: [],
   };
 }
 
+function getResolvedCollectionCount(collection: AdminCollectionRecord, products: Awaited<ReturnType<typeof getAdminCatalogProducts>>) {
+  const scopedProducts =
+    collection.vibe === "store"
+      ? products
+      : products.filter((product) => product.vibe === collection.vibe);
+  const explicitIds = collection.productIds;
+  const categoryIds = new Set(collection.categoryIds);
+  return scopedProducts.filter((product) => {
+    if (explicitIds.includes(product.id)) return true;
+    return categoryIds.size > 0 && product.categories.some((category) => categoryIds.has(category));
+  }).length;
+}
+
 export const Route = createFileRoute("/admin/colecciones")({
   beforeLoad: () => enforceAdminAccess(),
-  loader: () => ({ collections: ADMIN_COLLECTIONS }),
+  loader: async () => {
+    const products = await getAdminCatalogProducts();
+    return {
+      categories: await getAdminCategories(),
+      collections: await getAdminCollections(),
+      products,
+    };
+  },
   head: () => ({ meta: [{ title: "Admin - Colecciones" }] }),
   component: AdminCollectionsPage,
 });
 
 function AdminCollectionsPage() {
-  const { collections } = Route.useLoaderData();
+  const { categories, collections, products } = Route.useLoaderData();
   const [rows, setRows] = useState(() => collections.map(cloneCollection));
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState<"all" | "store" | "moon" | "sunshine" | "men">("all");
@@ -60,12 +87,14 @@ function AdminCollectionsPage() {
   const [selectedId, setSelectedId] = useState(collections[0]?.id ?? "");
   const [draft, setDraft] = useState<AdminCollectionRecord | null>(collections[0] ? cloneCollection(collections[0]) : null);
   const [saveMessage, setSaveMessage] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [productQuery, setProductQuery] = useState("");
 
   const filtered = useMemo(() => {
     const lowered = query.trim().toLowerCase();
     return rows.filter((collection) => {
       const matchesScope = scope === "all" || collection.vibe === scope;
-      const haystack = `${collection.name} ${collection.slug} ${collection.description}`.toLowerCase();
+      const haystack = `${collection.name} ${collection.description}`.toLowerCase();
       return matchesScope && haystack.includes(lowered);
     });
   }, [rows, query, scope]);
@@ -77,8 +106,16 @@ function AdminCollectionsPage() {
 
   const assignableProducts = useMemo(() => {
     if (!draft) return [];
-    return ADMIN_PRODUCTS.filter((product) => draft.vibe === "store" || product.vibe === draft.vibe);
-  }, [draft]);
+    return products.filter((product) => draft.vibe === "store" || product.vibe === draft.vibe);
+  }, [draft, products]);
+  const filteredAssignableProducts = useMemo(() => {
+    const lowered = productQuery.trim().toLowerCase();
+    return assignableProducts.filter((product) => {
+      if (!lowered) return true;
+      const haystack = `${product.name} ${product.id} ${product.slug} ${product.tags.join(" ")}`.toLowerCase();
+      return haystack.includes(lowered);
+    });
+  }, [assignableProducts, productQuery]);
 
   useEffect(() => {
     setPage(0);
@@ -103,7 +140,14 @@ function AdminCollectionsPage() {
     }
 
     setDraft(cloneCollection(selected));
+    setProductQuery("");
   }, [selected]);
+
+  useEffect(() => {
+    if (!saveMessage) return;
+    const timeout = window.setTimeout(() => setSaveMessage(""), 2600);
+    return () => window.clearTimeout(timeout);
+  }, [saveMessage]);
 
   const toggleCategory = (categoryId: string) => {
     setDraft((current) => {
@@ -140,34 +184,85 @@ function AdminCollectionsPage() {
 
     const normalized = {
       ...draft,
-      slug: draft.slug.trim().toLowerCase().replace(/\s+/g, "-"),
+      slug: draft.name.trim().toLowerCase().replace(/\s+/g, "-"),
       name: draft.name.trim(),
       description: draft.description.trim(),
     };
 
-    setRows((current) => current.map((collection) => (collection.id === draft.id ? normalized : collection)));
-    setSaveMessage("Coleccion lista en la interfaz. Falta persistencia real.");
+    void saveAdminCollection({ data: normalized })
+      .then((saved) => {
+        setRows((current) => {
+          const exists = current.some((collection) => collection.id === draft.id || collection.id === saved.id);
+          if (!exists) return [saved, ...current];
+          return current.map((collection) =>
+            collection.id === draft.id || collection.id === saved.id ? saved : collection,
+          );
+        });
+        setSelectedId(saved.id);
+        setDraft(cloneCollection(saved));
+        setSaveMessage("Coleccion guardada.");
+      })
+      .catch(() => {
+        setSaveMessage("No se pudo guardar la coleccion ahora mismo.");
+      });
+  };
+
+  const handleDelete = () => {
+    if (!draft) return;
+    if (
+      !confirmAdminDestructiveAction(
+        `Vas a eliminar la coleccion ${draft.name || draft.id}. Esta accion no se puede deshacer. ¿Quieres continuar?`,
+      )
+    ) {
+      return;
+    }
+
+    if (draft.id.startsWith("draft-collection-")) {
+      setRows((current) => current.filter((collection) => collection.id !== draft.id));
+      setSaveMessage("Coleccion draft eliminada.");
+      return;
+    }
+
+    setIsDeleting(true);
+    setSaveMessage("");
+    void deleteAdminCollection({ data: { id: draft.id } })
+      .then(() => {
+        setRows((current) => current.filter((collection) => collection.id !== draft.id));
+        setSaveMessage("Coleccion eliminada.");
+      })
+      .catch((error) => {
+        setSaveMessage(error instanceof Error ? error.message : "No se pudo eliminar la coleccion.");
+      })
+      .finally(() => {
+        setIsDeleting(false);
+      });
   };
 
   return (
     <AdminShell
       section="colecciones"
       title="Colecciones"
-      subtitle="Merchandising compacto: drops, edits y sets visibles sin hacerlas navegar entre pantallas largas."
       actions={
         <AdminButton tone="primary" onClick={handleCreate}>
           Nueva coleccion
         </AdminButton>
       }
     >
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_420px]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(460px,0.95fr)]">
         <AdminPanel
-          title="Colecciones"
-          eyebrow="Merchandising"
           actions={
             <div className="flex flex-wrap gap-2">
               {(["all", "store", "moon", "sunshine", "men"] as const).map((entry) => (
-                <AdminButton key={entry} tone={scope === entry ? "primary" : "ghost"} onClick={() => setScope(entry)}>
+                <AdminButton
+                  key={entry}
+                  tone={entry === "all" || entry === "store" ? (scope === entry ? "active" : "ghost") : "custom"}
+                  className={
+                    entry === "moon" || entry === "sunshine" || entry === "men"
+                      ? getAdminVibeButtonClassName(entry, scope === entry)
+                      : undefined
+                  }
+                  onClick={() => setScope(entry)}
+                >
                   {entry === "all" ? "Todas" : getVibeLabel(entry)}
                 </AdminButton>
               ))}
@@ -178,7 +273,7 @@ function AdminCollectionsPage() {
             <AdminInput
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Buscar por nombre, slug o descripcion"
+              placeholder="Buscar por nombre o descripcion"
             />
             <div className="shrink-0 rounded-xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2.5 text-sm font-semibold">
               {filtered.length} colecciones
@@ -212,13 +307,16 @@ function AdminCollectionsPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="text-sm font-black">{collection.name || "Sin nombre"}</div>
-                        <div className="mt-1 text-xs text-[#6b5a55]">{collection.slug || "sin-slug"}</div>
                       </div>
-                      {collection.featured ? <AdminTag tone="dark">Destacada</AdminTag> : null}
+                      <div className="flex flex-wrap justify-end gap-1">
+                        {collection.published ? <AdminTag tone="dark">Publica</AdminTag> : <AdminTag tone="warn">Oculta</AdminTag>}
+                        {collection.featured ? <AdminTag tone="dark">Destacada</AdminTag> : null}
+                        {collection.showOnHome ? <AdminTag tone="soft">Inicio #{collection.homeOrder}</AdminTag> : null}
+                      </div>
                     </div>
-                    <div className="mt-3 flex flex-wrap gap-1">
+                      <div className="mt-3 flex flex-wrap gap-1">
                       <AdminTag>{getVibeLabel(collection.vibe)}</AdminTag>
-                      <AdminTag>{collection.productIds.length} productos</AdminTag>
+                      <AdminTag>{getResolvedCollectionCount(collection, products)} productos</AdminTag>
                     </div>
                   </button>
                 ))}
@@ -232,26 +330,21 @@ function AdminCollectionsPage() {
 
         <AdminPanel
           title={draft?.name || "Editor"}
-          eyebrow="Detalle"
           actions={
-            <AdminButton tone="primary" onClick={handleSave} disabled={!draft}>
-              Guardar
-            </AdminButton>
+            <div className="flex flex-wrap gap-2">
+              <AdminButton tone="danger" onClick={handleDelete} disabled={!draft || isDeleting}>
+                {isDeleting ? "Eliminando..." : "Eliminar"}
+              </AdminButton>
+              <AdminButton tone="primary" onClick={handleSave} disabled={!draft || isDeleting}>
+                Guardar
+              </AdminButton>
+            </div>
           }
         >
           {draft ? (
             <div className="grid gap-4">
-              {saveMessage ? (
-                <div className="rounded-2xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2 text-xs font-semibold text-[#5f4941]">
-                  {saveMessage}
-                </div>
-              ) : null}
-
               <AdminField label="Nombre">
                 <AdminInput value={draft.name} onChange={(event) => setDraft((current) => (current ? { ...current, name: event.target.value } : current))} />
-              </AdminField>
-              <AdminField label="Slug">
-                <AdminInput value={draft.slug} onChange={(event) => setDraft((current) => (current ? { ...current, slug: event.target.value } : current))} />
               </AdminField>
               <AdminField label="Subtienda">
                 <AdminSelect value={draft.vibe} onChange={(event) => setDraft((current) => (current ? { ...current, vibe: event.target.value as AdminCollectionRecord["vibe"], productIds: [] } : current))}>
@@ -265,15 +358,51 @@ function AdminCollectionsPage() {
                 <AdminTextarea rows={4} value={draft.description} onChange={(event) => setDraft((current) => (current ? { ...current, description: event.target.value } : current))} />
               </AdminField>
               <AdminCheckbox
+                label="Publicar coleccion"
+                checked={draft.published}
+                onCheckedChange={(checked) => setDraft((current) => (current ? { ...current, published: checked } : current))}
+              />
+              <AdminCheckbox
                 label="Coleccion destacada"
                 checked={draft.featured}
                 onCheckedChange={(checked) => setDraft((current) => (current ? { ...current, featured: checked } : current))}
               />
+              <AdminCheckbox
+                label="Mostrar en inicio"
+                checked={draft.showOnHome}
+                hint="Si esta activa, esta coleccion se publica como rail editable en el inicio."
+                onCheckedChange={(checked) =>
+                  setDraft((current) =>
+                    current
+                      ? {
+                          ...current,
+                          showOnHome: checked,
+                          homeOrder: checked ? current.homeOrder : 0,
+                        }
+                      : current,
+                  )
+                }
+              />
+              <AdminField label="Orden en inicio" hint="Menor numero = aparece antes en el home.">
+                <AdminInput
+                  type="number"
+                  min={0}
+                  value={draft.homeOrder}
+                  disabled={!draft.showOnHome}
+                  onChange={(event) =>
+                    setDraft((current) =>
+                      current
+                        ? { ...current, homeOrder: Math.max(0, Number(event.target.value) || 0) }
+                        : current,
+                    )
+                  }
+                  />
+              </AdminField>
 
               <div>
                 <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">Categorias destacadas</div>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {ADMIN_CATEGORIES.map((category) => {
+                  {categories.map((category) => {
                     const active = draft.categoryIds.includes(category.id);
                     return (
                       <button
@@ -296,8 +425,15 @@ function AdminCollectionsPage() {
                   <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">Productos incluidos</div>
                   <div className="text-xs font-semibold text-[#6b5a55]">{draft.productIds.length} seleccionados</div>
                 </div>
+                <div className="mt-2">
+                  <AdminInput
+                    value={productQuery}
+                    onChange={(event) => setProductQuery(event.target.value)}
+                    placeholder="Buscar producto por nombre, id o slug"
+                  />
+                </div>
                 <div className="mt-2 grid max-h-[320px] gap-2 overflow-y-auto pr-1">
-                  {assignableProducts.map((product) => {
+                  {filteredAssignableProducts.map((product) => {
                     const active = draft.productIds.includes(product.id);
                     return (
                       <label
@@ -315,7 +451,7 @@ function AdminCollectionsPage() {
                         <span className="min-w-0">
                           <span className="block font-bold">{product.name}</span>
                           <span className="mt-0.5 block text-xs text-[#6b5a55]">
-                            {getVibeLabel(product.vibe)} · {getCompactCategoryLabel(product.primaryCategory)}
+                            {getVibeLabel(product.vibe)} / {getCompactCategoryLabel(product.primaryCategory)}
                           </span>
                         </span>
                       </label>
@@ -337,6 +473,7 @@ function AdminCollectionsPage() {
           )}
         </AdminPanel>
       </div>
+      <AdminToast message={saveMessage} />
     </AdminShell>
   );
 }

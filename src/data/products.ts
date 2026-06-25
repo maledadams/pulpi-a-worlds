@@ -1,3 +1,5 @@
+import { getProductColorHex } from "@/lib/product-colors";
+
 export type Vibe = "pulpina" | "men" | "moon" | "sunshine";
 
 export type ProductImage = {
@@ -27,6 +29,7 @@ export type Product = {
   slug: string;
   name: string;
   vibe: Vibe;
+  sortOrder?: number;
   category: string;
   categories?: string[];
   description: string;
@@ -35,6 +38,7 @@ export type Product = {
   compareAtPrice: number | null;
   currencyCode: string;
   available: boolean;
+  hidden: boolean;
   stock: number | null;
   featured: boolean;
   newArrival: boolean;
@@ -48,6 +52,13 @@ export type Product = {
   sizes?: string[];
   colors?: { name: string; hex: string }[];
   salePrice?: number | null;
+};
+
+export type StorefrontCategoryConfig = {
+  id: string;
+  isNsfw: boolean;
+  label: string;
+  sortOrder: number;
 };
 
 export type CartLine = {
@@ -65,7 +76,6 @@ export type CartLine = {
 
 export type Cart = {
   id: string;
-  checkoutUrl: string;
   totalQuantity: number;
   subtotal: number;
   currencyCode: string;
@@ -137,7 +147,23 @@ const CATEGORY_LABELS: Record<string, string> = {
   bags: "Bolsos",
 };
 
-export const CATEGORIES = Object.entries(CATEGORY_LABELS).map(([id, label]) => ({
+const DEFAULT_NSFW_CATEGORY_IDS = new Set(["lingerie", "kinkwear", "sex-toys"]);
+
+const DEFAULT_CATEGORY_CONFIG = Object.entries(CATEGORY_LABELS).map(
+  ([id, label], index) =>
+    ({
+      id,
+      isNsfw: DEFAULT_NSFW_CATEGORY_IDS.has(id),
+      label,
+      sortOrder: index,
+    }) satisfies StorefrontCategoryConfig,
+);
+
+const runtimeCategoryConfig = new Map(
+  DEFAULT_CATEGORY_CONFIG.map((category) => [category.id, category] as const),
+);
+
+export const CATEGORIES = DEFAULT_CATEGORY_CONFIG.map(({ id, label }) => ({
   id,
   label,
 }));
@@ -166,14 +192,61 @@ const COLOR_SWATCHES: Record<string, string> = {
   wine: "#7a0e1c",
 };
 
+function humanizeCategoryId(category: string) {
+  return category
+    .trim()
+    .replace(/[-_]+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
 function toColorHex(name: string, fallback: string) {
-  const key = name.trim().toLowerCase();
-  return COLOR_SWATCHES[key] ?? fallback;
+  return getProductColorHex(name, fallback);
 }
 
 export function getCategoryLabel(category: string) {
   const normalized = category.trim().toLowerCase().replace(/\s+/g, "-");
-  return CATEGORY_LABELS[normalized] ?? category;
+  return runtimeCategoryConfig.get(normalized)?.label ?? CATEGORY_LABELS[normalized] ?? humanizeCategoryId(category);
+}
+
+export function getCategoryConfig(category: string) {
+  const normalized = category.trim().toLowerCase().replace(/\s+/g, "-");
+  return runtimeCategoryConfig.get(normalized) ?? null;
+}
+
+export function getCategorySortOrder(category: string) {
+  return getCategoryConfig(category)?.sortOrder ?? DEFAULT_CATEGORY_CONFIG.length + 100;
+}
+
+export function isConfiguredNsfwCategory(category: string) {
+  const normalized = category.trim().toLowerCase().replace(/\s+/g, "-");
+  return runtimeCategoryConfig.get(normalized)?.isNsfw ?? DEFAULT_NSFW_CATEGORY_IDS.has(normalized);
+}
+
+export function setRuntimeCategoryConfig(categories: StorefrontCategoryConfig[]) {
+  runtimeCategoryConfig.clear();
+  for (const fallback of DEFAULT_CATEGORY_CONFIG) {
+    runtimeCategoryConfig.set(fallback.id, fallback);
+  }
+
+  for (const category of categories) {
+    const normalizedId = category.id.trim().toLowerCase().replace(/\s+/g, "-");
+    if (!normalizedId) continue;
+    runtimeCategoryConfig.set(normalizedId, {
+      id: normalizedId,
+      isNsfw: category.isNsfw,
+      label: category.label.trim() || humanizeCategoryId(normalizedId),
+      sortOrder: Math.max(0, Number(category.sortOrder) || 0),
+    });
+  }
+}
+
+export function getRuntimeCategoryConfig() {
+  return Array.from(runtimeCategoryConfig.values()).sort(
+    (a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label),
+  );
 }
 
 export function formatPrice(amount: number, currencyCode = "DOP") {
@@ -199,8 +272,9 @@ type MockProductInput = {
   featured?: boolean;
   newArrival?: boolean;
   available?: boolean;
+  hidden?: boolean;
   stock?: number;
-  compareAtPrice?: number;
+  compareAtPrice?: number | null;
   tags?: string[];
   sizes?: string[];
   colors?: string[];
@@ -217,6 +291,7 @@ function createMockProduct({
   featured = false,
   newArrival = false,
   available = true,
+  hidden = false,
   stock = 12,
   compareAtPrice = null,
   tags = [],
@@ -245,6 +320,7 @@ function createMockProduct({
     slug: id,
     name,
     vibe,
+    sortOrder: 0,
     category,
     categories: categories ?? [category],
     description: "Pieza alternativa diseñada en República Dominicana. Edición limitada del universo Pulpiña.",
@@ -254,6 +330,7 @@ function createMockProduct({
     compareAtPrice,
     currencyCode: "DOP",
     available,
+    hidden,
     stock,
     featured,
     newArrival,
@@ -572,19 +649,35 @@ export const FALLBACK_PRODUCTS: Product[] = [
 ];
 
 export function getFallbackProducts() {
-  return FALLBACK_PRODUCTS;
+  return FALLBACK_PRODUCTS.filter((product) => product.vibe !== "pulpina");
+}
+
+export function isStorefrontVisible(product: Product) {
+  return !product.hidden;
+}
+
+export function getPublicProducts() {
+  return FALLBACK_PRODUCTS.filter((product) => product.vibe !== "pulpina").filter(isStorefrontVisible);
+}
+
+export function getPublicProductsByVibe(vibe: Vibe) {
+  return getPublicProducts().filter((product) => product.vibe === vibe);
+}
+
+export function getPublicProductBySlug(slug: string) {
+  return getPublicProducts().find((product) => product.slug === slug) ?? null;
 }
 
 export function getFallbackProductsByVibe(vibe: Vibe) {
-  return FALLBACK_PRODUCTS.filter((product) => product.vibe === vibe);
+  return FALLBACK_PRODUCTS.filter((product) => product.vibe !== "pulpina" && product.vibe === vibe);
 }
 
 export function getFallbackProductBySlug(slug: string) {
-  return FALLBACK_PRODUCTS.find((product) => product.slug === slug) ?? null;
+  return FALLBACK_PRODUCTS.find((product) => product.vibe !== "pulpina" && product.slug === slug) ?? null;
 }
 
 export function getFallbackVariantById(variantId: string) {
-  for (const product of FALLBACK_PRODUCTS) {
+  for (const product of FALLBACK_PRODUCTS.filter((entry) => entry.vibe !== "pulpina")) {
     const variant = product.variants.find((candidate) => candidate.id === variantId);
     if (variant) {
       return { product, variant };
@@ -593,4 +686,4 @@ export function getFallbackVariantById(variantId: string) {
   return null;
 }
 
-export const PRODUCTS = FALLBACK_PRODUCTS;
+export const PRODUCTS = FALLBACK_PRODUCTS.filter((product) => product.vibe !== "pulpina");

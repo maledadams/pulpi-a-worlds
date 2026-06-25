@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import type { Product, Vibe } from "@/data/products";
+import type { Product } from "@/data/products";
 import { formatPrice, isOnSale } from "@/data/products";
 
 function initials(name: string) {
@@ -8,17 +8,9 @@ function initials(name: string) {
     .split(" ")
     .filter(Boolean)
     .slice(0, 2)
-    .map((w) => w[0]!.toUpperCase())
+    .map((word) => word[0]!.toUpperCase())
     .join("");
 }
-
-/* "Nuevo" badge color — adapts to the product's vibe */
-const NEW_BADGE: Record<Vibe, string> = {
-  pulpina: "bg-[#e94560] text-white",
-  moon:    "bg-[#7a0e1c] text-white",
-  sunshine:"bg-[#ff5fa2] text-white",
-  men:     "bg-[#c0392b] text-white",
-};
 
 export function ProductCard({
   product,
@@ -31,25 +23,21 @@ export function ProductCard({
   showSubtitle?: boolean;
   tone?: "store" | "vibe";
 }) {
+  void soldOutMode;
+  void tone;
+
   const onSale = isOnSale(product.price, product.compareAtPrice);
   const soldOut = !product.available;
-
-  const badge: "agotado" | "oferta" | "nuevo" | null = soldOut
-    ? "agotado"
-    : onSale
-      ? "oferta"
-      : product.newArrival
-        ? "nuevo"
-        : null;
-
-  /* sold-out uses warm neutral, not gray */
-  const soldOutBadgeCls = "bg-[#c4b8b0] text-white";
+  const colors =
+    product.colors ??
+    (product.options.find((option) => option.name === "Color")?.values ?? []).map((name, index) => ({
+      name,
+      hex: product.swatch[index % product.swatch.length],
+    }));
 
   return (
     <Link to="/producto/$slug" params={{ slug: product.slug }} className="group block">
       <div className="card-lift overflow-hidden rounded-lg bg-card shadow-sm">
-
-        {/* ── Image / placeholder (portrait 3:4) ── */}
         <div
           className="relative w-full overflow-hidden"
           style={{
@@ -57,25 +45,7 @@ export function ProductCard({
             background: `linear-gradient(135deg, ${product.swatch[0]}, ${product.swatch[1]})`,
           }}
         >
-          {/* Badge */}
-          {badge && (
-            <span
-              className={`absolute left-2 top-2 z-10 rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider ${
-                badge === "agotado"
-                  ? soldOutBadgeCls
-                  : badge === "oferta"
-                    ? "bg-white text-foreground"   /* white sale badge */
-                    : NEW_BADGE[product.vibe]       /* vibe-colored new badge */
-              }`}
-            >
-              {badge === "agotado" ? "Agotado" : badge === "oferta" ? "Oferta" : "Nuevo"}
-            </span>
-          )}
-
-          {/* Sold-out dim overlay */}
-          {soldOut && (
-            <div className="absolute inset-0 z-[5] bg-white/30" />
-          )}
+          {soldOut ? <div className="absolute inset-0 z-[5] bg-white/30" /> : null}
 
           {product.featuredImage ? (
             <img
@@ -100,27 +70,35 @@ export function ProductCard({
           )}
         </div>
 
-        {/* ── Info strip ── */}
         <div className="p-2.5 sm:p-3">
-          {showSubtitle && (
+          {showSubtitle ? (
             <p className="mb-0.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
               {product.vibe !== "pulpina" ? product.vibe.charAt(0).toUpperCase() + product.vibe.slice(1) : "Tienda"}
             </p>
-          )}
-          <h3 className="line-clamp-2 text-sm font-semibold leading-tight sm:text-[0.875rem]">
-            {product.name}
-          </h3>
+          ) : null}
+          <h3 className="line-clamp-2 text-sm font-semibold leading-tight sm:text-[0.875rem]">{product.name}</h3>
           <div className="mt-1.5 flex items-center gap-1.5">
-            {onSale && (
-              /* strikethrough price — muted, no red */
+            {onSale ? (
               <span className="text-xs text-muted-foreground line-through">
                 {formatPrice(product.compareAtPrice!, product.currencyCode)}
               </span>
-            )}
+            ) : null}
             <span className="text-sm font-black sm:text-[0.95rem]">
               {formatPrice(product.price, product.currencyCode)}
             </span>
           </div>
+          {colors.length > 0 ? (
+            <div className="mt-2 flex items-center gap-1.5">
+              {colors.slice(0, 5).map((color) => (
+                <span
+                  key={color.name}
+                  className="h-3 w-3 rounded-full border border-foreground/15"
+                  style={{ backgroundColor: color.hex }}
+                  title={color.name}
+                />
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
     </Link>

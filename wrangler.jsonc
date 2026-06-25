@@ -1,7 +1,57 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "tanstack-start-app",
-  "compatibility_date": "2025-09-24",
+  "compatibility_date": "2026-06-12",
   "compatibility_flags": ["nodejs_compat"],
   "main": "src/server.ts",
+  "workers_dev": true,
+  "observability": {
+    "enabled": true
+  },
+  // Bindings go here once you create real resources.
+  // Keep secrets out of this file and use `wrangler secret put`.
+  //
+  // "vars": {
+  //   "CF_ACCESS_TEAM_DOMAIN": "https://your-team.cloudflareaccess.com",
+  //   "CF_ACCESS_AUD": "your-access-app-aud",
+  //   "R2_PUBLIC_BASE_URL": "https://assets.example.com",
+  //   "ORDER_NOTIFICATION_EMAIL": "pedidos@example.com",
+  //   "RESEND_FROM_EMAIL": "Pulpiña RD <pedidos@example.com>"
+  // },
+  // "d1_databases": [
+  //   {
+  //     "binding": "DB",
+  //     "database_name": "pulpi-local",
+  //     "database_id": "replace-with-real-d1-id"
+  //   }
+  // ],
+  // "r2_buckets": [
+  //   {
+  //     "binding": "PUBLIC_MEDIA",
+  //     "bucket_name": "pulpi-local-public"
+  //   }
+  // ],
+  // "env": {
+  //   "staging": {
+  //     "name": "tanstack-start-app-staging"
+  //   },
+  //   "production": {
+  //     "name": "tanstack-start-app-production"
+  //   }
+  // }
+  "env": {
+    "production": {
+      "name": "tanstack-start-app-production",
+      "routes": [
+        {
+          "pattern": "pulpinastore.com",
+          "custom_domain": true
+        },
+        {
+          "pattern": "www.pulpinastore.com",
+          "custom_domain": true
+        }
+      ]
+    }
+  }
 }

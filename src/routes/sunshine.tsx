@@ -1,17 +1,21 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { VibePage } from "@/components/collections/VibePage";
+import { getStorefrontSettings } from "@/lib/admin-content";
 import { validateCatalogSearch } from "@/lib/store-filters";
 import logo from "@/assets/logo-sunshine.png";
 import mood from "@/assets/mood-sunshine.jpg";
 
 export const Route = createFileRoute("/sunshine")({
+  ssr: false,
+  loader: async () => ({ settings: await getStorefrontSettings() }),
   validateSearch: validateCatalogSearch,
-  head: () => ({ meta: [{ title: "Pulpina Sunshine - Prendas de otro mundo" }] }),
+  head: () => ({ meta: [{ title: "Pulpiña Sunshine - Prendas de otro mundo" }] }),
   component: SunshinePage,
 });
 
 function SunshinePage() {
   const search = Route.useSearch();
+  const { settings } = Route.useLoaderData();
   const navigate = useNavigate();
 
   return (
@@ -21,9 +25,10 @@ function SunshinePage() {
       cfg={{
         vibe: "sunshine",
         title: "Sunshine",
-        tagline: "Kawaii - Y2K - Glossy",
-        intro:
-          "Rosa bubblegum, leopardo, perlas y mucho brillo. Para princesas alternativas de otro mundo.",
+        tagline: settings.sunshinePageTagline,
+        intro: settings.sunshinePageIntro,
+        catalogHeading: settings.vibeCatalogHeading,
+        searchPlaceholderClassName: "placeholder:text-[#dc72aa]",
         bg: "linear-gradient(135deg,#ff8fc9,#ffe66a 60%,#c5f56a)",
         logo,
         mood,

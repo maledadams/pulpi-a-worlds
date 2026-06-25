@@ -11,24 +11,25 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TiendaRouteImport } from './routes/tienda'
 import { Route as SunshineRouteImport } from './routes/sunshine'
+import { Route as SolicitudRouteImport } from './routes/solicitud'
 import { Route as PulpinaRouteImport } from './routes/pulpina'
 import { Route as PoliticasRouteImport } from './routes/politicas'
 import { Route as NosotrosRouteImport } from './routes/nosotros'
 import { Route as MoonRouteImport } from './routes/moon'
 import { Route as MenRouteImport } from './routes/men'
 import { Route as ContactoRouteImport } from './routes/contacto'
-import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as CarritoRouteImport } from './routes/carrito'
-import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AccesoAdminRouteImport } from './routes/acceso-admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as ProductoSlugRouteImport } from './routes/producto.$slug'
-import { Route as AdminProductosRouteImport } from './routes/admin.productos'
-import { Route as AdminPedidosRouteImport } from './routes/admin.pedidos'
-import { Route as AdminMediaRouteImport } from './routes/admin.media'
-import { Route as AdminDescuentosRouteImport } from './routes/admin.descuentos'
-import { Route as AdminConfiguracionRouteImport } from './routes/admin.configuracion'
-import { Route as AdminColeccionesRouteImport } from './routes/admin.colecciones'
-import { Route as AdminCategoriasRouteImport } from './routes/admin.categorias'
+import { Route as ColeccionSlugRouteImport } from './routes/coleccion.$slug'
+import { Route as AdminProductosRouteImport } from './routes/admin/productos'
+import { Route as AdminPedidosRouteImport } from './routes/admin/pedidos'
+import { Route as AdminDescuentosRouteImport } from './routes/admin/descuentos'
+import { Route as AdminConfiguracionRouteImport } from './routes/admin/configuracion'
+import { Route as AdminColeccionesRouteImport } from './routes/admin/colecciones'
+import { Route as AdminCategoriasRouteImport } from './routes/admin/categorias'
 
 const TiendaRoute = TiendaRouteImport.update({
   id: '/tienda',
@@ -38,6 +39,11 @@ const TiendaRoute = TiendaRouteImport.update({
 const SunshineRoute = SunshineRouteImport.update({
   id: '/sunshine',
   path: '/sunshine',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SolicitudRoute = SolicitudRouteImport.update({
+  id: '/solicitud',
+  path: '/solicitud',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PulpinaRoute = PulpinaRouteImport.update({
@@ -70,19 +76,14 @@ const ContactoRoute = ContactoRouteImport.update({
   path: '/contacto',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CheckoutRoute = CheckoutRouteImport.update({
-  id: '/checkout',
-  path: '/checkout',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const CarritoRoute = CarritoRouteImport.update({
   id: '/carrito',
   path: '/carrito',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
+const AccesoAdminRoute = AccesoAdminRouteImport.update({
+  id: '/acceso-admin',
+  path: '/acceso-admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -90,197 +91,216 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProductoSlugRoute = ProductoSlugRouteImport.update({
   id: '/producto/$slug',
   path: '/producto/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ColeccionSlugRoute = ColeccionSlugRouteImport.update({
+  id: '/coleccion/$slug',
+  path: '/coleccion/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminProductosRoute = AdminProductosRouteImport.update({
-  id: '/productos',
-  path: '/productos',
-  getParentRoute: () => AdminRoute,
+  id: '/admin/productos',
+  path: '/admin/productos',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AdminPedidosRoute = AdminPedidosRouteImport.update({
-  id: '/pedidos',
-  path: '/pedidos',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminMediaRoute = AdminMediaRouteImport.update({
-  id: '/media',
-  path: '/media',
-  getParentRoute: () => AdminRoute,
+  id: '/admin/pedidos',
+  path: '/admin/pedidos',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AdminDescuentosRoute = AdminDescuentosRouteImport.update({
-  id: '/descuentos',
-  path: '/descuentos',
-  getParentRoute: () => AdminRoute,
+  id: '/admin/descuentos',
+  path: '/admin/descuentos',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AdminConfiguracionRoute = AdminConfiguracionRouteImport.update({
-  id: '/configuracion',
-  path: '/configuracion',
-  getParentRoute: () => AdminRoute,
+  id: '/admin/configuracion',
+  path: '/admin/configuracion',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AdminColeccionesRoute = AdminColeccionesRouteImport.update({
-  id: '/colecciones',
-  path: '/colecciones',
-  getParentRoute: () => AdminRoute,
+  id: '/admin/colecciones',
+  path: '/admin/colecciones',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AdminCategoriasRoute = AdminCategoriasRouteImport.update({
-  id: '/categorias',
-  path: '/categorias',
-  getParentRoute: () => AdminRoute,
+  id: '/admin/categorias',
+  path: '/admin/categorias',
+  getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRouteWithChildren
+  '/acceso-admin': typeof AccesoAdminRoute
   '/carrito': typeof CarritoRoute
-  '/checkout': typeof CheckoutRoute
   '/contacto': typeof ContactoRoute
   '/men': typeof MenRoute
   '/moon': typeof MoonRoute
   '/nosotros': typeof NosotrosRoute
   '/politicas': typeof PoliticasRoute
   '/pulpina': typeof PulpinaRoute
+  '/solicitud': typeof SolicitudRoute
   '/sunshine': typeof SunshineRoute
   '/tienda': typeof TiendaRoute
   '/admin/categorias': typeof AdminCategoriasRoute
   '/admin/colecciones': typeof AdminColeccionesRoute
   '/admin/configuracion': typeof AdminConfiguracionRoute
   '/admin/descuentos': typeof AdminDescuentosRoute
-  '/admin/media': typeof AdminMediaRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/productos': typeof AdminProductosRoute
+  '/coleccion/$slug': typeof ColeccionSlugRoute
   '/producto/$slug': typeof ProductoSlugRoute
+  '/admin/': typeof AdminIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRouteWithChildren
+  '/acceso-admin': typeof AccesoAdminRoute
   '/carrito': typeof CarritoRoute
-  '/checkout': typeof CheckoutRoute
   '/contacto': typeof ContactoRoute
   '/men': typeof MenRoute
   '/moon': typeof MoonRoute
   '/nosotros': typeof NosotrosRoute
   '/politicas': typeof PoliticasRoute
   '/pulpina': typeof PulpinaRoute
+  '/solicitud': typeof SolicitudRoute
   '/sunshine': typeof SunshineRoute
   '/tienda': typeof TiendaRoute
   '/admin/categorias': typeof AdminCategoriasRoute
   '/admin/colecciones': typeof AdminColeccionesRoute
   '/admin/configuracion': typeof AdminConfiguracionRoute
   '/admin/descuentos': typeof AdminDescuentosRoute
-  '/admin/media': typeof AdminMediaRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/productos': typeof AdminProductosRoute
+  '/coleccion/$slug': typeof ColeccionSlugRoute
   '/producto/$slug': typeof ProductoSlugRoute
+  '/admin': typeof AdminIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin': typeof AdminRouteWithChildren
+  '/acceso-admin': typeof AccesoAdminRoute
   '/carrito': typeof CarritoRoute
-  '/checkout': typeof CheckoutRoute
   '/contacto': typeof ContactoRoute
   '/men': typeof MenRoute
   '/moon': typeof MoonRoute
   '/nosotros': typeof NosotrosRoute
   '/politicas': typeof PoliticasRoute
   '/pulpina': typeof PulpinaRoute
+  '/solicitud': typeof SolicitudRoute
   '/sunshine': typeof SunshineRoute
   '/tienda': typeof TiendaRoute
   '/admin/categorias': typeof AdminCategoriasRoute
   '/admin/colecciones': typeof AdminColeccionesRoute
   '/admin/configuracion': typeof AdminConfiguracionRoute
   '/admin/descuentos': typeof AdminDescuentosRoute
-  '/admin/media': typeof AdminMediaRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/productos': typeof AdminProductosRoute
+  '/coleccion/$slug': typeof ColeccionSlugRoute
   '/producto/$slug': typeof ProductoSlugRoute
+  '/admin/': typeof AdminIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/admin'
+    | '/acceso-admin'
     | '/carrito'
-    | '/checkout'
     | '/contacto'
     | '/men'
     | '/moon'
     | '/nosotros'
     | '/politicas'
     | '/pulpina'
+    | '/solicitud'
     | '/sunshine'
     | '/tienda'
     | '/admin/categorias'
     | '/admin/colecciones'
     | '/admin/configuracion'
     | '/admin/descuentos'
-    | '/admin/media'
     | '/admin/pedidos'
     | '/admin/productos'
+    | '/coleccion/$slug'
     | '/producto/$slug'
+    | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/admin'
+    | '/acceso-admin'
     | '/carrito'
-    | '/checkout'
     | '/contacto'
     | '/men'
     | '/moon'
     | '/nosotros'
     | '/politicas'
     | '/pulpina'
+    | '/solicitud'
     | '/sunshine'
     | '/tienda'
     | '/admin/categorias'
     | '/admin/colecciones'
     | '/admin/configuracion'
     | '/admin/descuentos'
-    | '/admin/media'
     | '/admin/pedidos'
     | '/admin/productos'
+    | '/coleccion/$slug'
     | '/producto/$slug'
+    | '/admin'
   id:
     | '__root__'
     | '/'
-    | '/admin'
+    | '/acceso-admin'
     | '/carrito'
-    | '/checkout'
     | '/contacto'
     | '/men'
     | '/moon'
     | '/nosotros'
     | '/politicas'
     | '/pulpina'
+    | '/solicitud'
     | '/sunshine'
     | '/tienda'
     | '/admin/categorias'
     | '/admin/colecciones'
     | '/admin/configuracion'
     | '/admin/descuentos'
-    | '/admin/media'
     | '/admin/pedidos'
     | '/admin/productos'
+    | '/coleccion/$slug'
     | '/producto/$slug'
+    | '/admin/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRouteWithChildren
+  AccesoAdminRoute: typeof AccesoAdminRoute
   CarritoRoute: typeof CarritoRoute
-  CheckoutRoute: typeof CheckoutRoute
   ContactoRoute: typeof ContactoRoute
   MenRoute: typeof MenRoute
   MoonRoute: typeof MoonRoute
   NosotrosRoute: typeof NosotrosRoute
   PoliticasRoute: typeof PoliticasRoute
   PulpinaRoute: typeof PulpinaRoute
+  SolicitudRoute: typeof SolicitudRoute
   SunshineRoute: typeof SunshineRoute
   TiendaRoute: typeof TiendaRoute
+  AdminCategoriasRoute: typeof AdminCategoriasRoute
+  AdminColeccionesRoute: typeof AdminColeccionesRoute
+  AdminConfiguracionRoute: typeof AdminConfiguracionRoute
+  AdminDescuentosRoute: typeof AdminDescuentosRoute
+  AdminPedidosRoute: typeof AdminPedidosRoute
+  AdminProductosRoute: typeof AdminProductosRoute
+  ColeccionSlugRoute: typeof ColeccionSlugRoute
   ProductoSlugRoute: typeof ProductoSlugRoute
+  AdminIndexRoute: typeof AdminIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -297,6 +317,13 @@ declare module '@tanstack/react-router' {
       path: '/sunshine'
       fullPath: '/sunshine'
       preLoaderRoute: typeof SunshineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/solicitud': {
+      id: '/solicitud'
+      path: '/solicitud'
+      fullPath: '/solicitud'
+      preLoaderRoute: typeof SolicitudRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pulpina': {
@@ -341,13 +368,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContactoRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/checkout': {
-      id: '/checkout'
-      path: '/checkout'
-      fullPath: '/checkout'
-      preLoaderRoute: typeof CheckoutRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/carrito': {
       id: '/carrito'
       path: '/carrito'
@@ -355,11 +375,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CarritoRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
+    '/acceso-admin': {
+      id: '/acceso-admin'
+      path: '/acceso-admin'
+      fullPath: '/acceso-admin'
+      preLoaderRoute: typeof AccesoAdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -369,6 +389,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/producto/$slug': {
       id: '/producto/$slug'
       path: '/producto/$slug'
@@ -376,94 +403,80 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProductoSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/coleccion/$slug': {
+      id: '/coleccion/$slug'
+      path: '/coleccion/$slug'
+      fullPath: '/coleccion/$slug'
+      preLoaderRoute: typeof ColeccionSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/productos': {
       id: '/admin/productos'
-      path: '/productos'
+      path: '/admin/productos'
       fullPath: '/admin/productos'
       preLoaderRoute: typeof AdminProductosRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof rootRouteImport
     }
     '/admin/pedidos': {
       id: '/admin/pedidos'
-      path: '/pedidos'
+      path: '/admin/pedidos'
       fullPath: '/admin/pedidos'
       preLoaderRoute: typeof AdminPedidosRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/media': {
-      id: '/admin/media'
-      path: '/media'
-      fullPath: '/admin/media'
-      preLoaderRoute: typeof AdminMediaRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof rootRouteImport
     }
     '/admin/descuentos': {
       id: '/admin/descuentos'
-      path: '/descuentos'
+      path: '/admin/descuentos'
       fullPath: '/admin/descuentos'
       preLoaderRoute: typeof AdminDescuentosRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof rootRouteImport
     }
     '/admin/configuracion': {
       id: '/admin/configuracion'
-      path: '/configuracion'
+      path: '/admin/configuracion'
       fullPath: '/admin/configuracion'
       preLoaderRoute: typeof AdminConfiguracionRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof rootRouteImport
     }
     '/admin/colecciones': {
       id: '/admin/colecciones'
-      path: '/colecciones'
+      path: '/admin/colecciones'
       fullPath: '/admin/colecciones'
       preLoaderRoute: typeof AdminColeccionesRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof rootRouteImport
     }
     '/admin/categorias': {
       id: '/admin/categorias'
-      path: '/categorias'
+      path: '/admin/categorias'
       fullPath: '/admin/categorias'
       preLoaderRoute: typeof AdminCategoriasRouteImport
-      parentRoute: typeof AdminRoute
+      parentRoute: typeof rootRouteImport
     }
   }
 }
 
-interface AdminRouteChildren {
-  AdminCategoriasRoute: typeof AdminCategoriasRoute
-  AdminColeccionesRoute: typeof AdminColeccionesRoute
-  AdminConfiguracionRoute: typeof AdminConfiguracionRoute
-  AdminDescuentosRoute: typeof AdminDescuentosRoute
-  AdminMediaRoute: typeof AdminMediaRoute
-  AdminPedidosRoute: typeof AdminPedidosRoute
-  AdminProductosRoute: typeof AdminProductosRoute
-}
-
-const AdminRouteChildren: AdminRouteChildren = {
-  AdminCategoriasRoute: AdminCategoriasRoute,
-  AdminColeccionesRoute: AdminColeccionesRoute,
-  AdminConfiguracionRoute: AdminConfiguracionRoute,
-  AdminDescuentosRoute: AdminDescuentosRoute,
-  AdminMediaRoute: AdminMediaRoute,
-  AdminPedidosRoute: AdminPedidosRoute,
-  AdminProductosRoute: AdminProductosRoute,
-}
-
-const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRoute: AdminRouteWithChildren,
+  AccesoAdminRoute: AccesoAdminRoute,
   CarritoRoute: CarritoRoute,
-  CheckoutRoute: CheckoutRoute,
   ContactoRoute: ContactoRoute,
   MenRoute: MenRoute,
   MoonRoute: MoonRoute,
   NosotrosRoute: NosotrosRoute,
   PoliticasRoute: PoliticasRoute,
   PulpinaRoute: PulpinaRoute,
+  SolicitudRoute: SolicitudRoute,
   SunshineRoute: SunshineRoute,
   TiendaRoute: TiendaRoute,
+  AdminCategoriasRoute: AdminCategoriasRoute,
+  AdminColeccionesRoute: AdminColeccionesRoute,
+  AdminConfiguracionRoute: AdminConfiguracionRoute,
+  AdminDescuentosRoute: AdminDescuentosRoute,
+  AdminPedidosRoute: AdminPedidosRoute,
+  AdminProductosRoute: AdminProductosRoute,
+  ColeccionSlugRoute: ColeccionSlugRoute,
   ProductoSlugRoute: ProductoSlugRoute,
+  AdminIndexRoute: AdminIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

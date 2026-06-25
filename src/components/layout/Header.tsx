@@ -2,7 +2,8 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { ShoppingBag, Search, Menu, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCart } from "@/context/cart";
-import { PRODUCTS, getCategoryLabel, type Product } from "@/data/products";
+import { type Product, type Vibe } from "@/data/products";
+import { useCatalogProducts } from "@/context/catalog";
 import logoMoonImg from "@/assets/logo-moon.png";
 import logoSunImg from "@/assets/logo-sunshine.png";
 import logoMenImg from "@/assets/logo-men.png";
@@ -13,7 +14,18 @@ import {
   getProductCategories,
   type CatalogSearch,
 } from "@/lib/store-filters";
-import logo from "@/assets/logo-pulpina.png";
+type StoreAnnouncement = {
+  id: string;
+  text: string;
+};
+
+type AnnouncementTheme = {
+  background: string;
+  border: string;
+  text: string;
+};
+
+type AnnouncementThemeKey = "store" | "moon" | "sunshine" | "men";
 
 /* ── types ─────────────────────────────────────── */
 type MegaKey = "tienda" | "moon" | "sunshine" | "men" | "nuevo" | "oferta";
@@ -115,7 +127,6 @@ const NAV: NavItem[] = [
   { to: "/moon", label: "Moon", mega: "moon", children: MOON_CHILDREN },
   { to: "/sunshine", label: "Sunshine", mega: "sunshine", children: SUNSHINE_CHILDREN },
   { to: "/men", label: "Men", mega: "men", children: MEN_CHILDREN },
-  { to: "/nosotros", label: "Nosotros" },
   { to: "/contacto", label: "Contacto" },
 ];
 
@@ -220,9 +231,94 @@ function CategoryCircle({
 }
 
 /* ── Header ─────────────────────────────────────── */
-export function Header() {
+function getAnnouncementTheme(themeKey: AnnouncementThemeKey): AnnouncementTheme {
+  if (themeKey === "sunshine") {
+    return {
+      background: "bg-[#c5f56a]",
+      border: "border-transparent",
+      text: "text-[#243011]",
+    };
+  }
+
+  if (themeKey === "moon") {
+    return {
+      background: "bg-[#f3e7dc]",
+      border: "border-transparent",
+      text: "text-[#3a1c28]",
+    };
+  }
+
+  if (themeKey === "men") {
+    return {
+      background: "bg-[#8f2015]",
+      border: "border-transparent",
+      text: "text-[#fff7f2]",
+    };
+  }
+
+  return {
+    background: "bg-[#c5f56a]",
+    border: "border-transparent",
+    text: "text-[#243011]",
+  };
+}
+
+function AnnouncementBar({ announcements, theme }: { announcements: StoreAnnouncement[]; theme: AnnouncementTheme }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [announcements]);
+
+  useEffect(() => {
+    if (announcements.length <= 1) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setActiveIndex((current) => (current + 1) % announcements.length);
+    }, 4200);
+
+    return () => window.clearInterval(interval);
+  }, [announcements]);
+
+  if (announcements.length === 0) {
+    return null;
+  }
+
+  const activeAnnouncement = announcements[activeIndex] ?? announcements[0];
+
+  return (
+    <div className={`px-4 py-2 ${theme.background} ${theme.border} ${theme.text}`}>
+      <div className="mx-auto max-w-7xl text-center">
+        <div key={activeAnnouncement.id} className="font-body text-sm leading-5 transition-opacity duration-300 sm:text-[0.95rem]">
+          {activeAnnouncement.text}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function Header({
+  announcements = [],
+  announcementThemeOverride,
+}: {
+  announcements?: StoreAnnouncement[];
+  announcementThemeOverride?: AnnouncementThemeKey;
+}) {
   const cart = useCart();
+  const catalogProducts = useCatalogProducts();
   const loc = useLocation();
+  const announcementTheme = getAnnouncementTheme(
+    announcementThemeOverride ??
+      (loc.pathname.startsWith("/sunshine")
+        ? "sunshine"
+        : loc.pathname.startsWith("/moon")
+          ? "moon"
+          : loc.pathname.startsWith("/men")
+            ? "men"
+            : "store"),
+  );
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
   const [activeMega, setActiveMega] = useState<MegaKey | null>(null);
@@ -252,13 +348,38 @@ export function Header() {
     }
   }, [activeMega]);
 
+  const navItems = useMemo<NavItem[]>(() => {
+    const buildChildren = (to: string, label: string, vibe?: Vibe) => [
+      { to, label },
+      { to, label: "Nuevo", search: { fresh: "1" }, hash: "shop" },
+      { to, label: "Oferta", search: { sale: "1" }, hash: "shop" },
+      ...getAvailableMenuCategories(catalogProducts, vibe, vibe ? true : false).map((category) => ({
+        to,
+        label: category.label,
+        search: vibe
+          ? getDepartmentCategoryLinkSearch(vibe, category.id)
+          : getCategoryLinkSearch(category.id),
+      })),
+    ];
+
+    return [
+      { to: "/", label: "Inicio" },
+      { to: "/tienda", label: "Tienda", mega: "tienda", children: buildChildren("/tienda", "Ver todo") },
+      { to: "/moon", label: "Moon", mega: "moon", children: buildChildren("/moon", "Todo Moon", "moon") },
+      { to: "/sunshine", label: "Sunshine", mega: "sunshine", children: buildChildren("/sunshine", "Todo Sunshine", "sunshine") },
+      { to: "/men", label: "Men", mega: "men", children: buildChildren("/men", "Todo Men", "men") },
+      { to: "/contacto", label: "Contacto" },
+    ];
+  }, [catalogProducts]);
+
   /* build mega sections */
   const megaSections = useMemo<Record<MegaKey, MegaSection>>(() => {
-    const moonPool = PRODUCTS.filter((p) => p.vibe === "moon");
-    const sunPool = PRODUCTS.filter((p) => p.vibe === "sunshine");
-    const menPool = PRODUCTS.filter((p) => p.vibe === "men");
-    const newPool = PRODUCTS.filter((p) => p.newArrival);
-    const salePool = PRODUCTS.filter((p) => !!p.salePrice);
+    const publicProducts = catalogProducts;
+    const moonPool = publicProducts.filter((p) => p.vibe === "moon");
+    const sunPool = publicProducts.filter((p) => p.vibe === "sunshine");
+    const menPool = publicProducts.filter((p) => p.vibe === "men");
+    const newPool = publicProducts.filter((p) => p.newArrival);
+    const salePool = publicProducts.filter((p) => !!p.salePrice);
 
     const build = (
       key: MegaKey,
@@ -288,28 +409,28 @@ export function Header() {
     });
 
     return {
-      tienda: build("tienda","General","/tienda","Toda la tienda en un solo lugar.",PRODUCTS,
+      tienda: build("tienda","General","/tienda","Toda la tienda en un solo lugar.",publicProducts,
         [{to:"/tienda",label:"Ver todo"},{to:"/tienda",label:"Nuevo",search:{fresh:"1"},hash:"shop"},{to:"/tienda",label:"Oferta",search:{sale:"1"},hash:"shop"}],
-        getAvailableMenuCategories(undefined, false)),
+        getAvailableMenuCategories(publicProducts, undefined, false)),
       moon: build("moon","Moon","/moon","Oscuro, dramático, gótico y alternativo.",moonPool,
         [{to:"/moon",label:"Todo Moon"},{to:"/moon",label:"Nuevo",search:{fresh:"1"},hash:"shop"},{to:"/moon",label:"Oferta",search:{sale:"1"},hash:"shop"}],
-        getAvailableMenuCategories("moon")),
+        getAvailableMenuCategories(publicProducts, "moon")),
       sunshine: build("sunshine","Sunshine","/sunshine","Glossy, bright, playful y hyper-femenino.",sunPool,
         [{to:"/sunshine",label:"Todo Sunshine"},{to:"/sunshine",label:"Nuevo",search:{fresh:"1"},hash:"shop"},{to:"/sunshine",label:"Oferta",search:{sale:"1"},hash:"shop"}],
-        getAvailableMenuCategories("sunshine")),
+        getAvailableMenuCategories(publicProducts, "sunshine")),
       men: build("men","Men","/men","Punk, underground y alternativo.",menPool,
         [{to:"/men",label:"Todo Men"},{to:"/men",label:"Nuevo",search:{fresh:"1"},hash:"shop"},{to:"/men",label:"Oferta",search:{sale:"1"},hash:"shop"}],
-        getAvailableMenuCategories("men")),
+        getAvailableMenuCategories(publicProducts, "men")),
       nuevo: build("nuevo","Nuevo","/tienda","Lo último que entró al catálogo.",newPool,
         [{to:"/tienda",label:"Todo lo nuevo",search:{fresh:"1"},hash:"shop"},{to:"/moon",label:"Moon nuevo",search:{fresh:"1"},hash:"shop"},{to:"/sunshine",label:"Sunshine nuevo",search:{fresh:"1"},hash:"shop"},{to:"/men",label:"Men nuevo",search:{fresh:"1"},hash:"shop"}],
-        Array.from(new Set(newPool.flatMap((p)=>getProductCategories(p)))).map((id)=>({id,label:getCategoryLabel(id)})),
+        getAvailableMenuCategories(newPool),
         {fresh:"1"}),
       oferta: build("oferta","Oferta","/tienda","Piezas rebajadas en toda la tienda.",salePool,
         [{to:"/tienda",label:"Ver ofertas",search:{sale:"1"},hash:"shop"},{to:"/moon",label:"Moon en oferta",search:{sale:"1"},hash:"shop"},{to:"/sunshine",label:"Sunshine en oferta",search:{sale:"1"},hash:"shop"},{to:"/men",label:"Men en oferta",search:{sale:"1"},hash:"shop"}],
-        Array.from(new Set(salePool.flatMap((p)=>getProductCategories(p)))).map((id)=>({id,label:getCategoryLabel(id)})),
+        getAvailableMenuCategories(salePool),
         {sale:"1"}),
     };
-  }, []);
+  }, [catalogProducts]);
 
   const currentMega = renderedMega ? megaSections[renderedMega] : null;
   const megaOpen = !!activeMega;
@@ -323,13 +444,12 @@ export function Header() {
       <div className="relative z-20 mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4">
         {/* Logo */}
         <Link to="/" className="flex shrink-0 items-center gap-2">
-          <img src={logo} alt="Pulpiña" className="h-8 w-8 object-contain" />
-          <span className="hidden font-display text-lg tracking-wide sm:block">Pulpiña RD</span>
+          <span className="font-display text-lg tracking-wide sm:text-xl">Pulpiña RD</span>
         </Link>
 
         {/* Desktop nav */}
         <nav className="hidden items-center gap-0.5 md:flex">
-          {NAV.map((n) => {
+          {navItems.map((n) => {
             const active = n.to === "/" ? loc.pathname === "/" : loc.pathname === n.to || loc.pathname.startsWith(`${n.to}/`);
             const megaActive = n.mega && activeMega === n.mega;
             return (
@@ -361,7 +481,7 @@ export function Header() {
           >
             <ShoppingBag className="h-5 w-5" />
             {cart.count > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[9px] font-black text-white">
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#c5f56a] px-1 text-[9px] font-black text-[#243011]">
                 {cart.count}
               </span>
             )}
@@ -377,6 +497,7 @@ export function Header() {
       </div>
 
       {/* ── Desktop mega menu ── */}
+      <AnnouncementBar announcements={announcements} theme={announcementTheme} />
       <div
         className={`absolute left-0 right-0 top-[calc(100%+1px)] z-10 hidden overflow-hidden shadow-xl transition-[max-height,opacity,transform] duration-250 md:block ${
           megaOpen
@@ -496,7 +617,7 @@ export function Header() {
       {mobileOpen && (
         <div className="border-t border-foreground/10 bg-background px-4 py-3 md:hidden">
           <nav className="grid gap-0.5">
-            {NAV.map((n) => {
+            {navItems.map((n) => {
               const active = n.to === "/" ? loc.pathname === "/" : loc.pathname === n.to || loc.pathname.startsWith(`${n.to}/`);
               const expanded = mobileExpanded === n.to;
               return (

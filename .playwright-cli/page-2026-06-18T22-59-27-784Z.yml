@@ -1,0 +1,413 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - img [ref=e7]
+      - generic [ref=e11]:
+        - generic [ref=e12]: Admin
+        - generic [ref=e13]: Pulpiña Store
+    - navigation [ref=e14]:
+      - link "Resumen" [ref=e15] [cursor=pointer]:
+        - /url: /admin
+        - img [ref=e16]
+        - generic [ref=e21]: Resumen
+      - link "Productos" [ref=e22] [cursor=pointer]:
+        - /url: /admin/productos
+        - img [ref=e23]
+        - generic [ref=e25]: Productos
+      - link "Categorias" [ref=e26] [cursor=pointer]:
+        - /url: /admin/categorias
+        - img [ref=e27]
+        - generic [ref=e37]: Categorias
+      - link "Colecciones" [ref=e38] [cursor=pointer]:
+        - /url: /admin/colecciones
+        - img [ref=e39]
+        - generic [ref=e41]: Colecciones
+      - link "Pedidos" [ref=e42] [cursor=pointer]:
+        - /url: /admin/pedidos
+        - img [ref=e43]
+        - generic [ref=e46]: Pedidos
+      - link "Descuentos" [ref=e47] [cursor=pointer]:
+        - /url: /admin/descuentos
+        - img [ref=e48]
+        - generic [ref=e52]: Descuentos
+      - link "Admin" [ref=e53] [cursor=pointer]:
+        - /url: /admin/configuracion
+        - img [ref=e54]
+        - generic [ref=e57]: Admin
+  - generic [ref=e58]:
+    - banner [ref=e59]:
+      - generic [ref=e60]:
+        - heading "Productos" [level=1] [ref=e62]
+        - generic [ref=e63]:
+          - button "Duplicar" [ref=e64]
+          - button "Nuevo producto" [ref=e65]
+    - main [ref=e66]:
+      - generic [ref=e67]:
+        - generic [ref=e68]:
+          - generic [ref=e69]:
+            - heading "Catalogo" [level=2] [ref=e71]
+            - generic [ref=e72]:
+              - button "Todos" [ref=e73]
+              - button "Moon" [ref=e74]
+              - button "Sunshine" [ref=e75]
+              - button "Men" [ref=e76]
+          - generic [ref=e77]:
+            - generic [ref=e78]:
+              - textbox "Buscar por nombre, slug, categoria o tag" [ref=e79]
+              - generic [ref=e80]: 26 resultados
+            - table [ref=e82]:
+              - rowgroup [ref=e83]:
+                - row "Producto Subtienda Categorias Precio Visibilidad Stock" [ref=e84]:
+                  - columnheader "Producto" [ref=e85]
+                  - columnheader "Subtienda" [ref=e86]
+                  - columnheader "Categorias" [ref=e87]
+                  - columnheader "Precio" [ref=e88]
+                  - columnheader "Visibilidad" [ref=e89]
+                  - columnheader "Stock" [ref=e90]
+              - rowgroup [ref=e91]:
+                - row "Anarchy Distressed Tee anarchy-tee Men Tops RD$1,600.00 Visible Disponible" [ref=e92] [cursor=pointer]:
+                  - cell "Anarchy Distressed Tee anarchy-tee" [ref=e93]:
+                    - generic [ref=e94]: Anarchy Distressed Tee
+                    - generic [ref=e95]: anarchy-tee
+                  - cell "Men" [ref=e96]:
+                    - generic [ref=e97]: Men
+                  - cell "Tops" [ref=e98]:
+                    - generic [ref=e100]: Tops
+                  - cell "RD$1,600.00" [ref=e101]
+                  - cell "Visible" [ref=e102]:
+                    - generic [ref=e103]: Visible
+                  - cell "Disponible" [ref=e104]
+                - row "Angel Cosplay Set angel-cosplay-set Sunshine Cosplay Full Body RD$3,900.00 Visible Disponible" [ref=e105] [cursor=pointer]:
+                  - cell "Angel Cosplay Set angel-cosplay-set" [ref=e106]:
+                    - generic [ref=e107]: Angel Cosplay Set
+                    - generic [ref=e108]: angel-cosplay-set
+                  - cell "Sunshine" [ref=e109]:
+                    - generic [ref=e110]: Sunshine
+                  - cell "Cosplay Full Body" [ref=e111]:
+                    - generic [ref=e112]:
+                      - generic [ref=e113]: Cosplay
+                      - generic [ref=e114]: Full Body
+                  - cell "RD$3,900.00" [ref=e115]
+                  - cell "Visible" [ref=e116]:
+                    - generic [ref=e117]: Visible
+                  - cell "Disponible" [ref=e118]
+                - row "Candelabro Bag candelabro-bag Moon Bolsos RD$2,400.00 Visible Disponible" [ref=e119] [cursor=pointer]:
+                  - cell "Candelabro Bag candelabro-bag" [ref=e120]:
+                    - generic [ref=e121]: Candelabro Bag
+                    - generic [ref=e122]: candelabro-bag
+                  - cell "Moon" [ref=e123]:
+                    - generic [ref=e124]: Moon
+                  - cell "Bolsos" [ref=e125]:
+                    - generic [ref=e127]: Bolsos
+                  - cell "RD$2,400.00" [ref=e128]
+                  - cell "Visible" [ref=e129]:
+                    - generic [ref=e130]: Visible
+                  - cell "Disponible" [ref=e131]
+                - row "Collar de Perlas Bling perlas-collar Sunshine Joyería RD$950.00 Visible Disponible" [ref=e132] [cursor=pointer]:
+                  - cell "Collar de Perlas Bling perlas-collar" [ref=e133]:
+                    - generic [ref=e134]: Collar de Perlas Bling
+                    - generic [ref=e135]: perlas-collar
+                  - cell "Sunshine" [ref=e136]:
+                    - generic [ref=e137]: Sunshine
+                  - cell "Joyería" [ref=e138]:
+                    - generic [ref=e140]: Joyería
+                  - cell "RD$950.00" [ref=e141]
+                  - cell "Visible" [ref=e142]:
+                    - generic [ref=e143]: Visible
+                  - cell "Disponible" [ref=e144]
+                - row "Combat Boots combat-boots Men Zapatos RD$5,800.00 Visible Agotado" [ref=e145] [cursor=pointer]:
+                  - cell "Combat Boots combat-boots" [ref=e146]:
+                    - generic [ref=e147]: Combat Boots
+                    - generic [ref=e148]: combat-boots
+                  - cell "Men" [ref=e149]:
+                    - generic [ref=e150]: Men
+                  - cell "Zapatos" [ref=e151]:
+                    - generic [ref=e153]: Zapatos
+                  - cell "RD$5,800.00" [ref=e154]
+                  - cell "Visible" [ref=e155]:
+                    - generic [ref=e156]: Visible
+                  - cell "Agotado" [ref=e157]
+                - row "Eclipse Vibe eclipse-vibe Moon Juguetes RD$2,800.00 Visible Disponible" [ref=e158] [cursor=pointer]:
+                  - cell "Eclipse Vibe eclipse-vibe" [ref=e159]:
+                    - generic [ref=e160]: Eclipse Vibe
+                    - generic [ref=e161]: eclipse-vibe
+                  - cell "Moon" [ref=e162]:
+                    - generic [ref=e163]: Moon
+                  - cell "Juguetes" [ref=e164]:
+                    - generic [ref=e166]: Juguetes
+                  - cell "RD$2,800.00" [ref=e167]
+                  - cell "Visible" [ref=e168]:
+                    - generic [ref=e169]: Visible
+                  - cell "Disponible" [ref=e170]
+                - row "Glitter Heart Tee glitter-tee Sunshine Tops RD$1,300.00 Visible Disponible" [ref=e171] [cursor=pointer]:
+                  - cell "Glitter Heart Tee glitter-tee" [ref=e172]:
+                    - generic [ref=e173]: Glitter Heart Tee
+                    - generic [ref=e174]: glitter-tee
+                  - cell "Sunshine" [ref=e175]:
+                    - generic [ref=e176]: Sunshine
+                  - cell "Tops" [ref=e177]:
+                    - generic [ref=e179]: Tops
+                  - cell "RD$1,300.00" [ref=e180]
+                  - cell "Visible" [ref=e181]:
+                    - generic [ref=e182]: Visible
+                  - cell "Disponible" [ref=e183]
+                - row "Heart Harness heart-harness Sunshine Ropa kink Accesorios RD$2,200.00 Visible Disponible" [ref=e184] [cursor=pointer]:
+                  - cell "Heart Harness heart-harness" [ref=e185]:
+                    - generic [ref=e186]: Heart Harness
+                    - generic [ref=e187]: heart-harness
+                  - cell "Sunshine" [ref=e188]:
+                    - generic [ref=e189]: Sunshine
+                  - cell "Ropa kink Accesorios" [ref=e190]:
+                    - generic [ref=e191]:
+                      - generic [ref=e192]: Ropa kink
+                      - generic [ref=e193]: Accesorios
+                  - cell "RD$2,200.00" [ref=e194]
+                  - cell "Visible" [ref=e195]:
+                    - generic [ref=e196]: Visible
+                  - cell "Disponible" [ref=e197]
+            - generic [ref=e199]:
+              - generic [ref=e200]: Pagina 1 de 4
+              - generic [ref=e201]:
+                - button "Anterior" [disabled] [ref=e202]
+                - button "Siguiente" [ref=e203]
+        - generic [ref=e204]:
+          - generic [ref=e205]:
+            - heading "Anarchy Distressed Tee" [level=2] [ref=e207]
+            - generic [ref=e208]:
+              - button "Eliminar" [ref=e209]
+              - button "Guardar" [ref=e210]
+          - generic [ref=e212]:
+            - generic [ref=e213]:
+              - generic [ref=e214]:
+                - generic [ref=e215]: Nombre
+                - textbox "Nombre" [ref=e216]: Anarchy Distressed Tee
+              - generic [ref=e217]:
+                - generic [ref=e218]: Slug
+                - textbox "Slug" [ref=e219]: anarchy-tee
+              - generic [ref=e220]:
+                - generic [ref=e221]:
+                  - generic [ref=e222]: Subtienda
+                  - combobox "Subtienda" [ref=e223]:
+                    - option "Moon"
+                    - option "Sunshine"
+                    - option "Men" [selected]
+                - generic [ref=e224]:
+                  - generic [ref=e225]: Categoria principal
+                  - combobox "Categoria principal" [ref=e226]:
+                    - option "Tops" [selected]
+                    - option "Bottoms"
+                    - option "Vestidos"
+                    - option "Abrigos"
+                    - option "Lenceria"
+                    - option "Ropa kink"
+                    - option "Juguetes"
+                    - option "Cosplay"
+                    - option "Full Body"
+                    - option "Accesorios"
+                    - option "Zapatos"
+                    - option "Joyería"
+                    - option "Bolsos"
+              - generic [ref=e227]:
+                - generic [ref=e228]:
+                  - generic [ref=e229]: Precio
+                  - spinbutton "Precio" [ref=e230]: "1600"
+                - generic [ref=e231]:
+                  - generic [ref=e232]: Precio oferta
+                  - spinbutton "Precio oferta" [ref=e233]
+              - generic [ref=e234]:
+                - generic [ref=e235]:
+                  - generic [ref=e236]: Orden en tienda
+                  - spinbutton "Orden en tienda" [ref=e237]: "0"
+                - generic [ref=e238]:
+                  - generic [ref=e239]: Stock total
+                  - spinbutton "Stock total" [disabled] [ref=e240]: "12"
+              - generic [ref=e241]:
+                - generic [ref=e242]: Descripcion
+                - textbox "Descripcion" [ref=e243]: Pieza alternativa diseñada en República Dominicana. Edición limitada del universo Pulpiña.
+            - generic [ref=e244]:
+              - generic [ref=e245]: Categorias asignadas
+              - generic [ref=e246]:
+                - button "Tops" [ref=e247]
+                - button "Bottoms" [ref=e248]
+                - button "Vestidos" [ref=e249]
+                - button "Abrigos" [ref=e250]
+                - button "Lenceria" [ref=e251]
+                - button "Ropa kink" [ref=e252]
+                - button "Juguetes" [ref=e253]
+                - button "Cosplay" [ref=e254]
+                - button "Full Body" [ref=e255]
+                - button "Accesorios" [ref=e256]
+                - button "Zapatos" [ref=e257]
+                - button "Joyería" [ref=e258]
+                - button "Bolsos" [ref=e259]
+            - generic [ref=e260]:
+              - generic [ref=e261]:
+                - generic [ref=e262]:
+                  - generic [ref=e263]: Imagenes del producto
+                  - generic [ref=e264]: Sube entre 1 y 5 imagenes. La portada sale de la imagen marcada como principal.
+                - generic [ref=e265]: 0/5
+              - generic [ref=e266]:
+                - button "Choose File" [ref=e267]
+                - button "Subir imagen" [disabled] [ref=e268]
+            - generic [ref=e269]:
+              - generic [ref=e270]: Formato de tallas
+              - generic [ref=e271]: "Tops: Ropa de adulto"
+              - generic [ref=e272]:
+                - button "XXS" [ref=e273]
+                - button "XS" [ref=e274]
+                - button "S" [ref=e275]
+                - button "M" [ref=e276]
+                - button "L" [ref=e277]
+                - button "XL" [ref=e278]
+                - button "XXL" [ref=e279]
+                - button "3XL" [ref=e280]
+                - button "4XL" [ref=e281]
+                - button "5XL" [ref=e282]
+                - button "6XL" [ref=e283]
+                - button "Unica" [ref=e284]
+              - generic [ref=e286]:
+                - generic [ref=e287]: Agregar talla manual
+                - generic [ref=e288]:
+                  - textbox "Agregar talla manual Enter" [ref=e289]:
+                    - /placeholder: Ej. 2XL, 47, Petite
+                  - generic [ref=e290]: Enter
+            - generic [ref=e291]:
+              - generic [ref=e292]: Colores del producto
+              - generic [ref=e293]:
+                - button "Red" [ref=e294]:
+                  - generic [ref=e296]: Red
+                - button "Vino" [ref=e297]:
+                  - generic [ref=e299]: Vino
+                - button "Orange" [ref=e300]:
+                  - generic [ref=e302]: Orange
+                - button "Yellow" [ref=e303]:
+                  - generic [ref=e305]: Yellow
+                - button "Light Green" [ref=e306]:
+                  - generic [ref=e308]: Light Green
+                - button "Green" [ref=e309]:
+                  - generic [ref=e311]: Green
+                - button "Light Blue" [ref=e312]:
+                  - generic [ref=e314]: Light Blue
+                - button "Blue" [ref=e315]:
+                  - generic [ref=e317]: Blue
+                - button "Purple" [ref=e318]:
+                  - generic [ref=e320]: Purple
+                - button "Pink" [ref=e321]:
+                  - generic [ref=e323]: Pink
+                - button "Beige" [ref=e324]:
+                  - generic [ref=e326]: Beige
+                - button "White" [ref=e327]:
+                  - generic [ref=e329]: White
+                - button "Black" [ref=e330]:
+                  - generic [ref=e332]: Black
+                - button "Gray" [ref=e333]:
+                  - generic [ref=e335]: Gray
+              - generic [ref=e337]:
+                - generic [ref=e340]: Black
+                - generic [ref=e341]: "#111111"
+            - generic [ref=e342]:
+              - generic [ref=e343]:
+                - checkbox "Disponible" [checked] [ref=e344]
+                - generic [ref=e346]: Disponible
+              - generic [ref=e347]:
+                - checkbox "Ocultar de la tienda" [ref=e348]
+                - generic [ref=e350]: Ocultar de la tienda
+              - generic [ref=e351]:
+                - checkbox "Destacado" [checked] [ref=e352]
+                - generic [ref=e354]: Destacado
+              - generic [ref=e355]:
+                - checkbox "Nuevo" [ref=e356]
+                - generic [ref=e358]: Nuevo
+              - generic [ref=e359]:
+                - checkbox "NSFW Marca visual y de logica para gate en tienda general." [ref=e360]
+                - generic [ref=e361]:
+                  - generic [ref=e362]: NSFW
+                  - generic [ref=e363]: Marca visual y de logica para gate en tienda general.
+            - generic [ref=e364]:
+              - generic [ref=e365]: Variantes reales
+              - generic [ref=e366]:
+                - generic [ref=e367]:
+                  - generic [ref=e368]:
+                    - generic:
+                      - generic: XS
+                      - generic: mock-anarchy-tee-xs-black
+                    - generic [ref=e369]:
+                      - generic [ref=e370]: Stock
+                      - spinbutton "Stock" [ref=e371]: "12"
+                    - generic [ref=e372]:
+                      - generic [ref=e373]: Precio
+                      - spinbutton "Precio" [ref=e374]: "1600"
+                    - generic [ref=e375]:
+                      - generic [ref=e376]: Oferta
+                      - spinbutton "Oferta" [ref=e377]
+                  - generic [ref=e379]:
+                    - checkbox "Variante disponible" [checked] [ref=e380]
+                    - generic [ref=e382]: Variante disponible
+                - generic [ref=e383]:
+                  - generic [ref=e384]:
+                    - generic:
+                      - generic: S
+                      - generic: mock-anarchy-tee-s-black
+                    - generic [ref=e385]:
+                      - generic [ref=e386]: Stock
+                      - spinbutton "Stock" [ref=e387]: "11"
+                    - generic [ref=e388]:
+                      - generic [ref=e389]: Precio
+                      - spinbutton "Precio" [ref=e390]: "1600"
+                    - generic [ref=e391]:
+                      - generic [ref=e392]: Oferta
+                      - spinbutton "Oferta" [ref=e393]
+                  - generic [ref=e395]:
+                    - checkbox "Variante disponible" [checked] [ref=e396]
+                    - generic [ref=e398]: Variante disponible
+                - generic [ref=e399]:
+                  - generic [ref=e400]:
+                    - generic:
+                      - generic: M
+                      - generic: mock-anarchy-tee-m-black
+                    - generic [ref=e401]:
+                      - generic [ref=e402]: Stock
+                      - spinbutton "Stock" [ref=e403]: "10"
+                    - generic [ref=e404]:
+                      - generic [ref=e405]: Precio
+                      - spinbutton "Precio" [ref=e406]: "1600"
+                    - generic [ref=e407]:
+                      - generic [ref=e408]: Oferta
+                      - spinbutton "Oferta" [ref=e409]
+                  - generic [ref=e411]:
+                    - checkbox "Variante disponible" [checked] [ref=e412]
+                    - generic [ref=e414]: Variante disponible
+                - generic [ref=e415]:
+                  - generic [ref=e416]:
+                    - generic:
+                      - generic: L
+                      - generic: mock-anarchy-tee-l-black
+                    - generic [ref=e417]:
+                      - generic [ref=e418]: Stock
+                      - spinbutton "Stock" [ref=e419]: "9"
+                    - generic [ref=e420]:
+                      - generic [ref=e421]: Precio
+                      - spinbutton "Precio" [ref=e422]: "1600"
+                    - generic [ref=e423]:
+                      - generic [ref=e424]: Oferta
+                      - spinbutton "Oferta" [ref=e425]
+                  - generic [ref=e427]:
+                    - checkbox "Variante disponible" [checked] [ref=e428]
+                    - generic [ref=e430]: Variante disponible
+                - generic [ref=e431]:
+                  - generic [ref=e432]:
+                    - generic:
+                      - generic: XL
+                      - generic: mock-anarchy-tee-xl-black
+                    - generic [ref=e433]:
+                      - generic [ref=e434]: Stock
+                      - spinbutton "Stock" [ref=e435]: "8"
+                    - generic [ref=e436]:
+                      - generic [ref=e437]: Precio
+                      - spinbutton "Precio" [ref=e438]: "1600"
+                    - generic [ref=e439]:
+                      - generic [ref=e440]: Oferta
+                      - spinbutton "Oferta" [ref=e441]
+                  - generic [ref=e443]:
+                    - checkbox "Variante disponible" [checked] [ref=e444]
+                    - generic [ref=e446]: Variante disponible

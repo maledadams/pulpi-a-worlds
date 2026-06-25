@@ -1,0 +1,246 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - img [ref=e7]
+      - generic [ref=e11]:
+        - generic [ref=e12]: Admin
+        - generic [ref=e13]: Pulpiña Store
+    - navigation [ref=e14]:
+      - link "Resumen" [ref=e15] [cursor=pointer]:
+        - /url: /admin
+        - img [ref=e16]
+        - generic [ref=e21]: Resumen
+      - link "Productos" [ref=e22] [cursor=pointer]:
+        - /url: /admin/productos
+        - img [ref=e23]
+        - generic [ref=e25]: Productos
+      - link "Categorias" [ref=e26] [cursor=pointer]:
+        - /url: /admin/categorias
+        - img [ref=e27]
+        - generic [ref=e37]: Categorias
+      - link "Colecciones" [ref=e38] [cursor=pointer]:
+        - /url: /admin/colecciones
+        - img [ref=e39]
+        - generic [ref=e41]: Colecciones
+      - link "Pedidos" [ref=e42] [cursor=pointer]:
+        - /url: /admin/pedidos
+        - img [ref=e43]
+        - generic [ref=e46]: Pedidos
+      - link "Descuentos" [ref=e47] [cursor=pointer]:
+        - /url: /admin/descuentos
+        - img [ref=e48]
+        - generic [ref=e52]: Descuentos
+      - link "Admin" [ref=e53] [cursor=pointer]:
+        - /url: /admin/configuracion
+        - img [ref=e54]
+        - generic [ref=e57]: Admin
+  - generic [ref=e58]:
+    - banner [ref=e59]:
+      - generic [ref=e60]:
+        - heading "Categorias" [level=1] [ref=e62]
+        - button "Nueva categoria" [ref=e64]
+    - main [ref=e65]:
+      - generic [ref=e66]:
+        - generic [ref=e68]:
+          - generic [ref=e69]:
+            - textbox "Buscar por nombre o id" [ref=e70]
+            - generic [ref=e71]: 13 categorias
+          - table [ref=e73]:
+            - rowgroup [ref=e74]:
+              - row "Categoria Subtiendas Formato Productos Orden" [ref=e75]:
+                - columnheader "Categoria" [ref=e76]
+                - columnheader "Subtiendas" [ref=e77]
+                - columnheader "Formato" [ref=e78]
+                - columnheader "Productos" [ref=e79]
+                - columnheader "Orden" [ref=e80]
+            - rowgroup [ref=e81]:
+              - row "Tops tops Men Men Moon Sunshine Ropa de adulto 6 0" [ref=e82] [cursor=pointer]:
+                - cell "Tops tops" [ref=e83]:
+                  - generic [ref=e84]: Tops
+                  - generic [ref=e85]: tops
+                - cell "Men Men Moon Sunshine" [ref=e86]:
+                  - generic [ref=e87]:
+                    - generic [ref=e88]: Men
+                    - generic [ref=e89]: Men
+                    - generic [ref=e90]: Moon
+                    - generic [ref=e91]: Sunshine
+                - cell "Ropa de adulto" [ref=e92]:
+                  - generic [ref=e93]: Ropa de adulto
+                - cell "6" [ref=e94]
+                - cell "0" [ref=e95]
+              - row "Bottoms bottoms Men Moon Sunshine Ropa de adulto 3 1" [ref=e96] [cursor=pointer]:
+                - cell "Bottoms bottoms" [ref=e97]:
+                  - generic [ref=e98]: Bottoms
+                  - generic [ref=e99]: bottoms
+                - cell "Men Moon Sunshine" [ref=e100]:
+                  - generic [ref=e101]:
+                    - generic [ref=e102]: Men
+                    - generic [ref=e103]: Moon
+                    - generic [ref=e104]: Sunshine
+                - cell "Ropa de adulto" [ref=e105]:
+                  - generic [ref=e106]: Ropa de adulto
+                - cell "3" [ref=e107]
+                - cell "1" [ref=e108]
+              - row "Vestidos dresses Moon Ropa de adulto 2 2" [ref=e109] [cursor=pointer]:
+                - cell "Vestidos dresses" [ref=e110]:
+                  - generic [ref=e111]: Vestidos
+                  - generic [ref=e112]: dresses
+                - cell "Moon" [ref=e113]:
+                  - generic [ref=e115]: Moon
+                - cell "Ropa de adulto" [ref=e116]:
+                  - generic [ref=e117]: Ropa de adulto
+                - cell "2" [ref=e118]
+                - cell "2" [ref=e119]
+              - row "Abrigos outerwear Men Men Ropa de adulto 2 3" [ref=e120] [cursor=pointer]:
+                - cell "Abrigos outerwear" [ref=e121]:
+                  - generic [ref=e122]: Abrigos
+                  - generic [ref=e123]: outerwear
+                - cell "Men Men" [ref=e124]:
+                  - generic [ref=e125]:
+                    - generic [ref=e126]: Men
+                    - generic [ref=e127]: Men
+                - cell "Ropa de adulto" [ref=e128]:
+                  - generic [ref=e129]: Ropa de adulto
+                - cell "2" [ref=e130]
+                - cell "3" [ref=e131]
+              - row "Lenceria lingerie Moon Ropa de adulto 1 4" [ref=e132] [cursor=pointer]:
+                - cell "Lenceria lingerie" [ref=e133]:
+                  - generic [ref=e134]: Lenceria
+                  - generic [ref=e135]: lingerie
+                - cell "Moon" [ref=e136]:
+                  - generic [ref=e138]: Moon
+                - cell "Ropa de adulto" [ref=e139]:
+                  - generic [ref=e140]: Ropa de adulto
+                - cell "1" [ref=e141]
+                - cell "4" [ref=e142]
+              - row "Ropa kink kinkwear Moon Sunshine Ropa de adulto 2 5" [ref=e143] [cursor=pointer]:
+                - cell "Ropa kink kinkwear" [ref=e144]:
+                  - generic [ref=e145]: Ropa kink
+                  - generic [ref=e146]: kinkwear
+                - cell "Moon Sunshine" [ref=e147]:
+                  - generic [ref=e148]:
+                    - generic [ref=e149]: Moon
+                    - generic [ref=e150]: Sunshine
+                - cell "Ropa de adulto" [ref=e151]:
+                  - generic [ref=e152]: Ropa de adulto
+                - cell "2" [ref=e153]
+                - cell "5" [ref=e154]
+              - row "Juguetes sex-toys Moon Solo talla unica 1 6" [ref=e155] [cursor=pointer]:
+                - cell "Juguetes sex-toys" [ref=e156]:
+                  - generic [ref=e157]: Juguetes
+                  - generic [ref=e158]: sex-toys
+                - cell "Moon" [ref=e159]:
+                  - generic [ref=e161]: Moon
+                - cell "Solo talla unica" [ref=e162]:
+                  - generic [ref=e163]: Solo talla unica
+                - cell "1" [ref=e164]
+                - cell "6" [ref=e165]
+              - row "Cosplay cosplay Sunshine Ropa de adulto 1 7" [ref=e166] [cursor=pointer]:
+                - cell "Cosplay cosplay" [ref=e167]:
+                  - generic [ref=e168]: Cosplay
+                  - generic [ref=e169]: cosplay
+                - cell "Sunshine" [ref=e170]:
+                  - generic [ref=e172]: Sunshine
+                - cell "Ropa de adulto" [ref=e173]:
+                  - generic [ref=e174]: Ropa de adulto
+                - cell "1" [ref=e175]
+                - cell "7" [ref=e176]
+              - row "Full Body full-body Sunshine Ropa de adulto 2 8" [ref=e177] [cursor=pointer]:
+                - cell "Full Body full-body" [ref=e178]:
+                  - generic [ref=e179]: Full Body
+                  - generic [ref=e180]: full-body
+                - cell "Sunshine" [ref=e181]:
+                  - generic [ref=e183]: Sunshine
+                - cell "Ropa de adulto" [ref=e184]:
+                  - generic [ref=e185]: Ropa de adulto
+                - cell "2" [ref=e186]
+                - cell "8" [ref=e187]
+          - generic [ref=e189]:
+            - generic [ref=e190]: Pagina 1 de 2
+            - generic [ref=e191]:
+              - button "Anterior" [disabled] [ref=e192]
+              - button "Siguiente" [ref=e193]
+        - generic [ref=e194]:
+          - generic [ref=e195]:
+            - generic [ref=e196]:
+              - heading "Tops" [level=2] [ref=e198]
+              - generic [ref=e199]:
+                - button "Eliminar" [ref=e200]
+                - button "Guardar" [ref=e201]
+            - generic [ref=e203]:
+              - generic [ref=e204]:
+                - generic [ref=e205]: Nombre visible
+                - textbox "Nombre visible" [ref=e206]: Tops
+              - generic [ref=e207]:
+                - generic [ref=e208]: ID interno
+                - textbox "ID interno" [disabled] [ref=e209]: tops
+              - generic [ref=e210]:
+                - generic [ref=e211]: Orden de navegacion
+                - spinbutton "Orden de navegacion" [ref=e212]: "0"
+              - generic [ref=e213]:
+                - checkbox "Categoria NSFW Marca esta categoria como solo para contenido adulto y control de visibilidad." [ref=e214]
+                - generic [ref=e215]:
+                  - generic [ref=e216]: Categoria NSFW
+                  - generic [ref=e217]: Marca esta categoria como solo para contenido adulto y control de visibilidad.
+              - generic [ref=e218]:
+                - generic [ref=e219]: Subtiendas activas
+                - generic [ref=e220]:
+                  - button "Moon" [ref=e221]
+                  - button "Sunshine" [ref=e222]
+                  - button "Men" [ref=e223]
+              - generic [ref=e224]:
+                - generic [ref=e225]: Formato de tallas
+                - combobox "Formato de tallas" [ref=e226]:
+                  - option "Ropa de adulto" [selected]
+                  - option "Zapatos de adulto"
+                  - option "Solo talla unica"
+              - generic [ref=e227]:
+                - generic [ref=e228]: Reasignar antes de eliminar
+                - combobox "Reasignar antes de eliminar Si la categoria ya esta siendo usada, elige aqui a donde migrarla antes de borrarla." [ref=e229]:
+                  - option "Sin reemplazo" [selected]
+                  - option "Bottoms"
+                  - option "Vestidos"
+                  - option "Abrigos"
+                  - option "Lenceria"
+                  - option "Ropa kink"
+                  - option "Juguetes"
+                  - option "Cosplay"
+                  - option "Full Body"
+                  - option "Accesorios"
+                  - option "Zapatos"
+                  - option "Joyería"
+                  - option "Bolsos"
+                - generic [ref=e230]: Si la categoria ya esta siendo usada, elige aqui a donde migrarla antes de borrarla.
+          - generic [ref=e231]:
+            - generic [ref=e232]:
+              - heading "Formatos de talla" [level=2] [ref=e234]
+              - button "Guardar formato" [ref=e235]
+            - generic [ref=e237]:
+              - generic [ref=e238]:
+                - button "Ropa de adulto" [ref=e239]
+                - button "Zapatos de adulto" [ref=e240]
+                - button "Solo talla unica" [ref=e241]
+              - generic [ref=e242]:
+                - generic [ref=e243]: Nombre del formato
+                - textbox "Nombre del formato" [ref=e244]: Ropa de adulto
+              - generic [ref=e245]:
+                - generic [ref=e246]: Tallas disponibles
+                - generic [ref=e247]:
+                  - button "XXS" [ref=e248]
+                  - button "XS" [disabled] [ref=e249]
+                  - button "S" [disabled] [ref=e250]
+                  - button "M" [disabled] [ref=e251]
+                  - button "L" [disabled] [ref=e252]
+                  - button "XL" [disabled] [ref=e253]
+                  - button "XXL" [ref=e254]
+                  - button "3XL" [ref=e255]
+                  - button "4XL" [ref=e256]
+                  - button "5XL" [ref=e257]
+                  - button "6XL" [ref=e258]
+                  - button "Unica" [ref=e259]
+              - generic [ref=e260]:
+                - generic [ref=e261]:
+                  - generic [ref=e262]: Agregar talla nueva
+                  - textbox "Agregar talla nueva" [ref=e263]:
+                    - /placeholder: "Ej: 7XL"
+                - button "Agregar talla" [ref=e265]

@@ -138,6 +138,7 @@ type CatalogBrowserProps = {
   vibeScope?: Vibe;
   enableNsfwGate?: boolean;
   resetFiltersOnQuery?: boolean;
+  searchPlaceholderClassName?: string;
 };
 
 export function CatalogBrowser({
@@ -154,6 +155,7 @@ export function CatalogBrowser({
   vibeScope,
   enableNsfwGate = false,
   resetFiltersOnQuery = false,
+  searchPlaceholderClassName,
 }: CatalogBrowserProps) {
   const [drawer, setDrawer] = useState(false);
   const [openHorizontalFilter, setOpenHorizontalFilter] = useState<string | null>(null);
@@ -421,7 +423,7 @@ export function CatalogBrowser({
           value={filters.q}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Buscar..."
-          className="w-full rounded-full border border-foreground/20 bg-card py-2.5 pl-9 pr-4 text-sm outline-none focus:border-foreground"
+          className={`w-full rounded-full border border-foreground/20 bg-card py-2.5 pl-9 pr-4 text-sm outline-none focus:border-foreground ${searchPlaceholderClassName ?? ""}`}
         />
       </div>
       <select
@@ -702,7 +704,7 @@ export function CatalogBrowser({
         <div className="grid gap-6 md:grid-cols-[240px_1fr]">
           {/* Sidebar — scrollbar contained inside box */}
           <aside className="hidden md:block">
-            <div className="sticky top-[calc(3.5rem+1rem)] max-h-[calc(100vh-5rem)] overflow-hidden rounded-xl border border-foreground/15 bg-card">
+            <div className="sticky top-[calc(3.5rem+1rem)] min-h-[42rem] max-h-[calc(100vh-5rem)] overflow-hidden rounded-xl border border-foreground/15 bg-card">
               <div className="h-full overflow-y-auto p-4">
                 {filtersPanel}
               </div>

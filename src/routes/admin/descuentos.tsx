@@ -8,13 +8,25 @@ import {
   AdminField,
   AdminInput,
   AdminSelect,
+  confirmAdminDestructiveAction,
 } from "@/components/admin/AdminControls";
 import { enforceAdminAccess } from "@/lib/admin-access";
-import { ADMIN_DISCOUNTS, getVibeLabel } from "@/lib/admin-service";
+import { deleteAdminDiscount, getAdminDiscounts, saveAdminDiscount } from "@/lib/admin-content";
+import { getVibeLabel } from "@/lib/admin-service";
 import type { AdminDiscountRecord } from "@/lib/admin-types";
 
 function cloneDiscount(discount: AdminDiscountRecord): AdminDiscountRecord {
   return { ...discount };
+}
+
+function sortDiscounts(discounts: AdminDiscountRecord[]) {
+  return [...discounts].sort((a, b) => {
+    if (a.active !== b.active) {
+      return a.active ? -1 : 1;
+    }
+
+    return a.code.localeCompare(b.code);
+  });
 }
 
 function createBlankDiscount(): AdminDiscountRecord {
@@ -31,18 +43,20 @@ function createBlankDiscount(): AdminDiscountRecord {
 
 export const Route = createFileRoute("/admin/descuentos")({
   beforeLoad: () => enforceAdminAccess(),
-  loader: () => ({ discounts: ADMIN_DISCOUNTS }),
-  head: () => ({ meta: [{ title: "Admin - Descuentos" }] }),
+  loader: async () => ({ discounts: await getAdminDiscounts() }),
+  head: () => ({ meta: [{ title: "Admin - Promociones" }] }),
   component: AdminDiscountsPage,
 });
 
 function AdminDiscountsPage() {
   const { discounts } = Route.useLoaderData();
-  const [rows, setRows] = useState(() => discounts.map(cloneDiscount));
+  const [rows, setRows] = useState(() => sortDiscounts(discounts.map(cloneDiscount)));
   const [selectedId, setSelectedId] = useState(discounts[0]?.id ?? "");
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState<AdminDiscountRecord | null>(discounts[0] ? cloneDiscount(discounts[0]) : null);
   const [saveMessage, setSaveMessage] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const filtered = useMemo(() => {
     const lowered = query.trim().toLowerCase();
@@ -76,33 +90,67 @@ function AdminDiscountsPage() {
     setRows((current) => [blank, ...current]);
     setSelectedId(blank.id);
     setDraft(blank);
-    setSaveMessage("Nuevo descuento draft creado.");
+    setSaveMessage("Nueva promoción draft creada.");
   };
 
   const handleSave = () => {
     if (!draft) return;
-    const normalized = {
-      ...draft,
-      code: draft.code.trim().toUpperCase(),
-      label: draft.label.trim(),
-    };
-    setRows((current) => current.map((discount) => (discount.id === draft.id ? normalized : discount)));
-    setSaveMessage("Descuento listo en la interfaz. Falta persistencia real.");
+    setIsSaving(true);
+    setSaveMessage("");
+    void saveAdminDiscount({ data: draft })
+      .then((saved) => {
+        setRows((current) => sortDiscounts([
+          saved,
+          ...current.filter((discount) => discount.id !== draft.id && discount.id !== saved.id),
+        ]));
+        setSelectedId(saved.id);
+        setDraft(cloneDiscount(saved));
+        setSaveMessage("Promoción guardada.");
+      })
+      .catch((error) => {
+        setSaveMessage(error instanceof Error ? error.message : "No se pudo guardar la promoción ahora mismo.");
+      })
+      .finally(() => {
+        setIsSaving(false);
+      });
+  };
+
+  const handleDelete = () => {
+    if (!draft) return;
+    if (
+      !confirmAdminDestructiveAction(
+        `Vas a eliminar la promoción ${draft.code || draft.id}. Esta acción no se puede deshacer. ¿Quieres continuar?`,
+      )
+    ) {
+      return;
+    }
+    setIsDeleting(true);
+    setSaveMessage("");
+    void deleteAdminDiscount({ data: { id: draft.id } })
+      .then(() => {
+        setRows((current) => current.filter((discount) => discount.id !== draft.id));
+        setSaveMessage("Promoción eliminada.");
+      })
+      .catch((error) => {
+        setSaveMessage(error instanceof Error ? error.message : "No se pudo eliminar la promoción ahora mismo.");
+      })
+      .finally(() => {
+        setIsDeleting(false);
+      });
   };
 
   return (
     <AdminShell
       section="descuentos"
-      title="Descuentos"
-      subtitle="Promociones simples y directas. Sin motor complejo todavia, pero ya con el flujo compacto para operar codigos."
+      title="Promociones"
       actions={
         <AdminButton tone="primary" onClick={handleCreate}>
-          Nuevo descuento
+          Nueva promoción
         </AdminButton>
       }
     >
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
-        <AdminPanel title="Campanas" eyebrow="Promociones">
+        <AdminPanel title="Promociones">
           <div className="mb-4 flex flex-col gap-3 md:flex-row">
             <AdminInput
               value={query}
@@ -110,17 +158,17 @@ function AdminDiscountsPage() {
               placeholder="Buscar por codigo o nombre"
             />
             <div className="shrink-0 rounded-xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2.5 text-sm font-semibold">
-              {filtered.length} descuentos
+              {filtered.length} promociones
             </div>
           </div>
 
           {!filtered.length ? (
             <AdminEmptyState
-              title="No hay descuentos"
-              body="Prueba otra busqueda o crea una nueva promocion."
+              title="No hay promociones"
+              body="Prueba otra búsqueda o crea una nueva promoción."
               action={
                 <AdminButton tone="primary" onClick={handleCreate}>
-                  Crear descuento
+                  Crear promoción
                 </AdminButton>
               }
             />
@@ -158,11 +206,15 @@ function AdminDiscountsPage() {
 
         <AdminPanel
           title={draft?.code || "Editor"}
-          eyebrow="Detalle"
           actions={
-            <AdminButton tone="primary" onClick={handleSave} disabled={!draft}>
-              Guardar
-            </AdminButton>
+            <div className="flex flex-wrap gap-2">
+              <AdminButton tone="danger" onClick={handleDelete} disabled={!draft || isDeleting || isSaving}>
+                {isDeleting ? "Eliminando..." : "Eliminar"}
+              </AdminButton>
+              <AdminButton tone="primary" onClick={handleSave} disabled={!draft || isSaving || isDeleting}>
+                {isSaving ? "Guardando..." : "Guardar"}
+              </AdminButton>
+            </div>
           }
         >
           {draft ? (

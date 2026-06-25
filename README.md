@@ -1,121 +1,61 @@
-# Pulpiña RD — Tienda Alternativa Multivibe
+# Pulpina RD
 
-¡Bienvenido al repositorio de **Pulpiña RD**! Una plataforma de comercio electrónico de moda alternativa diseñada y desarrollada en la República Dominicana. Este proyecto está estructurado bajo un concepto de "multivibe" que segmenta la experiencia de compra en tres marcas o estilos diferenciados: **Moon** (romance gótico), **Sunshine** (kawaii/Y2K/glossy) y **Men** (punk/underground), además de un catálogo general integrado.
+Sitio React/TanStack Start sobre Cloudflare Workers. Hoy funciona como catalogo y canal de contacto; el siguiente paso sano es mover solicitudes, formularios y media a D1/R2 con Cloudflare Access y Turnstile ya puestos como perimetro.
 
-## 🚀 Tecnologías Principales
+## Estado actual
 
-El proyecto utiliza un stack moderno y de alto rendimiento:
+- `src/lib/admin-access.ts` valida `Cf-Access-Jwt-Assertion` y aplica allowlists de host/email para la ruta protegida `/admin`.
+- `src/server.ts` anade headers base de seguridad en produccion.
+- `src/lib/public-forms.ts` protege contacto y newsletter con validacion server-side de Turnstile.
+- `src/context/cart.tsx` usa carrito local del navegador para armar solicitudes.
+- `src/routes/solicitud.tsx` crea pedidos manuales con numero `PUL-000000` y luego envia al cliente a WhatsApp para cerrar la compra.
+- `src/lib/manual-orders.ts` conecta checkout manual, admin y correo opcional desde el mismo flujo server-side.
 
-- **Framework**: [TanStack Start](https://tanstack.com/router/latest/docs/start/overview) (framework full-stack SSR construido sobre TanStack Router).
-- **Frontend**: [React 19](https://react.dev/) & [TypeScript](https://www.typescriptlang.org/).
-- **Estilos**: [Tailwind CSS v4](https://tailwindcss.com/) (usando el nuevo compilador nativo `@tailwindcss/vite`).
-- **Gestión de Estado y Consultas**: [TanStack Query v5](https://tanstack.com/query/latest) (React Query).
-- **Plataforma Serverless / SSR**: [Cloudflare Workers / Pages](https://pages.cloudflare.com/) (con integración a través de Wrangler).
-- **E-Commerce Backend**: Integración híbrida con [Shopify Storefront API](https://shopify.dev/docs/api/storefront).
+## Variables de entorno
 
----
+Copia `.env.example` y `.dev.vars.example` y define:
 
-## 🛠️ Requisitos Previos
-
-Asegúrate de tener instalados los siguientes componentes antes de comenzar:
-
-- **Node.js**: v18.0.0 o superior (se recomienda v20+).
-- **Gestor de paquetes**: [Bun](https://bun.sh/) (recomendado por la velocidad y el soporte nativo de `bun.lock`) o `npm`.
-- **Wrangler CLI**: Instalar globalmente o ejecutar vía `npx` para emular el entorno de Cloudflare.
-
----
-
-## ⚙️ Configuración del Proyecto
-
-Sigue estos pasos para levantar el entorno de desarrollo local:
-
-1. **Clonar el repositorio**:
-   ```bash
-   git clone https://github.com/maledadams/pulpi-a-worlds.git
-   cd pulpi-a-worlds
-   ```
-
-2. **Instalar dependencias**:
-   Si usas **Bun** (recomendado):
-   ```bash
-   bun install
-   ```
-   Si usas **npm**:
-   ```bash
-   npm install
-   ```
-
-3. **Configurar variables de entorno**:
-   Copia el archivo de ejemplo para crear tu archivo `.env` o `.dev.vars` local:
-   ```bash
-   cp .env.example .env
-   cp .dev.vars.example .dev.vars
-   ```
-   Edita los archivos con las credenciales de tu tienda Shopify:
-   ```env
-   SHOPIFY_STORE_DOMAIN=tu-tienda.myshopify.com
-   SHOPIFY_STOREFRONT_ACCESS_TOKEN=tu_token_de_acceso_storefront
-   SHOPIFY_API_VERSION=2026-04
-   ADMIN_ALLOWED_HOSTS=localhost,admin.tudominio.com
-   ADMIN_ALLOWED_EMAILS=owner@tudominio.com,ops@tudominio.com
-   ADMIN_ALLOWED_EMAIL_DOMAINS=
-   ```
-   El acceso real a `/admin` debe venir de Cloudflare Access; estos env son defensa adicional del lado servidor.
-
-4. **Iniciar el servidor de desarrollo**:
-   ```bash
-   bun dev
-   # o bien: npm run dev
-   ```
-   Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
-
-5. **Lanzar pruebas de compilación local con Cloudflare Wrangler (opcional)**:
-   ```bash
-   npx wrangler dev
-   ```
-
----
-
-## 📁 Estructura del Proyecto
-
-A continuación, se detalla la organización de los directorios clave en `src/`:
-
-```text
-src/
-├── assets/          # Recursos estáticos (Logotipos de vibes, mood boards, etc.)
-├── components/      # Componentes modulares y reutilizables de UI
-│   ├── admin/       # Vistas y paneles del panel operativo interno
-│   ├── cart/        # Carrito lateral (drawer) e interacciones de compra
-│   ├── catalog/     # Filtros, ordenamiento y grids de productos
-│   ├── home/        # Hero carousel y modales de bienvenida
-│   ├── layout/      # Componentes globales de estructura (Header, Footer)
-│   ├── product/     # Tarjetas de productos y detalles visuales
-│   └── ui/          # Primitives base de Shadcn UI (botones, inputs, diálogos, etc.)
-├── context/         # Proveedores de estado global (e.g. carrito de compra local)
-├── data/            # Datos locales de mock para fallback (e.g. catálogos locales)
-├── hooks/           # Custom React hooks de comportamiento (e.g. useVibe)
-├── lib/             # Servicios del servidor y utilidades
-│   ├── shopify.ts   # Funciones servidor (createServerFn) para consultar Shopify API
-│   ├── admin-service.ts  # Control de datos locales del dashboard de administración
-│   ├── admin-access.ts   # Lógica de seguridad y control de acceso al admin panel
-│   └── store-filters.ts  # Control y validación del estado de filtros y búsquedas
-├── routes/          # Rutas basadas en archivos de TanStack Start
-│   ├── __root.tsx   # Shell principal, metatags globales y providers
-│   ├── index.tsx    # Landing page principal
-│   ├── tienda.tsx   # Buscador general del catálogo
-│   ├── producto.$slug.tsx # Detalle dinámico del producto
-│   ├── admin.tsx    # Ruta padre del panel de control
-│   └── [vibes].tsx  # Rutas específicas para cada subtienda (moon, sunshine, men)
-├── server.ts        # Punto de entrada para SSR y Cloudflare Workers
-├── start.ts         # Punto de entrada para el cliente en el navegador
-└── styles.css       # Estilos globales y temas OKLCH por cada sub-marca (vibe)
+```env
+ADMIN_ALLOWED_HOSTS=localhost,pulpinastore.com,www.pulpinastore.com
+ADMIN_ALLOWED_EMAILS=owner@tudominio.com,ops@tudominio.com
+ADMIN_ALLOWED_EMAIL_DOMAINS=
+CF_ACCESS_TEAM_DOMAIN=https://tu-equipo.cloudflareaccess.com
+CF_ACCESS_AUD=tu_aud_de_access
+TURNSTILE_SECRET_KEY=tu_secret_turnstile
+VITE_TURNSTILE_SITE_KEY=tu_site_key_turnstile
+ORDER_NOTIFICATION_EMAIL=pedidos@tudominio.com
+RESEND_API_KEY=re_xxxxxxxxx
+RESEND_FROM_EMAIL=Pulpina RD <pedidos@tudominio.com>
 ```
 
----
+## Desarrollo
 
-## 🛠️ Comandos Disponibles
+```bash
+pnpm install
+pnpm dev
+pnpm build
+```
 
-- `bun dev` / `npm run dev`: Levanta el entorno de desarrollo local con Vite.
-- `bun build` / `npm run build`: Compila la aplicación optimizada para producción.
-- `bun lint` / `npm run lint`: Ejecuta ESLint sobre el proyecto.
-- `bun format` / `npm run format`: Formatea el código fuente utilizando Prettier.
+## Deploy
+
+Despliega este proyecto como Worker SSR de Cloudflare, no como sitio estatico subiendo solo `dist/client`, porque eso deja 404 en rutas como `/tienda`, `/moon` o `/contacto`.
+
+```bash
+pnpm deploy:dry-run
+pnpm deploy:production
+```
+
+## Cloudflare
+
+- `wrangler.jsonc` ya tiene `nodejs_compat`, `observability` y custom domains de produccion para `pulpinastore.com` y `www.pulpinastore.com`.
+- Ahi mismo hay plantillas comentadas para `vars`, `d1_databases`, `r2_buckets`, `staging` y `production`.
+- Los secretos van por `wrangler secret put`, no en el repo.
+
+## Lo que falta antes de lanzar
+
+- Persistir solicitudes, contacto y newsletter en D1.
+- Verificar el dominio remitente de `RESEND_FROM_EMAIL` para activar correos reales.
+- Mover media publica/privada a R2.
+- Anadir rate limiting/WAF y reglas de headers en Cloudflare.
+- Completar en la pagina legal la razon social, RNC y domicilio legal reales antes de produccion.
+- Proteger `https://pulpinastore.com/admin/*` con Cloudflare Access.
