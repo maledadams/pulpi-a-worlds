@@ -6,7 +6,6 @@ import { useCatalogProducts } from "@/context/catalog";
 import { useCart } from "@/context/cart";
 import { formatPrice, type Product } from "@/data/products";
 import { useVibe } from "@/hooks/use-vibe";
-import { getStorefrontSettings } from "@/lib/admin-content";
 import { getStorefrontProductBySlug } from "@/lib/catalog";
 
 export const Route = createFileRoute("/producto/$slug")({
@@ -15,10 +14,7 @@ export const Route = createFileRoute("/producto/$slug")({
     const product = await getStorefrontProductBySlug({ data: { slug: params.slug } });
     if (!product) throw notFound();
 
-    return {
-      product,
-      settings: await getStorefrontSettings(),
-    };
+    return { product };
   },
   notFoundComponent: () => (
     <div className="mx-auto max-w-3xl px-4 py-20 text-center">
@@ -33,9 +29,8 @@ export const Route = createFileRoute("/producto/$slug")({
 });
 
 function ProductPage() {
-  const { product, settings } = Route.useLoaderData() as {
+  const { product } = Route.useLoaderData() as {
     product: Product;
-    settings: Awaited<ReturnType<typeof getStorefrontSettings>>;
   };
   const products = useCatalogProducts();
   const cart = useCart();
@@ -213,26 +208,12 @@ function ProductPage() {
             </button>
           </div>
 
-          <div className="mt-8 grid gap-2 text-sm">
-            <details className="border-b border-border py-2">
-              <summary className="cursor-pointer font-bold">{settings.productDetailsTitle}</summary>
-              <p className="mt-2 text-muted-foreground">{settings.productDetailsBody}</p>
-            </details>
-            <details className="border-b border-border py-2">
-              <summary className="cursor-pointer font-bold">{settings.productCareTitle}</summary>
-              <p className="mt-2 text-muted-foreground">{settings.productCareBody}</p>
-            </details>
-            <details className="border-b border-border py-2">
-              <summary className="cursor-pointer font-bold">{settings.productShippingTitle}</summary>
-              <p className="mt-2 text-muted-foreground">{settings.productShippingBody}</p>
-            </details>
-          </div>
         </div>
       </div>
 
       {related.length > 0 ? (
         <section className="mt-16">
-          <h2 className="mb-4 text-3xl md:text-4xl">Mas de esta vibra</h2>
+          <h2 className="mb-4 text-3xl md:text-4xl">Mas De Esta Vibra</h2>
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             {related.map((entry) => (
               <ProductCard key={entry.id} product={entry} />

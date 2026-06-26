@@ -14,7 +14,12 @@ function CartPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
-      <p className="text-[11px] font-black uppercase tracking-[0.24em] text-muted-foreground">Resumen</p>
+      <Link
+        to="/tienda"
+        className="inline-flex text-[11px] font-black uppercase tracking-[0.24em] text-muted-foreground transition hover:text-foreground"
+      >
+        Continuar comprando
+      </Link>
       <h1 className="text-2xl sm:text-3xl md:text-4xl">Tu carrito</h1>
 
       {cart.lines.length === 0 ? (
@@ -57,7 +62,7 @@ function CartPage() {
                       <Link
                         to="/producto/$slug"
                         params={{ slug: line.productHandle }}
-                        className="font-bold"
+                        className="font-normal"
                       >
                         {line.productTitle}
                       </Link>
@@ -122,12 +127,6 @@ function CartPage() {
               className="sticker mt-5 block rounded-full border border-foreground/20 bg-foreground px-6 py-3 text-center font-bold uppercase text-background"
             >
               Completar pedido
-            </Link>
-            <Link
-              to="/tienda"
-              className="mt-2 block text-center text-sm font-semibold hover:underline"
-            >
-              Continuar comprando
             </Link>
           </aside>
         </div>

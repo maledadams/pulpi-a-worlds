@@ -495,7 +495,7 @@ const DEFAULT_LEGAL_SECTIONS: AdminLegalSectionRecord[] = [
 ];
 
 export const ADMIN_SETTINGS: AdminSettingsRecord = {
-  businessName: "Pulpina RD",
+  businessName: "Pulpiña RD",
   supportEmail: "hola@pulpina.do",
   whatsappNumber: "18095550199",
   whatsappLabel: "+1 (809) 555-0199",
@@ -534,10 +534,10 @@ export const ADMIN_SETTINGS: AdminSettingsRecord = {
   menPageTagline: "Punk - Studded - Distressed",
   menPageIntro:
     "Cuero, puas, parches y actitud. Streetwear alternativo para los que escuchan a los sin voz.",
-  vibeCatalogHeading: "Toda la linea",
+  vibeCatalogHeading: "Toda la Linea",
   productDetailsTitle: "Detalles",
   productDetailsBody:
-    "Diseno exclusivo Pulpina RD. Edicion limitada, hecha en Republica Dominicana.",
+    "Diseno exclusivo Pulpiña RD. Edicion limitada, hecha en Republica Dominicana.",
   productCareTitle: "Cuidado",
   productCareBody: "Lavar a mano con agua fria. No usar secadora.",
   productShippingTitle: "Envio",

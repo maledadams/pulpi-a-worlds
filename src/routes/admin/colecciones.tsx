@@ -449,7 +449,7 @@ function AdminCollectionsPage() {
                           className="mt-1 h-4 w-4 rounded border-[#231717] accent-[#231717]"
                         />
                         <span className="min-w-0">
-                          <span className="block font-bold">{product.name}</span>
+                          <span className="block font-normal">{product.name}</span>
                           <span className="mt-0.5 block text-xs text-[#6b5a55]">
                             {getVibeLabel(product.vibe)} / {getCompactCategoryLabel(product.primaryCategory)}
                           </span>

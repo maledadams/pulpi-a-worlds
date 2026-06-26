@@ -11,8 +11,10 @@ type Cfg = {
   tagline: string;
   intro: string;
   catalogHeading: string;
+  catalogThemeVibe?: Vibe;
   heroBorderClassName?: string;
   searchPlaceholderClassName?: string;
+  catalogSectionClassName?: string;
   bg: string;
   logo: string;
   mood: string | null;
@@ -30,6 +32,9 @@ export function VibePage({
 }) {
   useVibe(cfg.vibe);
   const products = useCatalogProducts().filter((product) => product.vibe === cfg.vibe);
+  const catalogHeading = /^toda la linea$/i.test(cfg.catalogHeading.trim())
+    ? "Toda la Linea"
+    : cfg.catalogHeading;
 
   return (
     <div>
@@ -58,19 +63,35 @@ export function VibePage({
         </div>
       </section>
 
-      <section id="shop" className="mx-auto max-w-7xl px-4 py-12">
-        <h2 className="mb-4 text-3xl md:text-4xl">{cfg.catalogHeading}</h2>
-        <CatalogBrowser
-          products={products}
-          search={search}
-          onSearchChange={onSearchChange}
-          mode="horizontal"
-          tone="vibe"
-          soldOutMode="vibe"
-          emptyTitle="Nada en esta linea todavia"
-          vibeScope={cfg.vibe}
-          searchPlaceholderClassName={cfg.searchPlaceholderClassName}
-        />
+      <section
+        id="shop"
+        className={`${cfg.catalogSectionClassName ?? ""} ${
+          cfg.catalogThemeVibe ? "bg-background text-foreground" : ""
+        }`}
+        data-vibe={cfg.catalogThemeVibe}
+      >
+        <div className="mx-auto max-w-7xl px-4 py-12">
+          <h2
+            className="mb-4 text-3xl md:text-4xl"
+            style={{
+              fontFamily: cfg.vibe === "moon" ? "var(--font-gothic)" : undefined,
+            }}
+          >
+            {catalogHeading}
+          </h2>
+          <CatalogBrowser
+            products={products}
+            search={search}
+            onSearchChange={onSearchChange}
+            mode="horizontal"
+            tone="vibe"
+            soldOutMode="vibe"
+            emptyTitle="Nada en esta linea todavia"
+            vibeScope={cfg.vibe}
+            themeVibe={cfg.catalogThemeVibe}
+            searchPlaceholderClassName={cfg.searchPlaceholderClassName}
+          />
+        </div>
       </section>
     </div>
   );

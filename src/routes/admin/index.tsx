@@ -62,6 +62,17 @@ function getInventoryBaseUnitPrice(price: number, compareAtPrice: number | null)
   return price;
 }
 
+function getOrderPreviewImage(
+  inquiry: AdminInquiryRecord,
+  products: Awaited<ReturnType<typeof getAdminCatalogProducts>>,
+) {
+  const firstLine = inquiry.lines[0];
+  if (!firstLine) return null;
+  const product = products.find((entry) => entry.id === firstLine.productId);
+  const variantImage = product?.variants.find((variant) => variant.id === firstLine.variantId)?.image ?? null;
+  return variantImage ?? product?.featuredImage ?? null;
+}
+
 function AdminDashboardPage() {
   const { orders, products } = Route.useLoaderData();
   const [salesWindow, setSalesWindow] = useState<SalesWindow>("month");
@@ -109,10 +120,10 @@ function AdminDashboardPage() {
       }
     >
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <AdminStatCard label="Productos" value={String(snapshot.productCount)} icon={PackageSearch} />
-        <AdminStatCard label="Pedidos" value={String(snapshot.inquiryCount)} icon={MessageSquareMore} />
-        <AdminStatCard label="Abiertas" value={String(snapshot.openInquiryCount)} icon={TriangleAlert} />
-        <AdminStatCard label="Inventario" value={formatPrice(snapshot.inventoryBaseValue)} icon={ShieldCheck} />
+        <AdminStatCard label="Productos" value={String(snapshot.productCount)} icon={PackageSearch} iconClassName="bg-[#f5dce8] text-[#7b3551]" />
+        <AdminStatCard label="Pedidos" value={String(snapshot.inquiryCount)} icon={MessageSquareMore} iconClassName="bg-[#dff3c7] text-[#45651f]" />
+        <AdminStatCard label="Abiertas" value={String(snapshot.openInquiryCount)} icon={TriangleAlert} iconClassName="bg-[#ffe1c8] text-[#9a4a1d]" />
+        <AdminStatCard label="Inventario" value={formatPrice(snapshot.inventoryBaseValue)} icon={ShieldCheck} iconClassName="bg-[#fde2bf] text-[#8a531b]" />
       </div>
 
       <div className="mt-5 grid gap-4 xl:grid-cols-[1.2fr_1fr]">
@@ -120,30 +131,61 @@ function AdminDashboardPage() {
           {snapshot.recentInquiries.length > 0 ? (
             <div className="grid gap-3">
               {snapshot.recentInquiries.map((inquiry) => (
-                <div key={inquiry.id} className="rounded-2xl border border-[#231717]/10 p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-black">{inquiry.requestNumber}</div>
-                      <div className="mt-1 text-xs text-[#6b5a55]">
-                        {inquiry.customerName} / {formatAdminInquiryChannel(inquiry.channel)}
+                <div key={inquiry.id} className="rounded-2xl border border-[#231717]/10 bg-[#faf6f0] p-3">
+                  <div className="flex items-start gap-3">
+                    {getOrderPreviewImage(inquiry, products) ? (
+                      <img
+                        src={getOrderPreviewImage(inquiry, products)!.url}
+                        alt={inquiry.lines[0]?.productName ?? inquiry.requestNumber}
+                        className="h-20 w-20 shrink-0 rounded-2xl object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-white text-xs font-black uppercase text-[#5f4941]">
+                        {inquiry.lines[0]?.productName?.slice(0, 2).toUpperCase() ?? "P"}
                       </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-black">{inquiry.requestNumber}</div>
+                          <div className="mt-1 text-xs text-[#6b5a55]">
+                            {inquiry.customerName} / {formatAdminInquiryChannel(inquiry.channel)}
+                          </div>
+                        </div>
+                        <AdminTag
+                          tone={
+                            inquiry.status === "new"
+                              ? "warn"
+                              : inquiry.status === "closed"
+                                ? "success"
+                                : inquiry.status === "cancelled"
+                                  ? "danger"
+                                  : "info"
+                          }
+                        >
+                          {formatAdminInquiryStatus(inquiry.status)}
+                        </AdminTag>
+                      </div>
+                      {inquiry.lines[0] ? (
+                        <div className="mt-3 rounded-2xl border border-[#231717]/10 bg-white px-3 py-2">
+                          <div className="text-sm font-normal leading-normal">{inquiry.lines[0].productName}</div>
+                          <div className="mt-1 text-xs text-[#6b5a55]">
+                            {inquiry.lines[0].variantLabel} / Cantidad: {inquiry.lines[0].quantity}
+                          </div>
+                        </div>
+                      ) : null}
+                      <div className="mt-3 grid gap-1 text-xs text-[#6b5a55]">
+                        <div>Entrega: {inquiry.fulfillmentMethod === "delivery" ? "Delivery" : "Recoger"}</div>
+                        {inquiry.fulfillmentMethod === "delivery" && inquiry.shippingAddress.line1 ? (
+                          <div>
+                            Direccion: {inquiry.shippingAddress.line1}, {inquiry.shippingAddress.city}, {inquiry.shippingAddress.province}
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="mt-3 text-sm text-[#5f4941]">{inquiry.notes || "Sin notas."}</div>
+                      <div className="mt-3 text-sm font-black">{formatPrice(inquiry.total)}</div>
                     </div>
-                    <AdminTag
-                      tone={
-                        inquiry.status === "new"
-                          ? "warn"
-                          : inquiry.status === "closed"
-                            ? "success"
-                            : inquiry.status === "cancelled"
-                              ? "danger"
-                              : "info"
-                      }
-                    >
-                      {formatAdminInquiryStatus(inquiry.status)}
-                    </AdminTag>
                   </div>
-                  <div className="mt-3 text-sm text-[#5f4941]">{inquiry.notes || "Sin notas."}</div>
-                  <div className="mt-3 text-sm font-black">{formatPrice(inquiry.total)}</div>
                 </div>
               ))}
             </div>

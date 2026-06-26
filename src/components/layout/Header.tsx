@@ -23,6 +23,8 @@ type AnnouncementTheme = {
   background: string;
   border: string;
   text: string;
+  badgeBackground: string;
+  badgeText: string;
 };
 
 type AnnouncementThemeKey = "store" | "moon" | "sunshine" | "men";
@@ -234,9 +236,11 @@ function CategoryCircle({
 function getAnnouncementTheme(themeKey: AnnouncementThemeKey): AnnouncementTheme {
   if (themeKey === "sunshine") {
     return {
-      background: "bg-[#c5f56a]",
+      background: "bg-[#ff4ea3]",
       border: "border-transparent",
-      text: "text-[#243011]",
+      text: "text-white",
+      badgeBackground: "bg-[#ff4ea3]",
+      badgeText: "text-white",
     };
   }
 
@@ -245,6 +249,8 @@ function getAnnouncementTheme(themeKey: AnnouncementThemeKey): AnnouncementTheme
       background: "bg-[#f3e7dc]",
       border: "border-transparent",
       text: "text-[#3a1c28]",
+      badgeBackground: "bg-[#7b1832]",
+      badgeText: "text-[#fff5f8]",
     };
   }
 
@@ -253,6 +259,8 @@ function getAnnouncementTheme(themeKey: AnnouncementThemeKey): AnnouncementTheme
       background: "bg-[#8f2015]",
       border: "border-transparent",
       text: "text-[#fff7f2]",
+      badgeBackground: "bg-[#8f2015]",
+      badgeText: "text-[#fff7f2]",
     };
   }
 
@@ -260,6 +268,8 @@ function getAnnouncementTheme(themeKey: AnnouncementThemeKey): AnnouncementTheme
     background: "bg-[#c5f56a]",
     border: "border-transparent",
     text: "text-[#243011]",
+    badgeBackground: "bg-[#c5475f]",
+    badgeText: "text-white",
   };
 }
 
@@ -309,7 +319,7 @@ export function Header({
   const cart = useCart();
   const catalogProducts = useCatalogProducts();
   const loc = useLocation();
-  const announcementTheme = getAnnouncementTheme(
+  const activeThemeKey =
     announcementThemeOverride ??
       (loc.pathname.startsWith("/sunshine")
         ? "sunshine"
@@ -317,8 +327,8 @@ export function Header({
           ? "moon"
           : loc.pathname.startsWith("/men")
             ? "men"
-            : "store"),
-  );
+            : "store");
+  const announcementTheme = getAnnouncementTheme(activeThemeKey);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
   const [activeMega, setActiveMega] = useState<MegaKey | null>(null);
@@ -481,7 +491,9 @@ export function Header({
           >
             <ShoppingBag className="h-5 w-5" />
             {cart.count > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#c5f56a] px-1 text-[9px] font-black text-[#243011]">
+              <span
+                className={`absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-black ${announcementTheme.badgeBackground} ${announcementTheme.badgeText}`}
+              >
                 {cart.count}
               </span>
             )}

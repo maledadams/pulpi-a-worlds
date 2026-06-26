@@ -149,7 +149,7 @@ function ProductSearchField({
                 : "border-[#231717]/10 bg-white text-[#231717]"
             }`}
           >
-            <div className="font-bold">{match.name}</div>
+            <div className="font-normal">{match.name}</div>
             <div className="text-xs opacity-70">{match.id}</div>
           </button>
         ))}
@@ -461,6 +461,7 @@ function AdminOrdersPage() {
     >
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_460px]">
         <AdminPanel
+          title="Ordenes"
           actions={
             <div className="flex flex-wrap gap-2">
               {(["all", "new", "follow_up", "quoted", "closed", "cancelled"] as const).map((entry) => (

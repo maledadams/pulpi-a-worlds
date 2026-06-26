@@ -226,7 +226,7 @@ function Home() {
         <HomeRailSection key={section.id} title={section.title} products={section.products} />
       ))}
 
-      <section className="border-t border-foreground/10 bg-muted/40 px-4 py-14 text-center">
+      <section className="border-t border-[#c5f56a]/45 bg-muted/40 px-4 py-14 text-center">
         <h2 className="text-2xl md:text-3xl">{settings.newsletterTitle}</h2>
         <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
           {settings.newsletterDescription}

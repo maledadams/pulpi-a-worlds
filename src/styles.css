@@ -11,7 +11,7 @@
 
 @theme inline {
   --font-display: "Bungee", "Bebas Neue", system-ui, sans-serif;
-  --font-gothic: "UnifrakturCook", "Cinzel", serif;
+  --font-gothic: "UnifrakturMaguntia", "Cinzel", serif;
   --font-cute: "Fredoka", "Quicksand", system-ui, sans-serif;
   --font-body: "Outfit", "Inter", system-ui, sans-serif;
   --radius-sm: calc(var(--radius) - 4px);

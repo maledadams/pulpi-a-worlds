@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { AdminPanel, AdminShell } from "@/components/admin/AdminShell";
 import {
   AdminButton,
-  AdminCheckbox,
   AdminField,
   AdminInput,
   AdminToast,
@@ -172,78 +171,6 @@ function AdminSettingsPage() {
                       rows={3}
                     />
                   </AdminField>
-                </div>
-              </div>
-            ))}
-          </div>
-        </AdminPanel>
-
-        <AdminPanel
-          title="Anuncios del sitio"
-          actions={
-            <AdminButton
-              tone="secondary"
-              onClick={() =>
-                setForm((current) => ({
-                  ...current,
-                  announcements: [
-                    ...current.announcements,
-                    { id: `announcement-${Date.now()}`, text: "", active: true },
-                  ],
-                }))
-              }
-            >
-              Agregar anuncio
-            </AdminButton>
-          }
-        >
-          <div className="grid gap-3">
-            {form.announcements.map((announcement, index) => (
-              <div key={announcement.id} className="rounded-[18px] border border-[#231717]/15 bg-[#faf6f0] p-4">
-                <div className="grid gap-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-xs font-black uppercase tracking-[0.18em] text-[#6b5a55]">
-                      Anuncio {index + 1}
-                    </div>
-                    <AdminButton
-                      tone="ghost"
-                      onClick={() =>
-                        confirmAdminDestructiveAction("Vas a eliminar este anuncio. ¿Quieres continuar?") &&
-                        setForm((current) => ({
-                          ...current,
-                          announcements: current.announcements.filter((entry) => entry.id !== announcement.id),
-                        }))
-                      }
-                    >
-                      Quitar
-                    </AdminButton>
-                  </div>
-                  <AdminField label="Texto del anuncio">
-                    <AdminTextarea
-                      value={announcement.text}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          announcements: current.announcements.map((entry) =>
-                            entry.id === announcement.id ? { ...entry, text: event.target.value } : entry,
-                          ),
-                        }))
-                      }
-                      rows={3}
-                    />
-                  </AdminField>
-                  <AdminCheckbox
-                    label="Mostrar este anuncio"
-                    checked={announcement.active}
-                    onCheckedChange={(checked) =>
-                      setForm((current) => ({
-                        ...current,
-                        announcements: current.announcements.map((entry) =>
-                          entry.id === announcement.id ? { ...entry, active: checked } : entry,
-                        ),
-                      }))
-                    }
-                  />
                 </div>
               </div>
             ))}

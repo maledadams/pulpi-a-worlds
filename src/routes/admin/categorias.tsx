@@ -352,7 +352,7 @@ function AdminCategoriesPage() {
           )}
         </AdminPanel>
 
-        <div className="grid gap-4">
+        <div className="grid auto-rows-fr gap-4">
           <AdminPanel
             title={draft?.label || "Editor"}
             className="h-full"
@@ -377,10 +377,6 @@ function AdminCategoriesPage() {
 
                 <AdminField label="Nombre visible">
                   <AdminInput value={draft.label} onChange={(event) => setDraft((current) => (current ? { ...current, label: event.target.value } : current))} />
-                </AdminField>
-
-                <AdminField label="ID interno">
-                  <AdminInput value={draft.id.startsWith("draft-category-") ? "Se genera al guardar" : draft.id} disabled />
                 </AdminField>
 
                 <AdminField label="Orden de navegacion">
@@ -461,13 +457,14 @@ function AdminCategoriesPage() {
 
           <AdminPanel
             title="Formatos de talla"
+            className="h-full"
             actions={
               <AdminButton tone="primary" onClick={handleSaveFormat}>
                 Guardar formato
               </AdminButton>
             }
           >
-            <div className="grid gap-4">
+              <div className="grid h-full content-start gap-4">
               {formatMessage ? (
                 <div className="rounded-2xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2 text-xs font-semibold text-[#5f4941]">
                   {formatMessage}

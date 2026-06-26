@@ -17,7 +17,7 @@ const NAV_ITEMS: Array<{
   { section: "colecciones", label: "Colecciones", to: "/admin/colecciones", icon: FolderKanban },
   { section: "pedidos", label: "Pedidos", to: "/admin/pedidos", icon: ShoppingBag },
   { section: "descuentos", label: "Promociones", to: "/admin/descuentos", icon: Percent },
-  { section: "configuracion", label: "Admin", to: "/admin/configuracion", icon: Settings2 },
+  { section: "configuracion", label: "Configuracion", to: "/admin/configuracion", icon: Settings2 },
 ];
 
 const SECTION_BACKGROUNDS: Record<AdminSection, string> = {
@@ -128,11 +128,13 @@ export function AdminStatCard({
   value,
   help,
   icon: Icon,
+  iconClassName,
 }: {
   label: string;
   value: string;
   help?: string;
   icon: typeof BarChart3;
+  iconClassName?: string;
 }) {
   return (
     <div className="rounded-[18px] border-2 border-[#231717] bg-white p-4 shadow-[0_16px_32px_-28px_rgba(35,23,23,0.45)]">
@@ -142,7 +144,7 @@ export function AdminStatCard({
           <div className="mt-2 text-2xl font-black">{value}</div>
           {help ? <div className="mt-1 text-xs text-[#6b5a55]">{help}</div> : null}
         </div>
-        <div className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-[#f5eadf] text-[#231717]">
+        <div className={cn("flex h-10 w-10 items-center justify-center rounded-[14px] bg-[#f5eadf] text-[#231717]", iconClassName)}>
           <Icon className="h-5 w-5" />
         </div>
       </div>
@@ -156,12 +158,14 @@ export function AdminPanel({
   children,
   actions,
   className,
+  titleClassName,
 }: {
   title?: string;
   eyebrow?: string;
   children: ReactNode;
   actions?: ReactNode;
   className?: string;
+  titleClassName?: string;
 }) {
   const showHeader = Boolean(title || eyebrow || actions);
 
@@ -174,7 +178,7 @@ export function AdminPanel({
               {eyebrow ? (
                 <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[#7c665f]">{eyebrow}</div>
               ) : null}
-              {title ? <h2 className="mt-1 text-lg font-black">{title}</h2> : null}
+              {title ? <h2 className={cn("mt-1 text-lg font-black", titleClassName)}>{title}</h2> : null}
             </div>
           ) : (
             <div />

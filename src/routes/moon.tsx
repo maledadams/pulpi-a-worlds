@@ -1,9 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { VibePage } from "@/components/collections/VibePage";
-import { getStorefrontSettings } from "@/lib/admin-content";
-import { validateCatalogSearch } from "@/lib/store-filters";
 import logo from "@/assets/logo-moon.png";
 import mood from "@/assets/mood-moon.jpg";
+import { getStorefrontSettings } from "@/lib/admin-content";
+import { validateCatalogSearch } from "@/lib/store-filters";
 
 export const Route = createFileRoute("/moon")({
   ssr: false,
@@ -28,6 +28,8 @@ function MoonPage() {
         tagline: settings.moonPageTagline,
         intro: settings.moonPageIntro,
         catalogHeading: settings.vibeCatalogHeading,
+        catalogThemeVibe: "men",
+        searchPlaceholderClassName: "placeholder:text-[#8d8d8d]",
         bg: "linear-gradient(135deg,#0a0408,#2a0a14 60%,#5a0a14)",
         logo,
         mood,

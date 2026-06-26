@@ -33,17 +33,8 @@ function Policies() {
     <div className="mx-auto max-w-5xl px-4 py-10 sm:py-12">
       <h1 className="text-4xl sm:text-5xl md:text-6xl">{settings.legalPageTitle}</h1>
       <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
-        Ultima actualizacion: {settings.legalLastUpdated}. {settings.legalIntro}
+        Ultima actualizacion: {settings.legalLastUpdated}
       </p>
-
-      <div className="mt-6 rounded-3xl border border-[#7e2f17]/20 bg-[#fff2ea] p-5 text-sm leading-6 text-[#7e2f17]">
-        <p className="font-bold">Datos legales del operador publicados actualmente:</p>
-        <p>Operador: {settings.legalOperatorName}</p>
-        <p>Correo legal: {settings.legalOperatorEmail}</p>
-        <p>Telefono legal: {settings.legalOperatorPhone}</p>
-        <p>Direccion legal: {settings.legalOperatorAddress}</p>
-        <p>RNC / ID fiscal: {settings.legalTaxId}</p>
-      </div>
 
       <div className="mt-8 grid gap-4">
         {settings.legalSections.map((section) => (

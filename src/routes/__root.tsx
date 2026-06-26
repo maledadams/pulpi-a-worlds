@@ -78,7 +78,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@400;600;700&family=Outfit:wght@400;500;600;700&family=UnifrakturCook:wght@700&family=Cinzel:wght@500;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Bungee&family=Cinzel:wght@500;700&family=Fredoka:wght@400;600;700&family=Outfit:wght@400;500;600;700&family=UnifrakturMaguntia&display=swap",
       },
     ],
   }),
@@ -152,7 +152,7 @@ function AppChrome({
   }, [cart.lines, catalogProducts]);
 
   const themeOverride = useMemo(() => {
-    if (location.pathname === "/carrito" || location.pathname === "/solicitud") {
+    if (location.pathname === "/carrito") {
       return dominantCartVibe;
     }
 
@@ -177,7 +177,7 @@ function AppChrome({
         <Outlet />
       </main>
       <Footer settings={settings} themeOverride={themeOverride} />
-      <CartDrawer />
+      <CartDrawer theme={themeOverride ?? "store"} />
       <VibeChooserModal />
     </div>
   );

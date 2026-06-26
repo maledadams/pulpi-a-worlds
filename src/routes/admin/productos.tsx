@@ -342,10 +342,18 @@ function AdminProductsPage() {
       const nextColors = exists
         ? current.colors.filter((color) => normalizeProductColorName(color.name).toLowerCase() !== key)
         : [...current.colors, buildProductColorRecord(colorName)];
+      const allowedColorKeys = new Set(
+        nextColors.map((color) => normalizeProductColorName(color.name).toLowerCase()),
+      );
+      const retainedVariants = current.variants.filter((variant) => {
+        const variantColor = variant.selectedOptions.find((option) => option.name === "Color")?.value ?? "";
+        return allowedColorKeys.has(normalizeProductColorName(variantColor).toLowerCase());
+      });
 
       return syncDraftVariants({
         ...current,
         colors: nextColors.length > 0 ? nextColors : [buildProductColorRecord(colorName)],
+        variants: retainedVariants,
       });
     });
   };
@@ -578,7 +586,7 @@ function AdminProductsPage() {
                         }`}
                       >
                         <td className="py-3 pr-3">
-                          <div className="font-bold">{product.name || "Sin nombre"}</div>
+                          <div className="font-normal">{product.name || "Sin nombre"}</div>
                           <div className="text-xs text-[#6b5a55]">{product.id}</div>
                         </td>
                         <td className="py-3 pr-3">
@@ -629,7 +637,10 @@ function AdminProductsPage() {
         {draft ? (
           <>
             <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.1fr)_minmax(420px,0.9fr)]">
-              <AdminPanel title={draft.name || "Producto nuevo"}>
+              <AdminPanel
+                title={draft.name || "Producto nuevo"}
+                titleClassName="font-body text-sm font-normal"
+              >
                 <div className="grid gap-4">
                   <div className="grid gap-3">
                     <AdminField label="Nombre">
