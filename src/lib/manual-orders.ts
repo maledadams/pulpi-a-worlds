@@ -6,6 +6,7 @@ import { enforceAdminAccess } from "@/lib/admin-access";
 import { formatPrice, isStorefrontVisible } from "@/data/products";
 import { adjustCatalogVariantInventoryInternal, getCatalogVariantByIdInternal } from "@/lib/catalog";
 import { verifyTurnstileToken } from "@/lib/turnstile";
+import { redeemBirthdayCouponInternal, validateBirthdayCouponInternal } from "@/lib/public-forms";
 import type { AdminInquiryChannel, AdminInquiryRecord, AdminInquiryStatus } from "@/lib/admin-types";
 
 const ORDER_SEQUENCE_KEY = "manual_orders";
@@ -29,6 +30,7 @@ const manualOrderSchema = z.object({
   customerEmail: z.string().trim().email(),
   customerName: z.string().trim().min(2).max(120),
   customerPhone: z.string().trim().min(7).max(40),
+  discountCode: z.string().trim().max(20).optional().default(""),
   fulfillmentMethod: z.enum(FULFILLMENT_METHODS).default("pickup"),
   lines: z.array(manualOrderLineSchema).min(1),
   notes: z.string().trim().max(1200).optional().default(""),
@@ -134,8 +136,23 @@ type InquiryRow = {
   total_cents: number;
 };
 
-const memoryOrders = new Map<string, AdminInquiryRecord>();
-let memorySequence = -1;
+type OrderMemoryState = {
+  orders: Map<string, AdminInquiryRecord>;
+  sequence: number;
+};
+
+const orderMemoryState = (() => {
+  const shared = globalThis as typeof globalThis & {
+    __pulpinaOrderMemoryState?: OrderMemoryState;
+  };
+  shared.__pulpinaOrderMemoryState ??= {
+    orders: new Map<string, AdminInquiryRecord>(),
+    sequence: -1,
+  };
+  return shared.__pulpinaOrderMemoryState;
+})();
+
+const memoryOrders = orderMemoryState.orders;
 let orderStorageReadyPromise: Promise<void> | null = null;
 
 function parseOrderSequence(requestNumber: string) {
@@ -255,11 +272,14 @@ function normalizeFulfillmentMethod(method: string | null | undefined): AdminInq
 }
 
 function ensureMemoryOrdersSeeded() {
-  if (memoryOrders.size > 0 || memorySequence >= 0) return;
+  if (memoryOrders.size > 0 || orderMemoryState.sequence >= 0) return;
 
   for (const inquiry of getMockOrders()) {
     memoryOrders.set(inquiry.id, cloneInquiry(inquiry));
-    memorySequence = Math.max(memorySequence, parseOrderSequence(inquiry.requestNumber));
+    orderMemoryState.sequence = Math.max(
+      orderMemoryState.sequence,
+      parseOrderSequence(inquiry.requestNumber),
+    );
   }
 }
 
@@ -296,7 +316,7 @@ async function getEmailConfig() {
   };
 }
 
-async function buildCanonicalLines(lines: ManualOrderInput["lines"]) {
+async function buildCanonicalLines(lines: ManualOrderInput["lines"], enforceStock = true) {
   const consolidated = new Map<string, number>();
 
   for (const line of lines) {
@@ -317,6 +337,10 @@ async function buildCanonicalLines(lines: ManualOrderInput["lines"]) {
 
     if (!isStorefrontVisible(canonical.product) || !canonical.product.available || !canonical.variant.available) {
       throw new Error(`El producto ${canonical.product.name} ya no esta disponible.`);
+    }
+
+    if (enforceStock && Math.max(0, canonical.variant.quantityAvailable ?? 0) < quantity) {
+      throw new Error(`No hay suficiente stock de ${canonical.product.name} (${canonical.variant.title}).`);
     }
 
     return {
@@ -625,18 +649,23 @@ async function createOrderInDatabase(input: OrderWriteInput, lines: CanonicalMan
     )
     .run();
 
-  if (record.status === "closed") {
+  if (record.status !== "cancelled") {
     await adjustCatalogVariantInventoryInternal(
       record.lines.map((line) => ({ delta: -line.quantity, variantId: line.variantId })),
+      {
+        source: "order",
+        reason: "Reserva automatica al crear el pedido",
+        referenceId: record.requestNumber,
+      },
     );
   }
 
   return record;
 }
 
-function createOrderInMemory(input: OrderWriteInput, lines: CanonicalManualOrderLine[]) {
+async function createOrderInMemory(input: OrderWriteInput, lines: CanonicalManualOrderLine[]) {
   ensureMemoryOrdersSeeded();
-  memorySequence += 1;
+  orderMemoryState.sequence += 1;
   const record = buildInquiryRecord({
     channel: input.channel,
     customerEmail: input.customerEmail,
@@ -648,13 +677,23 @@ function createOrderInMemory(input: OrderWriteInput, lines: CanonicalManualOrder
     lines,
     notes: input.notes,
     paymentStatus: input.paymentStatus,
-    requestNumber: formatOrderNumber(memorySequence),
+    requestNumber: formatOrderNumber(orderMemoryState.sequence),
     shipping: input.shipping,
     shippingAddress: input.shippingAddress,
     status: input.status,
   });
 
   memoryOrders.set(record.id, cloneInquiry(record));
+  if (record.status !== "cancelled") {
+    await adjustCatalogVariantInventoryInternal(
+      record.lines.map((line) => ({ delta: -line.quantity, variantId: line.variantId })),
+      {
+        source: "order",
+        reason: "Reserva automatica al crear el pedido",
+        referenceId: record.requestNumber,
+      },
+    );
+  }
   return record;
 }
 
@@ -735,7 +774,7 @@ async function listOrdersInternal() {
 }
 
 function buildOrderInventoryImpact(lines: AdminInquiryRecord["lines"], status: AdminInquiryStatus) {
-  if (status !== "closed") {
+  if (status === "cancelled") {
     return new Map<string, number>();
   }
 
@@ -746,8 +785,19 @@ function buildOrderInventoryImpact(lines: AdminInquiryRecord["lines"], status: A
   return impact;
 }
 
+async function ensureInventoryChangesAvailable(changes: Array<{ delta: number; variantId: string }>) {
+  for (const change of changes) {
+    if (change.delta >= 0) continue;
+    const canonical = await getCatalogVariantByIdInternal(change.variantId);
+    const available = Math.max(0, canonical?.variant.quantityAvailable ?? 0);
+    if (!canonical || available < Math.abs(change.delta)) {
+      throw new Error(`No hay suficiente stock para actualizar la variante ${change.variantId}.`);
+    }
+  }
+}
+
 async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>) {
-  const canonicalLines = await buildCanonicalLines(input.lines);
+  const canonicalLines = await buildCanonicalLines(input.lines, false);
   const db = await getDatabase();
   if (!db) {
     const current = memoryOrders.get(input.id);
@@ -775,6 +825,24 @@ async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>
       }),
     });
 
+    const previousImpact = buildOrderInventoryImpact(current.lines, current.status);
+    const nextImpact = buildOrderInventoryImpact(next.lines, next.status);
+    const variantIds = new Set([...previousImpact.keys(), ...nextImpact.keys()]);
+    const inventoryChanges = Array.from(variantIds)
+        .map((variantId) => ({
+          delta: (previousImpact.get(variantId) ?? 0) - (nextImpact.get(variantId) ?? 0),
+          variantId,
+        }))
+        .filter((change) => change.delta !== 0);
+    await ensureInventoryChangesAvailable(inventoryChanges);
+    await adjustCatalogVariantInventoryInternal(
+      inventoryChanges,
+      {
+        source: next.status === "cancelled" ? "cancellation" : "order",
+        reason: next.status === "cancelled" ? "Stock devuelto por cancelacion" : "Pedido actualizado",
+        referenceId: next.requestNumber,
+      },
+    );
     memoryOrders.set(input.id, next);
     return next;
   }
@@ -859,6 +927,17 @@ async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>
     status: normalizeOrderStatus(existing.status),
   });
 
+  const previousImpact = buildOrderInventoryImpact(previousRecord.lines, previousRecord.status);
+  const nextImpact = buildOrderInventoryImpact(nextRecord.lines, nextRecord.status);
+  const variantIds = new Set([...previousImpact.keys(), ...nextImpact.keys()]);
+  const inventoryChanges = Array.from(variantIds)
+    .map((variantId) => ({
+      delta: (previousImpact.get(variantId) ?? 0) - (nextImpact.get(variantId) ?? 0),
+      variantId,
+    }))
+    .filter((change) => change.delta !== 0);
+  await ensureInventoryChangesAvailable(inventoryChanges);
+
   await db
     .prepare(
       `
@@ -904,16 +983,13 @@ async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>
     )
     .run();
 
-  const previousImpact = buildOrderInventoryImpact(previousRecord.lines, previousRecord.status);
-  const nextImpact = buildOrderInventoryImpact(nextRecord.lines, nextRecord.status);
-  const variantIds = new Set([...previousImpact.keys(), ...nextImpact.keys()]);
   await adjustCatalogVariantInventoryInternal(
-    Array.from(variantIds)
-      .map((variantId) => ({
-        delta: (previousImpact.get(variantId) ?? 0) - (nextImpact.get(variantId) ?? 0),
-        variantId,
-      }))
-      .filter((change) => change.delta !== 0),
+    inventoryChanges,
+    {
+      source: nextRecord.status === "cancelled" ? "cancellation" : "order",
+      reason: nextRecord.status === "cancelled" ? "Stock devuelto por cancelacion" : "Pedido actualizado",
+      referenceId: nextRecord.requestNumber,
+    },
   );
 
   const orders = await listOrdersInternal();
@@ -1030,6 +1106,11 @@ async function deleteOrderInternal(id: string) {
         delta: quantity,
         variantId,
       })),
+      {
+        source: "correction",
+        reason: "Reserva liberada al eliminar el pedido",
+        referenceId: current.requestNumber,
+      },
     );
 
     memoryOrders.delete(normalizedId);
@@ -1105,6 +1186,11 @@ async function deleteOrderInternal(id: string) {
       delta: quantity,
       variantId,
     })),
+    {
+      source: "correction",
+      reason: "Reserva liberada al eliminar el pedido",
+      referenceId: record.requestNumber,
+    },
   );
 
   return { success: true };
@@ -1258,6 +1344,25 @@ export const submitManualOrder = createServerFn({ method: "POST" })
       };
     }
 
+    const canonicalSubtotal = canonicalLines.reduce(
+      (sum, line) => sum + line.unitPrice * line.quantity,
+      0,
+    );
+    let discount = 0;
+    let discountCode = "";
+    if (data.discountCode.trim()) {
+      const validation = await validateBirthdayCouponInternal({
+        code: data.discountCode,
+        email: data.customerEmail,
+        subtotal: canonicalSubtotal,
+      });
+      if (!validation.ok) {
+        return { message: validation.message, ok: false as const };
+      }
+      discount = validation.discount;
+      discountCode = validation.code;
+    }
+
     const db = await getDatabase();
     if (!db && !shouldAllowMemoryOrders()) {
       return {
@@ -1267,9 +1372,19 @@ export const submitManualOrder = createServerFn({ method: "POST" })
     }
 
     try {
+      const orderInput: OrderWriteInput = {
+        ...data,
+        discount,
+        notes: discountCode
+          ? `${data.notes}${data.notes ? "\n" : ""}Código de cumpleaños: ${discountCode}`
+          : data.notes,
+      };
       const record = db
-        ? (await createOrderInDatabase(data, canonicalLines)) ?? createOrderInMemory(data, canonicalLines)
-        : createOrderInMemory(data, canonicalLines);
+        ? (await createOrderInDatabase(orderInput, canonicalLines)) ?? (await createOrderInMemory(orderInput, canonicalLines))
+        : await createOrderInMemory(orderInput, canonicalLines);
+      if (discountCode) {
+        await redeemBirthdayCouponInternal(discountCode, data.customerEmail);
+      }
       const emailState = await sendOrderEmails(record);
 
       return {
@@ -1284,6 +1399,8 @@ export const submitManualOrder = createServerFn({ method: "POST" })
           fulfillmentMethod: record.fulfillmentMethod,
           lines: record.lines.map((line) => ({ ...line })),
           requestNumber: record.requestNumber,
+          subtotal: record.subtotal,
+          discount: record.discount,
           shipping: record.shipping,
           shippingAddress: { ...record.shippingAddress },
           summary: buildOrderSummary(record),
@@ -1309,7 +1426,7 @@ export const createAdminManualOrder = createServerFn({ method: "POST" })
     const lines = await buildCanonicalLines(data.lines);
     const record =
       (await createOrderInDatabase(data, lines)) ??
-      createOrderInMemory(data, lines);
+      (await createOrderInMemory(data, lines));
 
     const emailState = data.sendEmails ? await sendOrderEmails(record) : null;
 

@@ -4,15 +4,11 @@
 
 @custom-variant dark (&:is(.dark *));
 
-@font-face {
-  font-family: "PulpinaDisplay";
-  src: local("Bungee");
-}
-
 @theme inline {
-  --font-display: "Bungee", "Bebas Neue", system-ui, sans-serif;
+  --font-display: "New Rocker", system-ui, sans-serif;
   --font-gothic: "UnifrakturMaguntia", "Cinzel", serif;
   --font-cute: "Fredoka", "Quicksand", system-ui, sans-serif;
+  --font-sunshine: "Coiny", system-ui, sans-serif;
   --font-body: "Outfit", "Inter", system-ui, sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -52,7 +48,7 @@
 }
 
 :root {
-  --radius: 0.625rem;
+  --radius: 0;
   --cream: oklch(0.97 0.02 80);
   --ink: oklch(0.18 0.03 50);
   --bubblegum: oklch(0.74 0.21 350);
@@ -160,7 +156,7 @@
 }
 ::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
-  border-radius: 99px;
+  border-radius: 0;
 }
 ::-webkit-scrollbar-thumb:hover {
   opacity: 1;
@@ -168,6 +164,87 @@
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+/* Keep every storefront, checkout, and admin surface square. */
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+}
+
+/* Deliberate exceptions to the otherwise square interface. */
+.ui-circle {
+  border-radius: 9999px !important;
+}
+
+.ui-nav-rounded {
+  border-radius: 9999px !important;
+}
+
+.ui-quantity-pill {
+  border-radius: 9999px !important;
+}
+
+.product-page-shell {
+  --background: oklch(0.11 0.01 285);
+  --foreground: oklch(0.97 0.01 80);
+  --card: oklch(0.16 0.01 285);
+  --card-foreground: oklch(0.97 0.01 80);
+  --muted: oklch(0.2 0.01 285);
+  --muted-foreground: oklch(0.74 0.02 285);
+  --border: oklch(1 0 0 / 0.14);
+  --primary: oklch(0.57 0.18 15);
+  --primary-foreground: oklch(1 0 0);
+  color: var(--color-foreground);
+  background: #07070b;
+  box-shadow: 0 0 0 100vmax #07070b;
+  clip-path: inset(0 -100vmax);
+}
+
+.moon-product-page-shell {
+  background: #07070b;
+  box-shadow: 0 0 0 100vmax #07070b;
+  clip-path: inset(0 -100vmax);
+}
+
+@media (min-width: 1280px) {
+  .substore-product-grid {
+    grid-template-columns: repeat(auto-fill, calc((100% - 19.5rem) / 4));
+    justify-content: space-between;
+  }
+}
+
+@media (min-width: 1536px) {
+  .substore-product-grid {
+    grid-template-columns: repeat(auto-fill, calc((100% - 20.5rem) / 5));
+  }
+}
+
+.admin-shell h1,
+.admin-shell h2,
+.admin-shell h3,
+.admin-shell .font-display {
+  font-family: var(--font-body) !important;
+  font-weight: 700 !important;
+  transform: none !important;
+}
+
+/* On wide screens, vibe logos sit beside the content instead of consuming a grid column. */
+@media (min-width: 1600px) {
+  .vibe-mega-grid {
+    grid-template-columns: 13rem minmax(0, 1fr) !important;
+    transform: translateX(6.75rem);
+  }
+
+  .vibe-mega-logo {
+    position: absolute;
+    right: 100%;
+    width: 12rem;
+    height: 100%;
+    margin-right: 1.5rem;
+    padding-left: 0;
+  }
 }
 
 @layer base {
@@ -199,11 +276,36 @@
       border-color 0.45s cubic-bezier(0.4,0,0.2,1);
   }
   h1, h2, h3 { font-family: var(--font-display); letter-spacing: 0.01em; }
+  html:not([data-vibe]) h1,
+  html:not([data-vibe]) h2,
+  html:not([data-vibe]) h3:not([style]) {
+    transform: translateX(-0.055em) scaleX(1.12);
+    transform-origin: left center;
+  }
   [data-vibe="moon"] h1, [data-vibe="moon"] h2 { font-family: var(--font-gothic); letter-spacing: 0.02em; }
-  [data-vibe="sunshine"] h1, [data-vibe="sunshine"] h2 { font-family: var(--font-cute); letter-spacing: -0.01em; }
+  [data-vibe="sunshine"] h1, [data-vibe="sunshine"] h2 {
+    font-family: var(--font-sunshine);
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+  [data-vibe="men"] h1, [data-vibe="men"] h2 {
+    font-family: "IM FELL Great Primer SC", serif;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+  }
 }
 
 @layer utilities {
+  .font-display {
+    transform: translateX(-0.055em) scaleX(1.12);
+    transform-origin: left center;
+  }
+  span.font-display { display: inline-block; }
+  .brand-wordmark {
+    font-weight: 500;
+    -webkit-text-stroke: 0.2px currentColor;
+  }
+
   /* ---- Sticker (reserved for primary CTAs only) ---- */
   .sticker {
     box-shadow: 0 4px 0 0 var(--color-ink), 0 6px 14px -4px rgb(0 0 0 / 0.22);

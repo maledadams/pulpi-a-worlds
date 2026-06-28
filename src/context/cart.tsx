@@ -1,13 +1,22 @@
 import {
   createContext,
-  startTransition,
+  useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from "react";
 import { type Cart, type CartLine } from "@/data/products";
 import { useCatalogProducts } from "@/context/catalog";
+import { validateCartInventory } from "@/lib/catalog";
+
+export type CartLineAvailability = {
+  available: boolean;
+  availableQuantity: number;
+  currentPrice: number;
+  reason: "deleted" | "out_of_stock" | "insufficient_stock" | null;
+};
 
 type CartCtx = {
   cart: Cart | null;
@@ -16,13 +25,16 @@ type CartCtx = {
   loading: boolean;
   configured: boolean;
   setOpen: (v: boolean) => void;
-  add: (line: { variantId: string; quantity: number }) => Promise<void>;
+  add: (line: { variantId: string; quantity: number; openDrawer?: boolean }) => Promise<void>;
   update: (lineId: string, quantity: number) => Promise<void>;
   remove: (lineId: string) => Promise<void>;
   clear: () => void;
   count: number;
   subtotal: number;
   currencyCode: string;
+  hasUnavailableLines: boolean;
+  getLineAvailability: (line: CartLine) => CartLineAvailability;
+  refreshAvailability: () => Promise<boolean>;
 };
 
 const Ctx = createContext<CartCtx | null>(null);
@@ -67,13 +79,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<Cart | null>(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [remoteAvailability, setRemoteAvailability] = useState<Map<string, CartLineAvailability>>(
+    () => new Map(),
+  );
   const configured = false;
 
   const applyCart = (nextCart: Cart | null) => {
-    startTransition(() => {
-      setCart(nextCart);
-      persistPreviewLines(nextCart?.id === PREVIEW_CART_ID ? nextCart.lines : []);
-    });
+    setRemoteAvailability(new Map());
+    setCart(nextCart);
+    persistPreviewLines(nextCart?.id === PREVIEW_CART_ID ? nextCart.lines : []);
   };
 
   const applyPreviewLines = (lines: CartLine[]) => {
@@ -90,7 +104,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const add = async ({ variantId, quantity }: { variantId: string; quantity: number }) => {
+  const add = async ({
+    variantId,
+    quantity,
+    openDrawer = true,
+  }: {
+    variantId: string;
+    quantity: number;
+    openDrawer?: boolean;
+  }) => {
     const fallback = products.flatMap((product) =>
       product.variants
         .filter((variant) => variant.id === variantId)
@@ -123,7 +145,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
 
     applyPreviewLines(nextLines);
-    setOpen(true);
+    if (openDrawer) setOpen(true);
   };
 
   const update = async (lineId: string, quantity: number) => {
@@ -142,6 +164,101 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clear = () => applyCart(null);
 
+  const localAvailabilityByLineId = useMemo(() => {
+    const entries = (cart?.lines ?? []).map((line) => {
+      const product = products.find((entry) =>
+        entry.variants.some((variant) => variant.id === line.merchandiseId),
+      );
+      const variant = product?.variants.find((entry) => entry.id === line.merchandiseId);
+      const availableQuantity = Math.max(0, variant?.quantityAvailable ?? 0);
+      let reason: CartLineAvailability["reason"] = null;
+
+      if (!product || !variant || product.hidden) {
+        reason = "deleted";
+      } else if (!product.available || !variant.available || availableQuantity === 0) {
+        reason = "out_of_stock";
+      } else if (availableQuantity < line.quantity) {
+        reason = "insufficient_stock";
+      }
+
+      return [
+        line.id,
+        {
+          available: reason === null,
+          availableQuantity,
+          currentPrice: variant?.price ?? line.price,
+          reason,
+        } satisfies CartLineAvailability,
+      ] as const;
+    });
+
+    return new Map(entries);
+  }, [cart?.lines, products]);
+
+  const getLineAvailability = (line: CartLine) =>
+    remoteAvailability.get(line.id) ?? localAvailabilityByLineId.get(line.id) ?? {
+      available: false,
+      availableQuantity: 0,
+      currentPrice: line.price,
+      reason: "deleted" as const,
+    };
+  const hasUnavailableLines = (cart?.lines ?? []).some(
+    (line) => !getLineAvailability(line).available,
+  );
+  const availableSubtotal = (cart?.lines ?? []).reduce((sum, line) => {
+    const availability = getLineAvailability(line);
+    return availability.available
+      ? sum + availability.currentPrice * line.quantity
+      : sum;
+  }, 0);
+
+  const refreshAvailability = useCallback(async () => {
+    const lines = cart?.lines ?? [];
+    if (lines.length === 0) {
+      setRemoteAvailability(new Map());
+      return true;
+    }
+
+    setLoading(true);
+    try {
+      const result = await validateCartInventory({
+        data: {
+          lines: lines.map((line) => ({
+            lineId: line.id,
+            variantId: line.merchandiseId,
+            quantity: line.quantity,
+          })),
+        },
+      });
+      const next = new Map<string, CartLineAvailability>(
+        result.map((entry) => [entry.lineId, {
+          available: entry.available,
+          availableQuantity: entry.availableQuantity,
+          currentPrice: entry.currentPrice,
+          reason: entry.reason,
+        }]),
+      );
+      setRemoteAvailability(next);
+      return result.every((entry) => entry.available);
+    } catch {
+      return lines.every((line) => localAvailabilityByLineId.get(line.id)?.available);
+    } finally {
+      setLoading(false);
+    }
+  }, [cart?.lines, localAvailabilityByLineId]);
+
+  useEffect(() => {
+    if (!cart?.lines.length) return;
+    void refreshAvailability();
+    const interval = window.setInterval(() => void refreshAvailability(), 15000);
+    const onFocus = () => void refreshAvailability();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [cart?.lines.length, refreshAvailability]);
+
   return (
     <Ctx.Provider
       value={{
@@ -156,8 +273,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
         remove,
         clear,
         count: cart?.totalQuantity ?? 0,
-        subtotal: cart?.subtotal ?? 0,
+        subtotal: availableSubtotal,
         currencyCode: cart?.currencyCode ?? "DOP",
+        hasUnavailableLines,
+        getLineAvailability,
+        refreshAvailability,
       }}
     >
       {children}

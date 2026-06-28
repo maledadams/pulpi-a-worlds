@@ -7,7 +7,7 @@ import {
   type ProductVariant,
 } from "@/data/products";
 import { enforceAdminAccess } from "@/lib/admin-access";
-import type { AdminProductRecord } from "@/lib/admin-types";
+import type { AdminProductRecord, AdminStockMovement } from "@/lib/admin-types";
 import { toAdminProductRecord } from "@/lib/admin-service";
 import {
   buildProductColorRecord,
@@ -100,9 +100,41 @@ const deleteProductSchema = z.object({
   id: z.string().trim().min(1),
 });
 
-const memoryCatalog = new Map<string, Product>();
+const stockAdjustmentSchema = z.object({
+  variantId: z.string().trim().min(1),
+  delta: z.number().int().refine((value) => value !== 0),
+  reason: z.string().trim().min(3).max(240),
+});
+
+const cartInventoryValidationSchema = z.object({
+  lines: z.array(z.object({
+    lineId: z.string().trim().min(1),
+    variantId: z.string().trim().min(1),
+    quantity: z.number().int().min(1).max(99),
+  })).max(100),
+});
+
+type CatalogMemoryState = {
+  catalog: Map<string, Product>;
+  movements: AdminStockMovement[];
+  seeded: boolean;
+};
+
+const catalogMemoryState = (() => {
+  const shared = globalThis as typeof globalThis & {
+    __pulpinaCatalogMemoryState?: CatalogMemoryState;
+  };
+  shared.__pulpinaCatalogMemoryState ??= {
+    catalog: new Map<string, Product>(),
+    movements: [],
+    seeded: false,
+  };
+  return shared.__pulpinaCatalogMemoryState;
+})();
+
+const memoryCatalog = catalogMemoryState.catalog;
+const memoryStockMovements = catalogMemoryState.movements;
 let catalogStorageReadyPromise: Promise<void> | null = null;
-let memoryCatalogSeeded = false;
 
 function cloneImage(image: ProductImage): ProductImage {
   return {
@@ -221,11 +253,11 @@ function colorsToSwatch(colors: Array<{ name: string; hex: string }>, vibe: Prod
 }
 
 function ensureMemoryCatalog() {
-  if (!memoryCatalogSeeded) {
+  if (!catalogMemoryState.seeded) {
     for (const product of FALLBACK_PRODUCTS.filter((entry) => entry.vibe !== "pulpina")) {
       memoryCatalog.set(product.id, cloneProduct(product));
     }
-    memoryCatalogSeeded = true;
+    catalogMemoryState.seeded = true;
   }
 }
 
@@ -283,6 +315,25 @@ async function ensureCatalogStorageReady(db: D1Database) {
           created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
           updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
+      `);
+
+      await db.exec(`
+        CREATE TABLE IF NOT EXISTS inventory_movements (
+          id TEXT PRIMARY KEY,
+          product_id TEXT NOT NULL,
+          product_name TEXT NOT NULL,
+          variant_id TEXT NOT NULL,
+          variant_label TEXT NOT NULL,
+          delta INTEGER NOT NULL,
+          balance_after INTEGER NOT NULL,
+          source TEXT NOT NULL,
+          reason TEXT NOT NULL,
+          reference_id TEXT NOT NULL DEFAULT '',
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE INDEX IF NOT EXISTS inventory_movements_variant_created
+        ON inventory_movements (variant_id, created_at DESC);
       `);
 
       const schemaUpdates = [
@@ -502,7 +553,13 @@ function normalizeVariants(record: AdminProductRecord, swatch: [string, string],
     }),
   );
 
-  const variants = sizes.flatMap((size, sizeIndex) =>
+  const suppliedVariants = record.variants.filter((variant) => {
+    const size = variant.selectedOptions.find((option) => option.name === "Talla")?.value ?? "Unica";
+    const color = variant.selectedOptions.find((option) => option.name === "Color")?.value ?? colorNames[0];
+    return sizes.includes(size) && colorNames.includes(normalizeProductColorName(color));
+  });
+
+  const generatedVariants = sizes.flatMap((size, sizeIndex) =>
     colorNames.map((colorName, colorIndex) => {
       const selectedOptions = [
         { name: "Talla", value: size },
@@ -532,6 +589,25 @@ function normalizeVariants(record: AdminProductRecord, swatch: [string, string],
       } satisfies ProductVariant;
     }),
   );
+  const variants = suppliedVariants.length > 0
+    ? suppliedVariants.map((variant) => {
+        const size = variant.selectedOptions.find((option) => option.name === "Talla")?.value ?? "Unica";
+        const color = normalizeProductColorName(
+          variant.selectedOptions.find((option) => option.name === "Color")?.value ?? colorNames[0] ?? getDefaultColorName(record.vibe),
+        );
+        return {
+          ...cloneVariant(variant),
+          title: colorNames.length > 1 ? `${size} / ${color}` : size,
+          quantityAvailable: Math.max(0, variant.quantityAvailable ?? 0),
+          price: Math.max(0, variant.price),
+          image: variant.image ?? featuredImage,
+          selectedOptions: [
+            { name: "Talla", value: size },
+            { name: "Color", value: color },
+          ],
+        } satisfies ProductVariant;
+      })
+    : generatedVariants;
 
   return {
     variants,
@@ -759,13 +835,19 @@ export async function deleteCatalogProductInternal(id: string) {
 
 export async function adjustCatalogVariantInventoryInternal(
   changes: Array<{ delta: number; variantId: string }>,
+  context: {
+    source: AdminStockMovement["source"];
+    reason: string;
+    referenceId?: string;
+  } = { source: "correction", reason: "Ajuste interno de inventario" },
 ) {
   if (changes.length === 0) {
-    return;
+    return [] as AdminStockMovement[];
   }
 
   const products = await listCatalogProductsInternal();
   const touched = new Map<string, Product>();
+  const movements: AdminStockMovement[] = [];
 
   for (const change of changes) {
     const product = products.find((candidate) =>
@@ -775,13 +857,18 @@ export async function adjustCatalogVariantInventoryInternal(
     if (!product) continue;
 
     const currentProduct = touched.get(product.id) ?? cloneProduct(product);
+    const currentVariant = currentProduct.variants.find((variant) => variant.id === change.variantId);
+    if (!currentVariant) continue;
+    const currentQuantity = Math.max(0, currentVariant.quantityAvailable ?? 0);
+    const nextQuantity = Math.max(0, currentQuantity + change.delta);
+    const actualDelta = nextQuantity - currentQuantity;
+    if (actualDelta === 0) continue;
+
     currentProduct.variants = currentProduct.variants.map((variant) => {
       if (variant.id !== change.variantId) {
         return variant;
       }
 
-      const currentQuantity = Math.max(0, variant.quantityAvailable ?? 0);
-      const nextQuantity = Math.max(0, currentQuantity + change.delta);
       return {
         ...variant,
         quantityAvailable: nextQuantity,
@@ -796,6 +883,19 @@ export async function adjustCatalogVariantInventoryInternal(
       (variant) => variant.available && (variant.quantityAvailable ?? 0) > 0,
     );
     touched.set(product.id, currentProduct);
+    movements.push({
+      id: crypto.randomUUID(),
+      productId: currentProduct.id,
+      productName: currentProduct.name,
+      variantId: currentVariant.id,
+      variantLabel: currentVariant.title,
+      delta: actualDelta,
+      balanceAfter: nextQuantity,
+      source: context.source,
+      reason: context.reason,
+      referenceId: context.referenceId ?? "",
+      createdAt: new Date().toISOString(),
+    });
   }
 
   await Promise.all(
@@ -803,6 +903,86 @@ export async function adjustCatalogVariantInventoryInternal(
       saveCatalogProductInternal(toAdminProductRecord(product)),
     ),
   );
+
+  const db = await getDatabase();
+  if (!db) {
+    memoryStockMovements.unshift(...movements.map((movement) => ({ ...movement })));
+    return movements;
+  }
+
+  await ensureCatalogStorageReady(db);
+  if (movements.length > 0) {
+    const statement = db.prepare(`
+      INSERT INTO inventory_movements (
+        id, product_id, product_name, variant_id, variant_label, delta,
+        balance_after, source, reason, reference_id, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    await db.batch(
+      movements.map((movement) =>
+        statement.bind(
+          movement.id,
+          movement.productId,
+          movement.productName,
+          movement.variantId,
+          movement.variantLabel,
+          movement.delta,
+          movement.balanceAfter,
+          movement.source,
+          movement.reason,
+          movement.referenceId,
+          movement.createdAt,
+        ),
+      ),
+    );
+  }
+
+  return movements;
+}
+
+async function listStockMovementsInternal(limit = 250) {
+  const db = await getDatabase();
+  if (!db) {
+    return memoryStockMovements.slice(0, limit).map((movement) => ({ ...movement }));
+  }
+
+  await ensureCatalogStorageReady(db);
+  const result = await db
+    .prepare(`
+      SELECT id, product_id, product_name, variant_id, variant_label, delta,
+             balance_after, source, reason, reference_id, created_at
+      FROM inventory_movements
+      ORDER BY created_at DESC, id DESC
+      LIMIT ?
+    `)
+    .bind(limit)
+    .all<{
+      id: string;
+      product_id: string;
+      product_name: string;
+      variant_id: string;
+      variant_label: string;
+      delta: number;
+      balance_after: number;
+      source: AdminStockMovement["source"];
+      reason: string;
+      reference_id: string;
+      created_at: string;
+    }>();
+
+  return (result.results ?? []).map((row) => ({
+    id: row.id,
+    productId: row.product_id,
+    productName: row.product_name,
+    variantId: row.variant_id,
+    variantLabel: row.variant_label,
+    delta: row.delta,
+    balanceAfter: row.balance_after,
+    source: row.source,
+    reason: row.reason,
+    referenceId: row.reference_id,
+    createdAt: row.created_at,
+  } satisfies AdminStockMovement));
 }
 
 export const getStorefrontCatalog = createServerFn({ method: "GET" }).handler(async () => {
@@ -828,6 +1008,39 @@ export const getStorefrontProductBySlug = createServerFn({ method: "GET" })
     return product;
   });
 
+export const validateCartInventory = createServerFn({ method: "POST" })
+  .inputValidator((data: z.input<typeof cartInventoryValidationSchema>) =>
+    cartInventoryValidationSchema.parse(data),
+  )
+  .handler(async ({ data }) => {
+    const { setResponseHeader } = await import("@tanstack/react-start/server");
+    setResponseHeader("Cache-Control", "private, no-store");
+    const products = await listStorefrontCatalogProductsInternal();
+
+    return data.lines.map((line) => {
+      const product = products.find((entry) =>
+        entry.variants.some((variant) => variant.id === line.variantId),
+      );
+      const variant = product?.variants.find((entry) => entry.id === line.variantId);
+      const availableQuantity = Math.max(0, variant?.quantityAvailable ?? 0);
+      const reason = !product || !variant || product.hidden
+        ? "deleted"
+        : !product.available || !variant.available || availableQuantity === 0
+          ? "out_of_stock"
+          : availableQuantity < line.quantity
+            ? "insufficient_stock"
+            : null;
+
+      return {
+        lineId: line.lineId,
+        available: reason === null,
+        availableQuantity,
+        currentPrice: variant?.price ?? 0,
+        reason,
+      } as const;
+    });
+  });
+
 export const getAdminCatalogProducts = createServerFn({ method: "GET" }).handler(async () => {
   const { setResponseHeader } = await import("@tanstack/react-start/server");
   await enforceAdminAccess();
@@ -837,6 +1050,43 @@ export const getAdminCatalogProducts = createServerFn({ method: "GET" }).handler
   const products = await listCatalogProductsInternal();
   return products.map(toAdminProductRecord);
 });
+
+export const getAdminStockData = createServerFn({ method: "GET" }).handler(async () => {
+  const { setResponseHeader } = await import("@tanstack/react-start/server");
+  await enforceAdminAccess();
+  setResponseHeader("Cache-Control", "private, no-store");
+
+  const products = await listCatalogProductsInternal();
+  return {
+    products: products.map(toAdminProductRecord),
+    movements: await listStockMovementsInternal(),
+  };
+});
+
+export const adjustAdminStock = createServerFn({ method: "POST" })
+  .inputValidator((data: z.input<typeof stockAdjustmentSchema>) => stockAdjustmentSchema.parse(data))
+  .handler(async ({ data }) => {
+    const { setResponseHeader } = await import("@tanstack/react-start/server");
+    await enforceAdminAccess();
+    setResponseHeader("Cache-Control", "private, no-store");
+
+    const canonical = await getCatalogVariantByIdInternal(data.variantId);
+    if (!canonical) throw new Error("La variante ya no existe.");
+    const current = Math.max(0, canonical.variant.quantityAvailable ?? 0);
+    if (current + data.delta < 0) {
+      throw new Error(`No puedes retirar ${Math.abs(data.delta)}. Solo hay ${current} disponibles.`);
+    }
+
+    const movements = await adjustCatalogVariantInventoryInternal(
+      [{ variantId: data.variantId, delta: data.delta }],
+      { source: "manual", reason: data.reason },
+    );
+    return {
+      movement: movements[0] ?? null,
+      products: (await listCatalogProductsInternal()).map(toAdminProductRecord),
+      movements: await listStockMovementsInternal(),
+    };
+  });
 
 export const saveAdminCatalogProduct = createServerFn({ method: "POST" })
   .inputValidator((data: z.input<typeof adminProductSchema>) => adminProductSchema.parse(data))

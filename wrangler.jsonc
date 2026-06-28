@@ -8,6 +8,9 @@
   "observability": {
     "enabled": true
   },
+  "triggers": {
+    "crons": ["5 12 * * *"]
+  },
   // Bindings go here once you create real resources.
   // Keep secrets out of this file and use `wrangler secret put`.
   //

@@ -4,6 +4,7 @@ import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { maybeHandleAgentationWebhook } from "./lib/agentation-webhook";
 import { withSecurityHeaders } from "./lib/security-headers";
+import { processBirthdayEmailsInternal } from "./lib/public-forms";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -83,5 +84,8 @@ export default {
       console.error(error);
       return withSecurityHeaders(brandedErrorResponse());
     }
+  },
+  async scheduled(_controller: unknown, _env: unknown, ctx: { waitUntil(promise: Promise<unknown>): void }) {
+    ctx.waitUntil(processBirthdayEmailsInternal());
   },
 };

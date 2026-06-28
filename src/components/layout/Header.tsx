@@ -1,6 +1,7 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { ShoppingBag, Search, Menu, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { StorePineapple } from "@/components/branding/StorePineapple";
 import { useCart } from "@/context/cart";
 import { type Product, type Vibe } from "@/data/products";
 import { useCatalogProducts } from "@/context/catalog";
@@ -142,8 +143,6 @@ type VibePanelStyle = {
   tabIdleCls: string;
   logo: string;
   logoBlend: string;
-  /** ring color for category circles */
-  ringCls: string;
 };
 
 const VIBE_PANEL: Partial<Record<MegaKey, VibePanelStyle>> = {
@@ -156,7 +155,6 @@ const VIBE_PANEL: Partial<Record<MegaKey, VibePanelStyle>> = {
     tabIdleCls: "bg-white/10 text-[#f5ece8] hover:bg-white/18",
     logo: logoMoonImg,
     logoBlend: "mix-blend-screen",
-    ringCls: "ring-2 ring-white/55",
   },
   sunshine: {
     panelBg: "linear-gradient(135deg,#ff8fc9 0%,#ffe66a 55%,#c5f56a 100%)",
@@ -168,7 +166,6 @@ const VIBE_PANEL: Partial<Record<MegaKey, VibePanelStyle>> = {
     logo: logoSunImg,
     /* no blend — show logo naturally on the light gradient */
     logoBlend: "",
-    ringCls: "ring-2 ring-[#3a0a14]/40",
   },
   men: {
     panelBg: "linear-gradient(135deg,#0a0a0a 0%,#1c1010 55%,#3a0808 100%)",
@@ -179,7 +176,6 @@ const VIBE_PANEL: Partial<Record<MegaKey, VibePanelStyle>> = {
     tabIdleCls: "bg-white/10 text-[#f0e8e6] hover:bg-white/18",
     logo: logoMenImg,
     logoBlend: "mix-blend-screen",
-    ringCls: "ring-2 ring-white/55",
   },
 };
 
@@ -188,25 +184,22 @@ function CategoryCircle({
   item,
   textCls = "text-foreground",
   isVibe = false,
-  ringCls: ringClsProp,
 }: {
   item: MegaSection["categories"][number];
   textCls?: string;
   isVibe?: boolean;
-  ringCls?: string;
 }) {
   const p = item.product;
-  const ringCls = ringClsProp ?? (isVibe ? "ring-2 ring-white/55" : "ring-1 ring-foreground/12");
 
   return (
     <Link
       to={item.to}
       search={item.search}
       hash={item.hash}
-      className="group flex flex-col items-center gap-1.5 text-center"
+      className="group flex flex-col items-center gap-1.5 text-center outline-none focus-visible:outline-none"
     >
       <div
-        className={`flex h-[3.8rem] w-[3.8rem] items-center justify-center overflow-hidden rounded-full transition-transform duration-200 group-hover:-translate-y-1 sm:h-[4.2rem] sm:w-[4.2rem] ${ringCls}`}
+        className="ui-circle flex h-[3.8rem] w-[3.8rem] items-center justify-center overflow-hidden shadow-none ring-0 transition-transform duration-200 group-hover:-translate-y-1 sm:h-[4.2rem] sm:w-[4.2rem]"
         style={
           p
             ? { background: `linear-gradient(135deg, ${p.swatch[0]}, ${p.swatch[1]})` }
@@ -217,7 +210,7 @@ function CategoryCircle({
           <img
             src={p.featuredImage.url}
             alt={p.featuredImage.altText ?? item.label}
-            className="h-full w-full object-cover"
+            className="ui-circle h-full w-full object-cover"
           />
         ) : (
           <span className={`font-display text-lg uppercase ${isVibe ? "text-white/80" : "text-foreground/55"}`}>
@@ -265,9 +258,9 @@ function getAnnouncementTheme(themeKey: AnnouncementThemeKey): AnnouncementTheme
   }
 
   return {
-    background: "bg-[#c5f56a]",
+    background: "bg-[#c5475f]",
     border: "border-transparent",
-    text: "text-[#243011]",
+    text: "text-white",
     badgeBackground: "bg-[#c5475f]",
     badgeText: "text-white",
   };
@@ -339,6 +332,8 @@ export function Header({
   useEffect(() => {
     setMobileOpen(false);
     setMobileExpanded(null);
+    setActiveMega(null);
+    setRenderedMega(null);
   }, [loc.pathname]);
 
   /* delayed hide so user can move mouse into the panel */
@@ -447,14 +442,22 @@ export function Header({
 
   return (
     <header
-      className="sticky top-0 z-40 border-b border-foreground/10 bg-background/95 backdrop-blur transition-colors duration-300"
+      className="sticky top-0 z-40 bg-background/95 backdrop-blur transition-colors duration-300"
       onMouseLeave={handleMouseLeaveHeader}
     >
       {/* ── Top bar ── */}
       <div className="relative z-20 mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4">
         {/* Logo */}
-        <Link to="/" className="flex shrink-0 items-center gap-2">
-          <span className="font-display text-lg tracking-wide sm:text-xl">Pulpiña RD</span>
+        <Link to="/" className="flex shrink-0 items-center gap-2 -mr-[2.2rem]">
+          <StorePineapple
+            theme={activeThemeKey}
+            className="h-6 w-6 shrink-0 object-contain sm:h-9"
+          />
+          <span
+            className="brand-wordmark font-display text-xl tracking-wide sm:text-2xl"
+          >
+            Pulpiña RD
+          </span>
         </Link>
 
         {/* Desktop nav */}
@@ -467,7 +470,7 @@ export function Header({
                 key={n.to}
                 to={n.to}
                 onMouseEnter={() => n.mega ? setActiveMega(n.mega) : setActiveMega(null)}
-                className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
+                className={`ui-nav-rounded px-3 py-1.5 text-sm font-semibold transition-colors ${
                   active || megaActive
                     ? "bg-foreground text-background"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -492,7 +495,7 @@ export function Header({
             <ShoppingBag className="h-5 w-5" />
             {cart.count > 0 && (
               <span
-                className={`absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-black ${announcementTheme.badgeBackground} ${announcementTheme.badgeText}`}
+                className={`ui-circle absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center text-[9px] font-black ${announcementTheme.badgeBackground} ${announcementTheme.badgeText}`}
               >
                 {cart.count}
               </span>
@@ -511,7 +514,7 @@ export function Header({
       {/* ── Desktop mega menu ── */}
       <AnnouncementBar announcements={announcements} theme={announcementTheme} />
       <div
-        className={`absolute left-0 right-0 top-[calc(100%+1px)] z-10 hidden overflow-hidden shadow-xl transition-[max-height,opacity,transform] duration-250 md:block ${
+        className={`absolute left-0 right-0 top-14 z-10 hidden overflow-hidden shadow-xl transition-[max-height,opacity,transform] duration-250 md:block ${
           megaOpen
             ? "pointer-events-auto max-h-[34rem] translate-y-0 opacity-100"
             : "pointer-events-none max-h-0 -translate-y-1 opacity-0"
@@ -550,7 +553,7 @@ export function Header({
                       search={s.search}
                       hash={s.hash}
                       onMouseEnter={() => setActiveMega(key)}
-                      className={`rounded-full px-3.5 py-1.5 text-xs font-black uppercase tracking-wider transition-colors ${
+                      className={`ui-nav-rounded px-3.5 py-1.5 text-xs font-black uppercase tracking-wider transition-colors ${
                         currentMega.key === key ? tabActiveCls : tabIdleCls
                       }`}
                     >
@@ -561,11 +564,17 @@ export function Header({
               </div>
 
               {/* ── Body: logo col | info col | categories col ── */}
-              <div className={`grid gap-6 ${vs ? "lg:grid-cols-[12rem_13rem_1fr]" : "lg:grid-cols-[13rem_1fr]"}`}>
+              <div
+                className={`relative grid gap-6 ${
+                  vs
+                    ? "vibe-mega-grid lg:grid-cols-[12rem_13rem_1fr]"
+                    : "lg:grid-cols-[13rem_1fr]"
+                }`}
+              >
 
                 {/* 1 — Vibe logo (left column, only for vibe sections) */}
                 {vs && (
-                  <div className="flex items-center justify-start pl-2">
+                  <div className="vibe-mega-logo flex items-center justify-start pl-2">
                     <img
                       src={vs.logo}
                       alt={currentMega.label}
@@ -594,18 +603,10 @@ export function Header({
 
                 {/* 3 — Categories */}
                 <div>
-                  <div className="mb-3 flex items-center justify-between">
+                  <div className="mb-3 flex items-center">
                     <span className={`text-xs font-black uppercase tracking-wider ${mutedCls}`}>
                       Categorías
                     </span>
-                    <Link
-                      to={currentMega.to}
-                      search={currentMega.search}
-                      hash={currentMega.hash}
-                      className={`text-xs font-bold underline underline-offset-4 ${mutedCls}`}
-                    >
-                      Ver todo
-                    </Link>
                   </div>
                   <div className="grid grid-cols-6 gap-4">
                     {currentMega.categories.slice(0, 12).map((item) => (
@@ -614,7 +615,6 @@ export function Header({
                         item={item}
                         textCls={textCls}
                         isVibe={!!vs}
-                        ringCls={vs?.ringCls}
                       />
                     ))}
                   </div>
@@ -638,7 +638,7 @@ export function Header({
                     <Link
                       to={n.to}
                       onClick={() => !n.children && setMobileOpen(false)}
-                      className={`flex-1 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
+                      className={`ui-nav-rounded flex-1 px-3 py-2.5 text-sm font-semibold transition-colors ${
                         active ? "bg-foreground text-background" : "hover:bg-muted"
                       }`}
                     >
@@ -647,7 +647,7 @@ export function Header({
                     {n.children && (
                       <button
                         onClick={() => setMobileExpanded(expanded ? null : n.to)}
-                        className="ml-1 rounded-lg p-2 hover:bg-muted"
+                        className="ui-nav-rounded ml-1 p-2 hover:bg-muted"
                       >
                         <span className={`block h-4 w-4 text-muted-foreground transition-transform ${expanded ? "rotate-90" : ""}`}>
                           ›
@@ -663,7 +663,7 @@ export function Header({
                           to={child.to}
                           search={child.search}
                           onClick={() => setMobileOpen(false)}
-                          className="rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                          className="ui-nav-rounded px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
                         >
                           {child.label}
                         </Link>

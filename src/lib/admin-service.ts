@@ -578,7 +578,7 @@ export function getAdminDashboardSnapshot(): AdminDashboardSnapshot {
     inquiryCount: ADMIN_INQUIRIES.length,
     openInquiryCount: ADMIN_INQUIRIES.filter((inquiry) => inquiry.status !== "closed" && inquiry.status !== "cancelled").length,
     lowStockProducts: ADMIN_PRODUCTS.filter((product) => (product.stock ?? 0) > 0 && (product.stock ?? 0) <= 4),
-    recentInquiries: [...ADMIN_INQUIRIES].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 4),
+    recentInquiries: [...ADMIN_INQUIRIES].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 3),
     productsByVibe,
   };
 }

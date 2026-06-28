@@ -1,6 +1,7 @@
-import { Link } from "@tanstack/react-router";
-import { Minus, Plus, Trash2, X } from "lucide-react";
-import { OctopusMark } from "@/components/ui/Decor";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
+import { useEffect } from "react";
+import { StorePineapple } from "@/components/branding/StorePineapple";
 import { useCart } from "@/context/cart";
 import { formatPrice } from "@/data/products";
 
@@ -34,7 +35,7 @@ const CART_DRAWER_THEME: Record<
     shellBorder: "border-foreground/10",
     shellText: "text-foreground",
     shellSoftText: "text-muted-foreground",
-    surface: "bg-card",
+    surface: "bg-foreground",
     surfaceBorder: "border-foreground/8",
     qty: "border-foreground/15 bg-background text-foreground",
     primaryButton: "bg-foreground text-background hover:opacity-90",
@@ -63,7 +64,22 @@ const CART_DRAWER_THEME: Record<
 
 export function CartDrawer({ theme = "store" }: { theme?: CartDrawerTheme }) {
   const cart = useCart();
+  const navigate = useNavigate();
   const palette = CART_DRAWER_THEME[theme];
+
+  useEffect(() => {
+    if (!cart.open) return;
+
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, [cart.open]);
 
   return (
     <>
@@ -79,7 +95,10 @@ export function CartDrawer({ theme = "store" }: { theme?: CartDrawerTheme }) {
         }`}
       >
         <div className={`flex items-center justify-between border-b px-4 py-3.5 ${palette.shellBorder}`}>
-          <span className="font-display text-lg">Tu carrito</span>
+          <div className="flex items-center gap-2">
+            <ShoppingBag className="h-[1.125rem] w-[1.125rem] -rotate-12" />
+            <span className="brand-wordmark font-display text-lg uppercase">TU CARRITO</span>
+          </div>
           <button
             onClick={() => cart.setOpen(false)}
             className={`rounded-full p-1.5 transition ${palette.shellSoftText} hover:bg-white/8 hover:text-current`}
@@ -91,8 +110,8 @@ export function CartDrawer({ theme = "store" }: { theme?: CartDrawerTheme }) {
         <div className="flex-1 overflow-y-auto px-4 py-3">
           {cart.lines.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 py-12 text-center">
-              <OctopusMark className={`h-16 w-16 ${palette.shellSoftText}`} />
-              <p className="font-display text-lg">Tu carrito esta vacio</p>
+              <StorePineapple theme={theme} className="h-16 w-auto object-contain" />
+              <p className="font-display text-lg uppercase">TU CARRITO ESTA VACIO</p>
               <p className={`text-sm ${palette.shellSoftText}`}>Aun no has elegido tu vibra.</p>
               <Link
                 to="/tienda"
@@ -104,24 +123,30 @@ export function CartDrawer({ theme = "store" }: { theme?: CartDrawerTheme }) {
             </div>
           ) : (
             <div className="space-y-2">
-              {cart.lines.map((line) => (
-                <div
-                  key={line.id}
-                  className={`flex gap-3 rounded-xl border p-2.5 ${palette.surfaceBorder} ${palette.surface} text-[#231717]`}
-                >
+              {cart.lines.map((line) => {
+                const availability = cart.getLineAvailability(line);
+                return (
+                  <div
+                    key={line.id}
+                    className={`flex gap-4 rounded-xl border p-2.5 ${palette.surfaceBorder} ${palette.surface} text-[#231717] ${
+                      availability.available ? "" : "grayscale opacity-55"
+                    }`}
+                  >
                   {line.image ? (
                     <img
                       src={line.image.url}
                       alt={line.image.altText ?? line.productTitle}
-                      className="h-18 w-18 shrink-0 rounded-lg object-cover"
-                      style={{ height: "4.5rem", width: "4.5rem" }}
+                      className="h-18 w-18 shrink-0 self-start rounded-lg object-cover"
+                      style={{ width: "4.5rem" }}
                     />
                   ) : (
                     <div
-                      className="flex shrink-0 items-center justify-center rounded-lg bg-muted font-display text-base text-foreground/40"
-                      style={{ height: "4.5rem", width: "4.5rem" }}
+                      className="flex h-18 w-18 shrink-0 self-start items-center justify-center rounded-lg bg-muted text-base text-foreground/40"
+                      style={{ width: "4.5rem" }}
                     >
-                      {line.productTitle.split(" ").slice(0, 2).map((word) => word[0]?.toUpperCase()).join("")}
+                      <span className="font-display">
+                        {line.productTitle.split(" ").slice(0, 2).map((word) => word[0]?.toUpperCase()).join("")}
+                      </span>
                     </div>
                   )}
 
@@ -132,8 +157,13 @@ export function CartDrawer({ theme = "store" }: { theme?: CartDrawerTheme }) {
                         {line.selectedOptions.map((option) => `${option.name}: ${option.value}`).join(" · ")}
                       </p>
                     )}
+                    {!availability.available ? (
+                      <p className="mt-1 text-xs font-bold text-[#9a233d]">
+                        Fuera de stock · Quitalo antes de continuar
+                      </p>
+                    ) : null}
                     <div className="mt-2 flex items-center gap-3">
-                      <div className={`flex items-center rounded-full border ${palette.qty}`}>
+                      <div className={`ui-quantity-pill flex items-center overflow-hidden border ${palette.qty}`}>
                         <button
                           onClick={() => void cart.update(line.id, line.quantity - 1)}
                           className="px-2.5 py-1 opacity-80 transition hover:opacity-100"
@@ -145,13 +175,16 @@ export function CartDrawer({ theme = "store" }: { theme?: CartDrawerTheme }) {
                         </span>
                         <button
                           onClick={() => void cart.update(line.id, line.quantity + 1)}
+                          disabled={!availability.available || availability.availableQuantity <= line.quantity}
                           className="px-2.5 py-1 opacity-80 transition hover:opacity-100"
                         >
                           <Plus className="h-3 w-3" />
                         </button>
                       </div>
                       <span className="text-sm font-bold">
-                        {formatPrice(line.price * line.quantity, line.currencyCode)}
+                        {availability.available
+                          ? formatPrice(availability.currentPrice * line.quantity, line.currencyCode)
+                          : "No se cobrara"}
                       </span>
                     </div>
                   </div>
@@ -162,25 +195,41 @@ export function CartDrawer({ theme = "store" }: { theme?: CartDrawerTheme }) {
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
 
         {cart.lines.length > 0 && (
           <div className={`space-y-3 border-t px-4 py-4 ${palette.shellBorder}`}>
+            {cart.hasUnavailableLines ? (
+              <p className="border border-[#c5475f] bg-[#c5475f]/10 p-2 text-xs font-bold text-current">
+                Quita los productos fuera de stock antes de enviar la solicitud.
+              </p>
+            ) : null}
             <div className="flex items-center justify-between text-sm">
               <span className={palette.shellSoftText}>Subtotal</span>
               <span className="font-bold">{formatPrice(cart.subtotal, cart.currencyCode)}</span>
             </div>
-            <Link
-              to="/solicitud"
-              onClick={() => cart.setOpen(false)}
-              className={`block w-full rounded-full py-3 text-center text-sm font-bold uppercase tracking-wider ${palette.primaryButton}`}
+            <button
+              type="button"
+              disabled={cart.loading}
+              onClick={() => {
+                void cart.refreshAvailability().then((available) => {
+                  cart.setOpen(false);
+                  void navigate({ to: available ? "/solicitud" : "/carrito" });
+                });
+              }}
+              className={`block w-full rounded-full py-3 text-center text-sm font-bold uppercase tracking-wider disabled:cursor-wait disabled:opacity-60 ${palette.primaryButton}`}
             >
-              Enviar solicitud
-            </Link>
+              {cart.loading
+                ? "Verificando stock..."
+                : cart.hasUnavailableLines
+                  ? "Revisar carrito"
+                  : "Enviar solicitud"}
+            </button>
             <button
               onClick={() => cart.setOpen(false)}
               className={`block w-full rounded-full py-2 text-center text-xs font-semibold transition hover:text-current ${palette.shellSoftText}`}

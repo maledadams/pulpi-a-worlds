@@ -13,11 +13,11 @@ import type { AdminInquiryRecord } from "@/lib/admin-types";
 type SalesWindow = "all" | "year" | "month" | "week" | "day";
 
 const SALES_WINDOWS: Array<{ id: SalesWindow; label: string }> = [
-  { id: "all", label: "All time" },
-  { id: "year", label: "Yearly" },
-  { id: "month", label: "Monthly" },
-  { id: "week", label: "Weekly" },
-  { id: "day", label: "Daily" },
+  { id: "all", label: "Todo el tiempo" },
+  { id: "year", label: "Anual" },
+  { id: "month", label: "Mensual" },
+  { id: "week", label: "Semanal" },
+  { id: "day", label: "Diario" },
 ];
 
 export const Route = createFileRoute("/admin/")({
@@ -57,22 +57,6 @@ function isInWindow(order: AdminInquiryRecord, window: SalesWindow) {
   return new Date(order.createdAt) >= start;
 }
 
-function getInventoryBaseUnitPrice(price: number, compareAtPrice: number | null) {
-  void compareAtPrice;
-  return price;
-}
-
-function getOrderPreviewImage(
-  inquiry: AdminInquiryRecord,
-  products: Awaited<ReturnType<typeof getAdminCatalogProducts>>,
-) {
-  const firstLine = inquiry.lines[0];
-  if (!firstLine) return null;
-  const product = products.find((entry) => entry.id === firstLine.productId);
-  const variantImage = product?.variants.find((variant) => variant.id === firstLine.variantId)?.image ?? null;
-  return variantImage ?? product?.featuredImage ?? null;
-}
-
 function AdminDashboardPage() {
   const { orders, products } = Route.useLoaderData();
   const [salesWindow, setSalesWindow] = useState<SalesWindow>("month");
@@ -80,11 +64,18 @@ function AdminDashboardPage() {
   const snapshot = useMemo(() => {
     const recentInquiries = [...orders]
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.requestNumber.localeCompare(a.requestNumber))
-      .slice(0, 4);
+      .slice(0, 3);
 
-    const inventoryBaseValue = products.reduce((sum, product) => {
-      return sum + getInventoryBaseUnitPrice(product.price, product.compareAtPrice) * (product.stock ?? 0);
-    }, 0);
+    const inventoryBaseValue = products.reduce(
+      (productTotal, product) =>
+        productTotal +
+        product.variants.reduce(
+          (variantTotal, variant) =>
+            variantTotal + variant.price * Math.max(0, variant.quantityAvailable ?? 0),
+          0,
+        ),
+      0,
+    );
 
     const periodOrders = orders.filter((order) => isInWindow(order, salesWindow));
     const gains = periodOrders
@@ -132,19 +123,7 @@ function AdminDashboardPage() {
             <div className="grid gap-3">
               {snapshot.recentInquiries.map((inquiry) => (
                 <div key={inquiry.id} className="rounded-2xl border border-[#231717]/10 bg-[#faf6f0] p-3">
-                  <div className="flex items-start gap-3">
-                    {getOrderPreviewImage(inquiry, products) ? (
-                      <img
-                        src={getOrderPreviewImage(inquiry, products)!.url}
-                        alt={inquiry.lines[0]?.productName ?? inquiry.requestNumber}
-                        className="h-20 w-20 shrink-0 rounded-2xl object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-white text-xs font-black uppercase text-[#5f4941]">
-                        {inquiry.lines[0]?.productName?.slice(0, 2).toUpperCase() ?? "P"}
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1">
+                  <div className="min-w-0">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <div className="text-sm font-black">{inquiry.requestNumber}</div>
@@ -184,7 +163,6 @@ function AdminDashboardPage() {
                       </div>
                       <div className="mt-3 text-sm text-[#5f4941]">{inquiry.notes || "Sin notas."}</div>
                       <div className="mt-3 text-sm font-black">{formatPrice(inquiry.total)}</div>
-                    </div>
                   </div>
                 </div>
               ))}
@@ -197,7 +175,7 @@ function AdminDashboardPage() {
         </AdminPanel>
 
         <AdminPanel
-          title="Balance de ventas"
+          className="self-start"
           actions={
             <div className="flex flex-wrap gap-2">
               {SALES_WINDOWS.map((entry) => (

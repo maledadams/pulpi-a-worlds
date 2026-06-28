@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { BarChart3, Boxes, FolderKanban, LayoutGrid, Package2, Percent, Settings2, ShoppingBag, Store } from "lucide-react";
+import { BarChart3, Boxes, FolderKanban, LayoutGrid, Package2, Percent, Settings2, ShoppingBag, Store, Warehouse } from "lucide-react";
 import type { ReactNode } from "react";
 import { shouldShowAdminAccessNotice } from "@/lib/admin-access";
 import type { AdminSection } from "@/lib/admin-types";
@@ -13,6 +13,7 @@ const NAV_ITEMS: Array<{
 }> = [
   { section: "resumen", label: "Resumen", to: "/admin", icon: LayoutGrid },
   { section: "productos", label: "Productos", to: "/admin/productos", icon: Package2 },
+  { section: "stock", label: "Stock", to: "/admin/stock", icon: Warehouse },
   { section: "categorias", label: "Categorias", to: "/admin/categorias", icon: Boxes },
   { section: "colecciones", label: "Colecciones", to: "/admin/colecciones", icon: FolderKanban },
   { section: "pedidos", label: "Pedidos", to: "/admin/pedidos", icon: ShoppingBag },
@@ -25,6 +26,8 @@ const SECTION_BACKGROUNDS: Record<AdminSection, string> = {
     "linear-gradient(135deg, rgba(255, 204, 222, 0.94) 0%, rgba(255, 236, 162, 0.9) 52%, rgba(255, 246, 239, 0.98) 100%)",
   productos:
     "linear-gradient(135deg, rgba(206, 244, 143, 0.94) 0%, rgba(255, 210, 178, 0.9) 55%, rgba(255, 246, 239, 0.98) 100%)",
+  stock:
+    "linear-gradient(135deg, rgba(199, 239, 224, 0.96) 0%, rgba(213, 240, 158, 0.9) 55%, rgba(255, 246, 239, 0.98) 100%)",
   categorias:
     "linear-gradient(135deg, rgba(255, 197, 219, 0.94) 0%, rgba(255, 223, 156, 0.9) 55%, rgba(255, 245, 236, 0.98) 100%)",
   colecciones:
@@ -53,7 +56,7 @@ export function AdminShell({
   const showAccessNotice = shouldShowAdminAccessNotice();
 
   return (
-    <div className="min-h-screen text-[#231717]" style={{ background: SECTION_BACKGROUNDS[section] }}>
+    <div className="admin-shell min-h-screen text-[#231717]" style={{ background: SECTION_BACKGROUNDS[section] }}>
       <div className="mx-auto grid max-w-[1880px] gap-5 px-4 py-4 xl:grid-cols-[260px_minmax(0,1fr)] 2xl:grid-cols-[280px_minmax(0,1fr)]">
         <aside className="self-start rounded-[20px] border-2 border-[#231717] bg-white/85 p-4 shadow-[0_18px_40px_-32px_rgba(35,23,23,0.45)] xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto">
           <div className="flex items-center gap-3 rounded-[16px] border border-[#231717]/10 bg-[#f7f2ec] px-3 py-3">
@@ -170,7 +173,7 @@ export function AdminPanel({
   const showHeader = Boolean(title || eyebrow || actions);
 
   return (
-    <section className={cn("rounded-[18px] border-2 border-[#231717] bg-white shadow-[0_16px_32px_-28px_rgba(35,23,23,0.42)]", className)}>
+    <section className={cn("flex flex-col rounded-[18px] border-2 border-[#231717] bg-white shadow-[0_16px_32px_-28px_rgba(35,23,23,0.42)]", className)}>
       {showHeader ? (
         <div className="flex items-start justify-between gap-3 border-b border-[#231717]/10 px-4 py-3">
           {title || eyebrow ? (
@@ -186,7 +189,7 @@ export function AdminPanel({
           {actions}
         </div>
       ) : null}
-      <div className="p-4">{children}</div>
+      <div className="flex-1 p-4">{children}</div>
     </section>
   );
 }

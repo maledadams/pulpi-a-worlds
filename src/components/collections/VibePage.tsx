@@ -13,6 +13,7 @@ type Cfg = {
   catalogHeading: string;
   catalogThemeVibe?: Vibe;
   heroBorderClassName?: string;
+  heroTextClassName?: string;
   searchPlaceholderClassName?: string;
   catalogSectionClassName?: string;
   bg: string;
@@ -48,9 +49,8 @@ export function VibePage({
           />
         )}
         <div className="relative mx-auto grid max-w-7xl gap-8 px-4 py-20 md:grid-cols-2 md:items-center md:py-28">
-          <div>
-            <div className="text-xs uppercase tracking-[0.3em] opacity-80">{cfg.tagline}</div>
-            <h1 className="mt-3 text-6xl leading-[0.9] md:text-8xl">{cfg.title}</h1>
+          <div className={cfg.heroTextClassName}>
+            <h1 className="text-6xl leading-[0.9] md:text-8xl">{cfg.title}</h1>
             <p className="mt-5 max-w-md opacity-90">{cfg.intro}</p>
           </div>
           <div className="relative flex justify-center">
@@ -70,15 +70,23 @@ export function VibePage({
         }`}
         data-vibe={cfg.catalogThemeVibe}
       >
-        <div className="mx-auto max-w-7xl px-4 py-12">
+        <div className="py-12">
+          <div className="mx-auto max-w-7xl px-4">
           <h2
             className="mb-4 text-3xl md:text-4xl"
             style={{
-              fontFamily: cfg.vibe === "moon" ? "var(--font-gothic)" : undefined,
+              fontFamily:
+                cfg.vibe === "moon"
+                  ? "var(--font-gothic)"
+                  : cfg.vibe === "sunshine"
+                    ? "var(--font-sunshine)"
+                    : undefined,
+              fontWeight: cfg.vibe === "sunshine" ? 400 : undefined,
             }}
           >
             {catalogHeading}
           </h2>
+          </div>
           <CatalogBrowser
             products={products}
             search={search}
@@ -90,6 +98,7 @@ export function VibePage({
             vibeScope={cfg.vibe}
             themeVibe={cfg.catalogThemeVibe}
             searchPlaceholderClassName={cfg.searchPlaceholderClassName}
+            wideProductResultsOnly
           />
         </div>
       </section>

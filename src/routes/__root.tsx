@@ -12,10 +12,9 @@ import type { Vibe } from "@/data/products";
 import appCss from "../styles.css?url";
 import { CartDrawer } from "@/components/cart/CartDrawer";
 import { AgentationToolbar } from "@/components/dev/AgentationToolbar";
-import { VibeChooserModal } from "@/components/home/VibeChooserModal";
 import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
-import { CartProvider, useCart } from "@/context/cart";
+import { CartProvider } from "@/context/cart";
 import { CatalogProvider } from "@/context/catalog";
 import { setRuntimeCategoryConfig } from "@/data/products";
 import { isAdminRoutePath } from "@/lib/admin-access";
@@ -34,7 +33,7 @@ function NotFoundComponent() {
         <p className="mt-2 text-muted-foreground">Esta vibra no existe.</p>
         <Link
           to="/"
-          className="sticker mt-6 inline-block rounded-full border-2 border-foreground bg-accent px-5 py-2.5 font-bold text-accent-foreground"
+          className="mt-6 inline-block bg-[#c5475f] px-5 py-2.5 font-bold text-white"
         >
           Volver al inicio
         </Link>
@@ -78,7 +77,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Bungee&family=Cinzel:wght@500;700&family=Fredoka:wght@400;600;700&family=Outfit:wght@400;500;600;700&family=UnifrakturMaguntia&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Coiny&family=Fredoka:wght@400;500;600;700&family=IM+Fell+Great+Primer+SC&family=New+Rocker&family=Outfit:wght@400;500;600;700&family=UnifrakturMaguntia&display=swap",
       },
     ],
   }),
@@ -133,29 +132,10 @@ function AppChrome({
   announcements: Awaited<ReturnType<typeof getStorefrontAnnouncements>>;
   settings: Awaited<ReturnType<typeof getStorefrontSettings>>;
 }) {
-  const cart = useCart();
   const location = useLocation();
   const { catalogProducts } = Route.useLoaderData();
 
-  const dominantCartVibe = useMemo(() => {
-    const counts = new Map<"moon" | "sunshine" | "men", number>();
-    for (const line of cart.lines) {
-      const product =
-        catalogProducts.find((entry) => entry.variants.some((variant) => variant.id === line.merchandiseId)) ??
-        catalogProducts.find((entry) => entry.slug === line.productHandle);
-
-      if (!product || product.vibe === "pulpina") continue;
-      counts.set(product.vibe, (counts.get(product.vibe) ?? 0) + line.quantity);
-    }
-
-    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
-  }, [cart.lines, catalogProducts]);
-
   const themeOverride = useMemo(() => {
-    if (location.pathname === "/carrito") {
-      return dominantCartVibe;
-    }
-
     if (location.pathname.startsWith("/producto/")) {
       const slug = location.pathname.replace(/^\/producto\//, "");
       const product = catalogProducts.find((entry) => entry.slug === slug);
@@ -168,7 +148,7 @@ function AppChrome({
     }
 
     return undefined;
-  }, [catalogProducts, dominantCartVibe, location.pathname]);
+  }, [catalogProducts, location.pathname]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -178,7 +158,6 @@ function AppChrome({
       </main>
       <Footer settings={settings} themeOverride={themeOverride} />
       <CartDrawer theme={themeOverride ?? "store"} />
-      <VibeChooserModal />
     </div>
   );
 }

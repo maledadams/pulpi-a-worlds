@@ -681,14 +681,9 @@ function AdminProductsPage() {
                     </AdminField>
                   </div>
 
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <AdminField label="Precio base">
-                      <AdminInput type="number" value={draft.price} onChange={(event) => updateDraft("price", Number(event.target.value))} />
-                    </AdminField>
-                    <AdminField label="Stock total real">
-                      <AdminInput type="number" value={draft.stock ?? 0} disabled />
-                    </AdminField>
-                  </div>
+                  <AdminField label="Precio base">
+                    <AdminInput type="number" value={draft.price} onChange={(event) => updateDraft("price", Number(event.target.value))} />
+                  </AdminField>
 
                   <AdminField label="Descripcion">
                     <AdminTextarea rows={5} value={draft.description} onChange={(event) => updateDraft("description", event.target.value)} />
@@ -853,74 +848,6 @@ function AdminProductsPage() {
               </div>
             </AdminPanel>
 
-            <AdminPanel title="Stock y precio" className="overflow-hidden">
-              {draft.variants.length === 0 ? (
-                <AdminEmptyState title="Sin variantes" body="Agrega al menos una talla y un color para generar variantes editables." />
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-[780px] text-left text-sm">
-                    <thead className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">
-                      <tr>
-                        <th className="pb-3 pr-3">Talla</th>
-                        <th className="pb-3 pr-3">Color</th>
-                        <th className="pb-3 pr-3">Disponible</th>
-                        <th className="pb-3 pr-3">Stock</th>
-                        <th className="pb-3 pr-3">Precio</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {draft.variants.map((variant) => {
-                        const size = variant.selectedOptions.find((option) => option.name === "Talla")?.value ?? "Unica";
-                        const color = variant.selectedOptions.find((option) => option.name === "Color")?.value ?? "Unica";
-
-                        return (
-                          <tr key={variant.id} className="border-t border-[#231717]/10 align-top">
-                            <td className="py-3 pr-3 font-semibold">{size}</td>
-                            <td className="py-3 pr-3 font-semibold">{color}</td>
-                            <td className="py-3 pr-3">
-                              <AdminCheckbox
-                                label="Activa"
-                                checked={variant.available}
-                                onCheckedChange={(checked) =>
-                                  updateVariant(variant.id, (current) => ({
-                                    ...current,
-                                    available: checked,
-                                  }))
-                                }
-                              />
-                            </td>
-                            <td className="py-3 pr-3">
-                              <AdminInput
-                                type="number"
-                                value={variant.quantityAvailable ?? 0}
-                                onChange={(event) =>
-                                  updateVariant(variant.id, (current) => ({
-                                    ...current,
-                                    quantityAvailable: Math.max(0, Number(event.target.value) || 0),
-                                  }))
-                                }
-                              />
-                            </td>
-                            <td className="py-3 pr-3">
-                              <AdminInput
-                                type="number"
-                                value={variant.price}
-                                onChange={(event) =>
-                                  updateVariant(variant.id, (current) => ({
-                                    ...current,
-                                    price: Math.max(0, Number(event.target.value) || 0),
-                                  }))
-                                }
-                              />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </AdminPanel>
           </>
         ) : (
           <AdminPanel title="Editor">

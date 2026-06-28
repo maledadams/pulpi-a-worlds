@@ -275,7 +275,7 @@ function AdminCategoriesPage() {
         </AdminButton>
       }
     >
-      <div className="grid gap-4 xl:auto-rows-fr xl:grid-cols-[minmax(0,1.1fr)_430px]">
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.1fr)_430px]">
         <AdminPanel>
           <div className="mb-4 flex flex-col gap-3 md:flex-row">
             <AdminInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nombre o id" />
@@ -300,7 +300,6 @@ function AdminCategoriesPage() {
                       <th className="pb-3 pr-3">Subtiendas</th>
                       <th className="pb-3 pr-3">Formato</th>
                       <th className="pb-3 pr-3">Productos</th>
-                      <th className="pb-3 pr-3">Orden</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -338,7 +337,6 @@ function AdminCategoriesPage() {
                             </AdminTag>
                           </td>
                           <td className="py-3 pr-3 font-bold">{category.productCount}</td>
-                          <td className="py-3 pr-3 font-bold">{category.sortOrder}</td>
                         </tr>
                       );
                     })}
@@ -352,10 +350,10 @@ function AdminCategoriesPage() {
           )}
         </AdminPanel>
 
-        <div className="grid auto-rows-fr gap-4">
+        <div className="grid gap-4">
           <AdminPanel
             title={draft?.label || "Editor"}
-            className="h-full"
+            className="self-start"
             actions={
               <div className="flex flex-wrap gap-2">
                 <AdminButton tone="danger" onClick={handleDelete} disabled={!draft || isDeleting}>
@@ -368,7 +366,7 @@ function AdminCategoriesPage() {
             }
           >
             {draft ? (
-              <div className="grid h-full content-start gap-4">
+              <div className="grid content-start gap-4">
                 {saveMessage ? (
                   <div className="rounded-2xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2 text-xs font-semibold text-[#5f4941]">
                     {saveMessage}
@@ -377,18 +375,6 @@ function AdminCategoriesPage() {
 
                 <AdminField label="Nombre visible">
                   <AdminInput value={draft.label} onChange={(event) => setDraft((current) => (current ? { ...current, label: event.target.value } : current))} />
-                </AdminField>
-
-                <AdminField label="Orden de navegacion">
-                  <AdminInput
-                    type="number"
-                    value={draft.sortOrder}
-                    onChange={(event) =>
-                      setDraft((current) =>
-                        current ? { ...current, sortOrder: Math.max(0, Number(event.target.value) || 0) } : current,
-                      )
-                    }
-                  />
                 </AdminField>
 
                 <AdminCheckbox

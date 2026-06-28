@@ -158,6 +158,9 @@ type CatalogBrowserProps = {
   enableNsfwGate?: boolean;
   resetFiltersOnQuery?: boolean;
   searchPlaceholderClassName?: string;
+  wideResults?: boolean;
+  wideResultsTitle?: string;
+  wideProductResultsOnly?: boolean;
 };
 
 export function CatalogBrowser({
@@ -176,11 +179,23 @@ export function CatalogBrowser({
   enableNsfwGate = false,
   resetFiltersOnQuery = false,
   searchPlaceholderClassName,
+  wideResults = false,
+  wideResultsTitle,
+  wideProductResultsOnly = false,
 }: CatalogBrowserProps) {
   const [drawer, setDrawer] = useState(false);
   const [openHorizontalFilter, setOpenHorizontalFilter] = useState<string | null>(null);
   const filters = useMemo(() => parseCatalogSearch(search), [search]);
   const isMoonVibe = (themeVibe ?? vibeScope) === "moon";
+  const scopedVibe = vibeScope ?? themeVibe;
+  const emptyTitleFontFamily =
+    scopedVibe === "moon"
+      ? "var(--font-gothic)"
+      : scopedVibe === "sunshine"
+        ? "var(--font-sunshine)"
+        : scopedVibe === "men"
+          ? '"IM FELL Great Primer SC", serif'
+          : "var(--font-display)";
   const visibleProducts = useMemo(
     () =>
       enableNsfwGate && !filters.nsfwEnabled
@@ -265,6 +280,9 @@ export function CatalogBrowser({
   const moonTextClass = "text-[#f2e9e1]";
   const moonMutedTextClass = "text-[#f2e9e1]/66";
   const moonActiveClass = "border-[#8f2015] bg-[#8f2015] text-[#fff7f2]";
+  const searchControlFrameClass = isMoonVibe
+    ? `${moonBorderClass} ${moonSurfaceClass} ${moonTextClass} focus:border-[#f2e9e1]/22`
+    : "border-foreground/20 bg-card focus:border-foreground";
 
   /* ── Sidebar filter panel ── */
   const filtersPanel = (
@@ -470,10 +488,8 @@ export function CatalogBrowser({
           value={filters.q}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Buscar..."
-          className={`w-full rounded-full border py-2.5 pl-9 pr-4 text-sm outline-none ${
-            isMoonVibe
-              ? `${moonBorderClass} ${moonSurfaceClass} ${moonTextClass} placeholder:text-[#f2e9e1]/66 focus:border-[#f2e9e1]/22`
-              : "border-foreground/20 bg-card focus:border-foreground"
+          className={`w-full border py-2.5 pl-9 pr-4 text-sm outline-none ${searchControlFrameClass} ${
+            isMoonVibe ? "placeholder:text-[#f2e9e1]/66" : ""
           } ${searchPlaceholderClassName ?? ""}`}
         />
       </div>
@@ -482,11 +498,7 @@ export function CatalogBrowser({
         onChange={(e) =>
           setFilters({ ...filters, sort: e.target.value as CatalogFilters["sort"] })
         }
-        className={`rounded-full border px-4 py-2.5 text-sm font-semibold outline-none ${
-          isMoonVibe
-            ? `${moonBorderClass} ${moonSurfaceClass} ${moonTextClass} focus:border-[#f2e9e1]/22`
-            : "border-foreground/20 bg-card focus:border-foreground"
-        }`}
+        className={`border px-4 py-2.5 text-sm font-semibold outline-none ${searchControlFrameClass}`}
       >
         {CATALOG_SORTS.map((s) => (
           <option key={s.id} value={s.id}>
@@ -733,8 +745,8 @@ export function CatalogBrowser({
     <>
       <p className="mb-3 text-xs text-muted-foreground">{filtered.length} productos</p>
       {filtered.length === 0 ? (
-        <div className="py-20 text-center">
-          <p className="font-display text-2xl">{emptyTitle}</p>
+        <div className="flex min-h-64 w-full flex-col items-center justify-center text-center">
+          <p className="text-3xl" style={{ fontFamily: emptyTitleFontFamily }}>{emptyTitle}</p>
           <button
             onClick={clearFilters}
             className="mt-3 text-sm font-semibold underline underline-offset-4"
@@ -743,7 +755,7 @@ export function CatalogBrowser({
           </button>
         </div>
       ) : (
-        <div className={`grid gap-3 ${cols}`}>
+        <div className={`grid ${wideResults ? "gap-4" : "gap-3"} ${cols}`}>
           {filtered.map((p) => (
             <ProductCard
               key={p.id}
@@ -761,24 +773,54 @@ export function CatalogBrowser({
 
   return (
     <div>
-      {searchBar}
+      {wideResults ? (
+        <div className="grid items-start gap-6 px-4 md:grid-cols-[240px_1fr] xl:px-[5cm]">
+          {wideResultsTitle ? (
+            <div className="hidden h-[42px] items-center md:flex">
+              <h1 className="inline-block text-4xl md:text-6xl">{wideResultsTitle}</h1>
+            </div>
+          ) : null}
+          <div className="md:col-start-2">{searchBar}</div>
+        </div>
+      ) : wideProductResultsOnly ? (
+        <div className="mx-auto max-w-7xl px-4">{searchBar}</div>
+      ) : (
+        searchBar
+      )}
 
       {mode === "horizontal" ? (
         <div>
-          {horizontalFilters}
-          {productGrid("grid-cols-2 sm:grid-cols-3 lg:grid-cols-4")}
+          {wideProductResultsOnly ? (
+            <>
+              <div className="mx-auto max-w-7xl px-4">{horizontalFilters}</div>
+              <div className="px-4 xl:px-[5cm]">
+                {productGrid("substore-product-grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4")}
+              </div>
+            </>
+          ) : (
+            <>
+              {horizontalFilters}
+              {productGrid("grid-cols-2 sm:grid-cols-3 lg:grid-cols-4")}
+            </>
+          )}
         </div>
       ) : (
-        <div className="grid gap-6 md:grid-cols-[240px_1fr]">
+        <div className={`grid gap-6 md:grid-cols-[240px_1fr] ${wideResults ? "px-4 xl:px-[5cm]" : ""}`}>
           {/* Sidebar — scrollbar contained inside box */}
           <aside className="hidden md:block">
-            <div className="sticky top-[calc(3.5rem+1rem)] min-h-[42rem] max-h-[calc(100vh-5rem)] overflow-hidden rounded-xl border border-foreground/15 bg-card">
-              <div className="h-full overflow-y-auto p-4">
+            <div className="sticky top-[calc(3.5rem+1rem)] h-[calc(100vh-5rem)] overflow-hidden rounded-xl border border-foreground/15 bg-card">
+              <div className="h-full overflow-y-scroll overscroll-contain p-4 [scrollbar-gutter:stable]">
                 {filtersPanel}
               </div>
             </div>
           </aside>
-          <div>{productGrid("grid-cols-2 lg:grid-cols-3")}</div>
+          <div>
+            {productGrid(
+              wideResults
+                ? "grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+                : "grid-cols-2 lg:grid-cols-3",
+            )}
+          </div>
         </div>
       )}
 

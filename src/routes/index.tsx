@@ -95,9 +95,11 @@ function HomeRailSection({
   if (products.length === 0) return null;
 
   return (
-    <section className="mx-auto max-w-7xl px-4 pb-14">
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <h2 className="text-2xl md:text-3xl">{title}</h2>
+    <section className="pb-14">
+      <div className="mb-6 flex items-center justify-between gap-4 px-4 xl:px-[5cm]">
+        <h2 className="text-left text-2xl md:text-3xl" style={{ transform: "none" }}>
+          {title}
+        </h2>
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -120,30 +122,32 @@ function HomeRailSection({
         </div>
       </div>
 
-      <Carousel
-        setApi={setApi}
-        opts={{
-          align: "start",
-          containScroll: "trimSnaps",
-          dragFree: true,
-        }}
-      >
-        <CarouselContent>
-          {products.map((product) => (
-            <CarouselItem
-              key={product.id}
-              className="basis-[74%] sm:basis-[42%] md:basis-[31%] lg:basis-[24%] xl:basis-[20%]"
-            >
-              <ProductCard
-                product={product}
-                soldOutMode="standard"
-                showSubtitle={false}
-                tone="store"
-              />
-            </CarouselItem>
-          ))}
-        </CarouselContent>
-      </Carousel>
+      <div className="px-4 xl:px-[5cm]">
+        <Carousel
+          setApi={setApi}
+          opts={{
+            align: "start",
+            containScroll: "trimSnaps",
+            dragFree: true,
+          }}
+        >
+          <CarouselContent>
+            {products.map((product) => (
+              <CarouselItem
+                key={product.id}
+                className="basis-[74%] sm:basis-[42%] md:basis-[31%] lg:basis-[24%] xl:basis-[calc((100%_-_15.5rem)/4)] 2xl:basis-[calc((100%_-_15.5rem)/5)]"
+              >
+                <ProductCard
+                  product={product}
+                  soldOutMode="standard"
+                  showSubtitle={false}
+                  tone="store"
+                />
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+        </Carousel>
+      </div>
     </section>
   );
 }
@@ -152,10 +156,25 @@ function Home() {
   const { homeCollections, settings } = Route.useLoaderData();
   const products = useCatalogProducts();
   const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [birthdayDate, setBirthdayDate] = useState("");
+  const [birthdaySaved, setBirthdaySaved] = useState(false);
   const [newsletterStatus, setNewsletterStatus] = useState("");
   const [newsletterSubmitting, setNewsletterSubmitting] = useState(false);
   const [newsletterTurnstileToken, setNewsletterTurnstileToken] = useState("");
   const [newsletterTurnstileVersion, setNewsletterTurnstileVersion] = useState(0);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("pulpina_birthday_subscription");
+      if (!raw) return;
+      const saved = JSON.parse(raw) as { birthDate?: string; email?: string };
+      if (saved.email) setNewsletterEmail(saved.email);
+      if (saved.birthDate) setBirthdayDate(saved.birthDate);
+      setBirthdaySaved(Boolean(saved.email && saved.birthDate));
+    } catch {
+      // Invalid browser data is ignored and can be replaced by a new signup.
+    }
+  }, []);
 
   const homeSections = useMemo(() => {
     const productMap = new Map(products.map((product) => [product.id, product]));
@@ -170,6 +189,12 @@ function Home() {
       }))
       .filter((section) => section.products.length > 0);
   }, [homeCollections, products]);
+  const homeSelectionTitle = /^elige tu tienda$/i.test(settings.homeSelectionTitle.trim())
+    ? "Elige Tu Tienda"
+    : settings.homeSelectionTitle;
+  const birthdayTitle = /^descuento de cumpleanos$/i.test(settings.newsletterTitle.trim())
+    ? "Descuento de Cumpleaños"
+    : settings.newsletterTitle;
 
   return (
     <div>
@@ -183,7 +208,9 @@ function Home() {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(0,0,0,0.82),transparent_30%),radial-gradient(circle_at_top_right,rgba(0,0,0,0.8),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(0,0,0,0.76),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(0,0,0,0.82),transparent_30%)]" />
 
           <div className="relative mb-10 text-center md:mb-12">
-            <h2 className="text-2xl text-white md:text-3xl">{settings.homeSelectionTitle}</h2>
+            <h2 className="text-4xl text-white md:text-6xl" style={{ transform: "none" }}>
+              {homeSelectionTitle}
+            </h2>
             <p className="mx-auto mt-3 max-w-2xl text-sm text-white/72">
               {settings.homeSelectionSubtitle}
             </p>
@@ -227,12 +254,14 @@ function Home() {
       ))}
 
       <section className="border-t border-[#c5f56a]/45 bg-muted/40 px-4 py-14 text-center">
-        <h2 className="text-2xl md:text-3xl">{settings.newsletterTitle}</h2>
+        <h2 className="text-4xl md:text-6xl" style={{ transform: "none" }}>
+          {birthdayTitle}
+        </h2>
         <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
           {settings.newsletterDescription}
         </p>
         <form
-          className="mx-auto mt-5 flex max-w-sm flex-col gap-2 sm:flex-row"
+          className="mx-auto mt-5 grid max-w-2xl gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
           onSubmit={(event) => {
             event.preventDefault();
             setNewsletterStatus("");
@@ -240,6 +269,7 @@ function Home() {
 
             void subscribeNewsletter({
               data: {
+                birthDate: birthdayDate,
                 email: newsletterEmail,
                 turnstileToken: newsletterTurnstileToken,
               },
@@ -247,7 +277,11 @@ function Home() {
               .then((result) => {
                 setNewsletterStatus(result.message);
                 if (result.ok) {
-                  setNewsletterEmail("");
+                  localStorage.setItem(
+                    "pulpina_birthday_subscription",
+                    JSON.stringify({ birthDate: birthdayDate, email: newsletterEmail.trim().toLowerCase() }),
+                  );
+                  setBirthdaySaved(true);
                   setNewsletterTurnstileToken("");
                 }
               })
@@ -266,7 +300,21 @@ function Home() {
             value={newsletterEmail}
             placeholder="tu@correo.com"
             className="flex-1 rounded-full border border-foreground/20 bg-background px-4 py-2.5 text-sm outline-none focus:border-foreground"
-            onChange={(event) => setNewsletterEmail(event.target.value)}
+            onChange={(event) => {
+              setNewsletterEmail(event.target.value);
+              setBirthdaySaved(false);
+            }}
+          />
+          <input
+            type="date"
+            required
+            value={birthdayDate}
+            aria-label="Fecha de cumpleaños"
+            className="rounded-full border border-foreground/20 bg-background px-4 py-2.5 text-sm outline-none focus:border-foreground"
+            onChange={(event) => {
+              setBirthdayDate(event.target.value);
+              setBirthdaySaved(false);
+            }}
           />
           <button
             disabled={newsletterSubmitting || !newsletterTurnstileToken}
@@ -275,6 +323,11 @@ function Home() {
             {newsletterSubmitting ? "Validando..." : "Suscribirme"}
           </button>
         </form>
+        {birthdaySaved ? (
+          <p className="mx-auto mt-3 max-w-md text-sm font-semibold text-emerald-700">
+            Este navegador ya tiene tu cumpleaños guardado.
+          </p>
+        ) : null}
         <div className="mx-auto mt-3 max-w-sm">
           <TurnstileWidget
             key={newsletterTurnstileVersion}

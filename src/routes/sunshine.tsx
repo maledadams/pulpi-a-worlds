@@ -29,6 +29,7 @@ function SunshinePage() {
         intro: settings.sunshinePageIntro,
         catalogHeading: settings.vibeCatalogHeading,
         heroBorderClassName: "border-[#ff4ea3]",
+        heroTextClassName: "text-foreground",
         searchPlaceholderClassName: "placeholder:text-[#dc72aa]",
         bg: "linear-gradient(135deg,#ff8fc9,#ffe66a 60%,#c5f56a)",
         logo,

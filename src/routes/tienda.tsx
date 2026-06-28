@@ -24,10 +24,11 @@ function Tienda() {
   const navigate = useNavigate();
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10">
-      <div className="mb-6">
-        <h1 className="text-4xl md:text-6xl">Tienda</h1>
+    <div className="py-10">
+      <div className="mx-auto mb-6 max-w-7xl px-4 md:hidden">
+        <h1 className="text-4xl">Tienda</h1>
       </div>
+      <div className="mb-6 hidden h-[60px] md:block" aria-hidden="true" />
 
       <div id="shop">
         <CatalogBrowser
@@ -41,6 +42,8 @@ function Tienda() {
           departmentTitle="Tienda"
           enableNsfwGate
           resetFiltersOnQuery
+          wideResults
+          wideResultsTitle="Tienda"
         />
       </div>
     </div>

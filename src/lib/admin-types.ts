@@ -4,6 +4,7 @@ import type { AdminSizeFormat, AdminSizeFormatRecord } from "@/lib/product-sizin
 export type AdminSection =
   | "resumen"
   | "productos"
+  | "stock"
   | "categorias"
   | "colecciones"
   | "pedidos"
@@ -20,6 +21,20 @@ export type AdminInquiryStatus =
   | "cancelled";
 
 export type AdminInventoryStatus = "in_stock" | "low_stock" | "out_of_stock";
+
+export type AdminStockMovement = {
+  id: string;
+  productId: string;
+  productName: string;
+  variantId: string;
+  variantLabel: string;
+  delta: number;
+  balanceAfter: number;
+  source: "manual" | "order" | "cancellation" | "correction";
+  reason: string;
+  referenceId: string;
+  createdAt: string;
+};
 
 export type AdminProductRecord = {
   id: string;

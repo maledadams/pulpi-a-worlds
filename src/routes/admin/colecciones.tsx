@@ -250,6 +250,7 @@ function AdminCollectionsPage() {
     >
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(460px,0.95fr)]">
         <AdminPanel
+          title="Colecciones"
           actions={
             <div className="flex flex-wrap gap-2">
               {(["all", "store", "moon", "sunshine", "men"] as const).map((entry) => (

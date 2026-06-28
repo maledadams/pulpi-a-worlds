@@ -265,16 +265,6 @@ function AdminOrdersPage() {
     [newOrder.lines, newOrder.shipping, products],
   );
 
-  const detailPreviewTotal = useMemo(
-    () =>
-      draftLines.reduce((sum, line) => {
-        const product = findProduct(products, line.productId);
-        const variant = product?.variants.find((entry) => entry.id === line.variantId);
-        return sum + (variant?.price ?? 0) * line.quantity;
-      }, 0) + (draft?.shipping ?? 0),
-    [draft, draftLines, products],
-  );
-
   const handleSave = () => {
     if (!draft) return;
     setSaving(true);
@@ -819,9 +809,17 @@ function AdminOrdersPage() {
                   <AdminTextarea value={draft.notes} onChange={(event) => setDraft((current) => (current ? { ...current, notes: event.target.value } : current))} rows={4} />
                 </AdminField>
 
-                <AdminField label="Total referencia">
-                  <AdminInput value={formatPrice(detailPreviewTotal)} disabled />
-                </AdminField>
+                <div className="grid gap-3 md:grid-cols-3">
+                  <AdminField label="Subtotal original">
+                    <AdminInput value={formatPrice(draft.subtotal)} disabled />
+                  </AdminField>
+                  <AdminField label="Descuento aplicado">
+                    <AdminInput value={`-${formatPrice(draft.discount)}`} disabled />
+                  </AdminField>
+                  <AdminField label="Total final">
+                    <AdminInput value={formatPrice(draft.total)} disabled />
+                  </AdminField>
+                </div>
               </div>
             </AdminPanel>
           ) : (
