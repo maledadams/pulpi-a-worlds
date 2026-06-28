@@ -1,9 +1,0 @@
-ADMIN_ALLOWED_HOSTS=localhost,pulpinastore.com,www.pulpinastore.com
-ADMIN_ALLOWED_EMAILS=owner@yourdomain.com,ops@yourdomain.com
-ADMIN_ALLOWED_EMAIL_DOMAINS=
-CF_ACCESS_TEAM_DOMAIN=https://your-team.cloudflareaccess.com
-CF_ACCESS_AUD=your_access_application_aud
-R2_PUBLIC_BASE_URL=https://assets.yourdomain.com
-TURNSTILE_SECRET_KEY=your_turnstile_secret_key
-VITE_TURNSTILE_SITE_KEY=your_turnstile_site_key
-VITE_AGENTATION_ENDPOINT=http://localhost:4747
