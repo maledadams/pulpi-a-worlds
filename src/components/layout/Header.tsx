@@ -1,6 +1,7 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { ShoppingBag, Search, Menu, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { MegaPortal } from "./MegaPortal";
 import { StorePineapple } from "@/components/branding/StorePineapple";
 import { useCart } from "@/context/cart";
 import {
@@ -340,6 +341,16 @@ export function Header({
   const [renderedMega, setRenderedMega] = useState<MegaKey | null>(null);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const headerRef = useRef<HTMLElement | null>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+
+  useEffect(() => {
+    const update = () => setHeaderHeight(headerRef.current?.getBoundingClientRect().height ?? 0);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
   /* close mobile on route change */
   useEffect(() => {
     setMobileOpen(false);
@@ -458,6 +469,7 @@ export function Header({
 
   return (
     <header
+      ref={headerRef}
       className="sticky top-0 z-40 bg-background/95 backdrop-blur transition-colors duration-300"
       onMouseLeave={handleMouseLeaveHeader}
     >
@@ -536,25 +548,28 @@ export function Header({
 
       {/* ── Desktop mega menu ── */}
       <AnnouncementBar announcements={announcements} theme={announcementTheme} />
-      <div
-        className={`absolute left-0 right-0 top-14 z-10 hidden overflow-hidden shadow-xl transition-[max-height,opacity,transform] duration-250 md:block ${
-          megaOpen
-            ? "pointer-events-auto max-h-[34rem] translate-y-0 opacity-100"
-            : "pointer-events-none max-h-0 -translate-y-1 opacity-0"
-        }`}
-        style={{
-          background: currentMega
-            ? (VIBE_PANEL[currentMega.key]?.panelBg ?? "var(--color-background)")
-            : "var(--color-background)",
-          /* thin white bottom border always visible on vibe panels */
-          borderBottom: currentMega && VIBE_PANEL[currentMega.key]
-            ? "1px solid rgba(255,255,255,0.18)"
-            : "1px solid var(--color-border)",
-          transition: "max-height 0.25s ease, opacity 0.25s ease, transform 0.25s ease",
-        }}
-        onMouseEnter={handleMouseEnterPanel}
-      >
-        {currentMega && (() => {
+      <MegaPortal top={headerHeight}>
+        <div
+          className={`left-0 right-0 hidden overflow-hidden shadow-xl transition-[max-height,opacity,transform] duration-250 md:block ${
+            megaOpen
+              ? "pointer-events-auto max-h-[34rem] translate-y-0 opacity-100"
+              : "pointer-events-none max-h-0 -translate-y-1 opacity-0"
+          }`}
+          style={{
+            position: "fixed",
+            background: currentMega
+              ? (VIBE_PANEL[currentMega.key]?.panelBg ?? "var(--color-background)")
+              : "var(--color-background)",
+            /* thin white bottom border always visible on vibe panels */
+            borderBottom: currentMega && VIBE_PANEL[currentMega.key]
+              ? "1px solid rgba(255,255,255,0.18)"
+              : "1px solid var(--color-border)",
+            transition: "max-height 0.25s ease, opacity 0.25s ease, transform 0.25s ease",
+            zIndex: 99999,
+          }}
+          onMouseEnter={handleMouseEnterPanel}
+        >
+          {currentMega && (() => {
           const vs = VIBE_PANEL[currentMega.key];
           const textCls  = vs?.text  ?? "text-foreground";
           const mutedCls = vs?.muted ?? "text-muted-foreground";
@@ -665,6 +680,7 @@ export function Header({
           );
         })()}
       </div>
+      </MegaPortal>
 
       {/* ── Mobile menu ── */}
       {mobileOpen && (
