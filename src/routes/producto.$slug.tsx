@@ -64,6 +64,94 @@ export const Route = createFileRoute("/producto/$slug")({
   component: ProductPage,
 });
 
+const RELATED_PRODUCT_COUNT = 6;
+
+function getProductCategorySet(entry: Product) {
+  return new Set([entry.category, ...(entry.categories ?? [])].map((value) => value.trim().toLowerCase()));
+}
+
+function getProductSizeSet(entry: Product) {
+  const sizes = entry.sizes ?? entry.options.find((option) => option.name === "Talla")?.values ?? [];
+  return new Set(sizes.map((value) => value.trim().toLowerCase()));
+}
+
+function getProductColorSet(entry: Product) {
+  const colors =
+    entry.colors?.map((color) => color.name) ??
+    entry.options.find((option) => option.name === "Color")?.values ??
+    [];
+  return new Set(colors.map((value) => normalizeProductColorName(value)));
+}
+
+function countSharedValues(left: Set<string>, right: Set<string>) {
+  let total = 0;
+  for (const value of left) {
+    if (right.has(value)) total += 1;
+  }
+  return total;
+}
+
+function createStableRank(seed: string, candidateId: string) {
+  const value = `${seed}:${candidateId}`;
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+  return hash;
+}
+
+function getMoreFromThisVibeProducts(product: Product, products: Product[]) {
+  const sameVibeProducts = products.filter((entry) => entry.vibe === product.vibe && entry.id !== product.id);
+  if (sameVibeProducts.length <= RELATED_PRODUCT_COUNT) {
+    return sameVibeProducts.slice(0, RELATED_PRODUCT_COUNT);
+  }
+
+  const productCategories = getProductCategorySet(product);
+  const productSizes = getProductSizeSet(product);
+  const productColors = getProductColorSet(product);
+
+  const ranked = sameVibeProducts
+    .map((entry) => {
+      const categoryMatches = countSharedValues(productCategories, getProductCategorySet(entry));
+      const sizeMatches = countSharedValues(productSizes, getProductSizeSet(entry));
+      const colorMatches = countSharedValues(productColors, getProductColorSet(entry));
+      const sharedAspectCount = categoryMatches + sizeMatches + colorMatches;
+
+      return {
+        entry,
+        sharedAspectCount,
+        stableRank: createStableRank(product.id, entry.id),
+      };
+    })
+    .sort((left, right) => {
+      if (right.sharedAspectCount !== left.sharedAspectCount) {
+        return right.sharedAspectCount - left.sharedAspectCount;
+      }
+      return left.stableRank - right.stableRank;
+    });
+
+  const selected: Product[] = [];
+  const selectedIds = new Set<string>();
+
+  for (const minimumMatches of [3, 2, 1]) {
+    for (const candidate of ranked) {
+      if (candidate.sharedAspectCount < minimumMatches || selectedIds.has(candidate.entry.id)) continue;
+      selected.push(candidate.entry);
+      selectedIds.add(candidate.entry.id);
+      if (selected.length === RELATED_PRODUCT_COUNT) return selected;
+    }
+  }
+
+  for (const candidate of ranked) {
+    if (selectedIds.has(candidate.entry.id)) continue;
+    selected.push(candidate.entry);
+    selectedIds.add(candidate.entry.id);
+    if (selected.length === RELATED_PRODUCT_COUNT) break;
+  }
+
+  return selected.slice(0, RELATED_PRODUCT_COUNT);
+}
+
 function ProductPage() {
   const { product } = Route.useLoaderData() as {
     product: Product;
@@ -103,7 +191,7 @@ function ProductPage() {
 
   const onSale =
     typeof selectedVariant?.compareAtPrice === "number" && selectedVariant.compareAtPrice > selectedVariant.price;
-  const related = products.filter((entry) => entry.vibe === product.vibe && entry.id !== product.id).slice(0, 6);
+  const related = useMemo(() => getMoreFromThisVibeProducts(product, products), [product, products]);
   const currentImage = galleryImages[imageIndex] ?? null;
   const averageLuma =
     product.swatch
@@ -121,7 +209,7 @@ function ProductPage() {
 
   return (
     <div
-      className={`mx-auto max-w-7xl px-4 py-10 ${
+      className={`mx-auto max-w-[86rem] px-4 py-10 ${
         product.vibe === "pulpina"
           ? "product-page-shell"
           : product.vibe === "moon"
@@ -130,7 +218,7 @@ function ProductPage() {
       }`}
     >
       <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-[minmax(0,32rem)_minmax(0,1fr)]">
-        <div className="xl:-translate-x-[2.5cm]">
+        <div>
           <div
             className="relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl border border-foreground/20 grain"
             style={{ background: `linear-gradient(135deg, ${product.swatch[0]}, ${product.swatch[1]})` }}
@@ -270,10 +358,10 @@ function ProductPage() {
 
       {related.length > 0 ? (
         <section className="mt-16">
-          <div className="relative left-1/2 mb-4 w-screen -translate-x-1/2 px-4 xl:px-[5cm]">
+          <div className="mb-4">
             <h2 className="text-3xl md:text-4xl">Mas De Esta Vibra</h2>
           </div>
-          <div className="related-product-grid substore-product-grid relative left-1/2 grid w-screen -translate-x-1/2 grid-cols-2 gap-4 px-4 sm:grid-cols-3 lg:grid-cols-4 xl:px-[5cm]">
+          <div className="grid w-full grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
             {related.map((entry) => (
               <ProductCard key={entry.id} product={entry} />
             ))}
