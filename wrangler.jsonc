@@ -45,7 +45,7 @@
   // }
   "env": {
     "production": {
-      "name": "tanstack-start-app-production",
+      "name": "pulpi-a-worlds",
       "routes": [
         {
           "pattern": "pulpinastore.com",
