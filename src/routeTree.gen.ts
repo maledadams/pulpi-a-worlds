@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TiendaRouteImport } from './routes/tienda'
 import { Route as SunshineRouteImport } from './routes/sunshine'
 import { Route as SolicitudRouteImport } from './routes/solicitud'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as PulpinaRouteImport } from './routes/pulpina'
 import { Route as PoliticasRouteImport } from './routes/politicas'
 import { Route as NosotrosRouteImport } from './routes/nosotros'
@@ -45,6 +46,11 @@ const SunshineRoute = SunshineRouteImport.update({
 const SolicitudRoute = SolicitudRouteImport.update({
   id: '/solicitud',
   path: '/solicitud',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PulpinaRoute = PulpinaRouteImport.update({
@@ -153,6 +159,7 @@ export interface FileRoutesByFullPath {
   '/nosotros': typeof NosotrosRoute
   '/politicas': typeof PoliticasRoute
   '/pulpina': typeof PulpinaRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/solicitud': typeof SolicitudRoute
   '/sunshine': typeof SunshineRoute
   '/tienda': typeof TiendaRoute
@@ -177,6 +184,7 @@ export interface FileRoutesByTo {
   '/nosotros': typeof NosotrosRoute
   '/politicas': typeof PoliticasRoute
   '/pulpina': typeof PulpinaRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/solicitud': typeof SolicitudRoute
   '/sunshine': typeof SunshineRoute
   '/tienda': typeof TiendaRoute
@@ -202,6 +210,7 @@ export interface FileRoutesById {
   '/nosotros': typeof NosotrosRoute
   '/politicas': typeof PoliticasRoute
   '/pulpina': typeof PulpinaRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/solicitud': typeof SolicitudRoute
   '/sunshine': typeof SunshineRoute
   '/tienda': typeof TiendaRoute
@@ -228,6 +237,7 @@ export interface FileRouteTypes {
     | '/nosotros'
     | '/politicas'
     | '/pulpina'
+    | '/sitemap.xml'
     | '/solicitud'
     | '/sunshine'
     | '/tienda'
@@ -252,6 +262,7 @@ export interface FileRouteTypes {
     | '/nosotros'
     | '/politicas'
     | '/pulpina'
+    | '/sitemap.xml'
     | '/solicitud'
     | '/sunshine'
     | '/tienda'
@@ -276,6 +287,7 @@ export interface FileRouteTypes {
     | '/nosotros'
     | '/politicas'
     | '/pulpina'
+    | '/sitemap.xml'
     | '/solicitud'
     | '/sunshine'
     | '/tienda'
@@ -301,6 +313,7 @@ export interface RootRouteChildren {
   NosotrosRoute: typeof NosotrosRoute
   PoliticasRoute: typeof PoliticasRoute
   PulpinaRoute: typeof PulpinaRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   SolicitudRoute: typeof SolicitudRoute
   SunshineRoute: typeof SunshineRoute
   TiendaRoute: typeof TiendaRoute
@@ -337,6 +350,13 @@ declare module '@tanstack/react-router' {
       path: '/solicitud'
       fullPath: '/solicitud'
       preLoaderRoute: typeof SolicitudRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pulpina': {
@@ -485,6 +505,7 @@ const rootRouteChildren: RootRouteChildren = {
   NosotrosRoute: NosotrosRoute,
   PoliticasRoute: PoliticasRoute,
   PulpinaRoute: PulpinaRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   SolicitudRoute: SolicitudRoute,
   SunshineRoute: SunshineRoute,
   TiendaRoute: TiendaRoute,

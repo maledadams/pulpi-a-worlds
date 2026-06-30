@@ -1,8 +1,8 @@
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 import type { Vibe } from "@/data/products";
 
 export function useVibe(vibe: Vibe | null) {
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = document.documentElement;
 
     if (vibe && vibe !== "pulpina") {

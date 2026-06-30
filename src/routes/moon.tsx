@@ -4,12 +4,16 @@ import logo from "@/assets/logo-moon.png";
 import mood from "@/assets/mood-moon.jpg";
 import { getStorefrontSettings } from "@/lib/admin-content";
 import { validateCatalogSearch } from "@/lib/store-filters";
+import { createSeoHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/moon")({
-  ssr: false,
   loader: async () => ({ settings: await getStorefrontSettings() }),
   validateSearch: validateCatalogSearch,
-  head: () => ({ meta: [{ title: "Pulpiña Moon - Romance gotico" }] }),
+  head: ({ loaderData }) => createSeoHead({
+    pageName: "Moon",
+    path: "/moon",
+    description: loaderData?.settings.moonPageIntro,
+  }),
   component: MoonPage,
 });
 
@@ -29,6 +33,7 @@ function MoonPage() {
         intro: settings.moonPageIntro,
         catalogHeading: settings.vibeCatalogHeading,
         catalogThemeVibe: "men",
+        heroWaveColor: "#f3e8e6",
         searchPlaceholderClassName: "placeholder:text-[#8d8d8d]",
         bg: "linear-gradient(135deg,#0a0408,#2a0a14 60%,#5a0a14)",
         logo,

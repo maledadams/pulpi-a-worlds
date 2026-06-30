@@ -2,14 +2,18 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { VibePage } from "@/components/collections/VibePage";
 import { getStorefrontSettings } from "@/lib/admin-content";
 import { validateCatalogSearch } from "@/lib/store-filters";
+import { createSeoHead } from "@/lib/seo";
 import logo from "@/assets/logo-sunshine.png";
 import mood from "@/assets/mood-sunshine.jpg";
 
 export const Route = createFileRoute("/sunshine")({
-  ssr: false,
   loader: async () => ({ settings: await getStorefrontSettings() }),
   validateSearch: validateCatalogSearch,
-  head: () => ({ meta: [{ title: "Pulpiña Sunshine - Prendas de otro mundo" }] }),
+  head: ({ loaderData }) => createSeoHead({
+    pageName: "Sunshine",
+    path: "/sunshine",
+    description: loaderData?.settings.sunshinePageIntro,
+  }),
   component: SunshinePage,
 });
 
@@ -29,6 +33,7 @@ function SunshinePage() {
         intro: settings.sunshinePageIntro,
         catalogHeading: settings.vibeCatalogHeading,
         heroBorderClassName: "border-[#ff4ea3]",
+        heroWaveColor: "#ff4ea3",
         heroTextClassName: "text-foreground",
         searchPlaceholderClassName: "placeholder:text-[#dc72aa]",
         bg: "linear-gradient(135deg,#ff8fc9,#ffe66a 60%,#c5f56a)",

@@ -102,6 +102,22 @@
   --scrollbar-thumb: oklch(0.55 0.24 25 / 0.70);
 }
 
+html {
+  font-size: clamp(14px, calc(13px + 0.2vw), 16px);
+  overflow-x: clip;
+}
+
+body,
+#root {
+  min-width: 0;
+}
+
+img,
+svg,
+video {
+  max-width: 100%;
+}
+
 [data-vibe="moon"] {
   --background: oklch(0.15 0.02 15);
   --foreground: oklch(0.94 0.02 30);
@@ -186,6 +202,11 @@
   border-radius: 9999px !important;
 }
 
+.checkout-texture {
+  background-color: var(--color-background);
+  isolation: isolate;
+}
+
 .product-page-shell {
   --background: oklch(0.11 0.01 285);
   --foreground: oklch(0.97 0.01 80);
@@ -208,16 +229,30 @@
   clip-path: inset(0 -100vmax);
 }
 
-@media (min-width: 1280px) {
-  .substore-product-grid {
-    grid-template-columns: repeat(auto-fill, calc((100% - 19.5rem) / 4));
-    justify-content: space-between;
+@media (min-width: 1024px) {
+  .substore-product-grid,
+  .store-product-grid {
+    display: flex !important;
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-inline: auto;
   }
-}
 
-@media (min-width: 1536px) {
   .substore-product-grid {
-    grid-template-columns: repeat(auto-fill, calc((100% - 20.5rem) / 5));
+    max-width: 89rem;
+  }
+
+  .store-product-grid {
+    max-width: 74rem;
+  }
+
+  .substore-product-grid > *,
+  .store-product-grid > * {
+    width: 14rem;
+    flex: 0 0 14rem;
+    grid-column: auto !important;
+    translate: none !important;
   }
 }
 
@@ -252,8 +287,6 @@
 
   html {
     scroll-behavior: smooth;
-    /* CSS vars animate on html, propagate to all children via var() */
-    transition: background-color 0.45s cubic-bezier(0.4,0,0.2,1), color 0.45s cubic-bezier(0.4,0,0.2,1);
   }
 
   body {
@@ -262,14 +295,26 @@
     font-family: var(--font-body);
     font-feature-settings: "ss01", "cv02";
     overflow-x: clip;
+  }
+
+  html.substore-theme-transition,
+  html.substore-theme-transition body {
     transition:
       background-color 0.45s cubic-bezier(0.4,0,0.2,1),
       color 0.45s cubic-bezier(0.4,0,0.2,1);
   }
 
-  /* Smooth theme transitions on common surfaces */
-  header, footer, main, section, article, aside, nav,
-  .bg-background, .bg-card, .bg-muted {
+  /* Theme fades only while navigating between the three substores. */
+  html.substore-theme-transition header,
+  html.substore-theme-transition footer,
+  html.substore-theme-transition main,
+  html.substore-theme-transition section,
+  html.substore-theme-transition article,
+  html.substore-theme-transition aside,
+  html.substore-theme-transition nav,
+  html.substore-theme-transition .bg-background,
+  html.substore-theme-transition .bg-card,
+  html.substore-theme-transition .bg-muted {
     transition:
       background-color 0.45s cubic-bezier(0.4,0,0.2,1),
       color 0.45s cubic-bezier(0.4,0,0.2,1),
@@ -305,14 +350,6 @@
     font-weight: 500;
     -webkit-text-stroke: 0.2px currentColor;
   }
-
-  /* ---- Sticker (reserved for primary CTAs only) ---- */
-  .sticker {
-    box-shadow: 0 4px 0 0 var(--color-ink), 0 6px 14px -4px rgb(0 0 0 / 0.22);
-    transition: transform 0.16s ease, box-shadow 0.16s ease;
-  }
-  .sticker:hover { transform: translateY(-2px); }
-  .sticker:active { transform: translateY(1px); box-shadow: 0 1px 0 0 var(--color-ink); }
 
   /* ---- Grain texture ---- */
   .grain {

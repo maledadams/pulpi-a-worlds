@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LockKeyhole, ShieldCheck } from "lucide-react";
+import { createSeoHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/acceso-admin")({
-  head: () => ({ meta: [{ title: "Acceso Admin - Pulpiña RD" }] }),
+  head: () => createSeoHead({ pageName: "Acceso Admin", path: "/acceso-admin", noIndex: true }),
   component: AdminAccessPage,
 });
 

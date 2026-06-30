@@ -1,0 +1,79 @@
+- generic [ref=e2]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - link "Pulpiña RD" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - img [ref=e7]
+        - generic [ref=e8]: Pulpiña RD
+      - navigation [ref=e9]:
+        - link "Inicio" [ref=e10] [cursor=pointer]:
+          - /url: /
+        - link "Tienda" [ref=e11] [cursor=pointer]:
+          - /url: /tienda
+        - link "Moon" [ref=e12] [cursor=pointer]:
+          - /url: /moon
+        - link "Sunshine" [ref=e13] [cursor=pointer]:
+          - /url: /sunshine
+        - link "Men" [ref=e14] [cursor=pointer]:
+          - /url: /men
+        - link "Contacto" [ref=e15] [cursor=pointer]:
+          - /url: /contacto
+      - generic [ref=e16]:
+        - link "Buscar" [ref=e17] [cursor=pointer]:
+          - /url: /tienda
+          - img [ref=e18]
+        - button "Carrito" [ref=e21]:
+          - img [ref=e22]
+    - generic [ref=e27]: Ofertas de la semana activas hasta agotar existencia.
+  - main [ref=e28]
+  - contentinfo [ref=e30]:
+    - generic [ref=e31]:
+      - generic [ref=e33]:
+        - img "General" [ref=e35]
+        - generic [ref=e37]: Pulpiña RD
+      - generic [ref=e38]:
+        - generic [ref=e39]: Store
+        - list [ref=e40]:
+          - listitem [ref=e41]:
+            - link "Tienda" [ref=e42] [cursor=pointer]:
+              - /url: /tienda
+          - listitem [ref=e43]:
+            - link "Moon" [ref=e44] [cursor=pointer]:
+              - /url: /moon
+          - listitem [ref=e45]:
+            - link "Sunshine" [ref=e46] [cursor=pointer]:
+              - /url: /sunshine
+          - listitem [ref=e47]:
+            - link "Men" [ref=e48] [cursor=pointer]:
+              - /url: /men
+      - generic [ref=e49]:
+        - generic [ref=e50]: Ayuda
+        - list [ref=e51]:
+          - listitem [ref=e52]:
+            - link "Contactanos" [ref=e53] [cursor=pointer]:
+              - /url: /contacto
+          - listitem [ref=e54]:
+            - link "Politicas y privacidad" [ref=e55] [cursor=pointer]:
+              - /url: /politicas
+      - generic [ref=e56]:
+        - generic [ref=e57]: Redes
+        - generic [ref=e58]:
+          - link "Instagram" [ref=e59] [cursor=pointer]:
+            - /url: /contacto
+            - img [ref=e60]
+          - link "WhatsApp" [ref=e63] [cursor=pointer]:
+            - /url: /contacto
+            - img [ref=e64]
+        - paragraph [ref=e66]: Solicitudes por WhatsApp
+        - paragraph [ref=e67]: © 2026 Pulpiña RD.
+  - complementary [ref=e68]:
+    - generic [ref=e69]:
+      - generic [ref=e71]: TU CARRITO
+      - button [ref=e72]:
+        - img [ref=e73]
+    - generic [ref=e77]:
+      - img [ref=e78]
+      - paragraph [ref=e79]: TU CARRITO ESTA VACIO
+      - paragraph [ref=e80]: Aun no has elegido tu vibra.
+      - link "Ir a la tienda" [ref=e81] [cursor=pointer]:
+        - /url: /tienda

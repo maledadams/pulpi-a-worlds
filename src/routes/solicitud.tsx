@@ -8,13 +8,15 @@ import { formatPrice } from "@/data/products";
 import { getStorefrontSettings } from "@/lib/admin-content";
 import { submitManualOrder } from "@/lib/manual-orders";
 import { validateBirthdayCoupon } from "@/lib/public-forms";
+import { createSeoHead } from "@/lib/seo";
+import { useScrollFollow } from "@/hooks/use-scroll-follow";
 
 export const Route = createFileRoute("/solicitud")({
   ssr: false,
   loader: async () => ({
     settings: await getStorefrontSettings(),
   }),
-  head: () => ({ meta: [{ title: "Completar pedido - Pulpiña RD" }] }),
+  head: () => createSeoHead({ pageName: "Completar pedido", path: "/solicitud", noIndex: true }),
   component: InquiryPage,
 });
 
@@ -41,6 +43,7 @@ function InquiryPage() {
   const [appliedDiscount, setAppliedDiscount] = useState(0);
   const [discountStatus, setDiscountStatus] = useState("");
   const [applyingDiscount, setApplyingDiscount] = useState(false);
+  const orderFormFollower = useScrollFollow(1024);
   const [createdOrder, setCreatedOrder] = useState<null | {
     emailState: {
       configured: boolean;
@@ -146,7 +149,7 @@ function InquiryPage() {
                     <div key={`${line.variantId}-${line.quantity}`} className="rounded-2xl border border-foreground/10 bg-card p-3">
                       <div className="flex items-stretch gap-6">
                         {image ? (
-                          <div className="w-20 shrink-0 self-stretch overflow-hidden">
+                          <div className="w-20 shrink-0 self-stretch overflow-hidden border border-foreground/20">
                             <img
                               src={image.url}
                               alt={image.altText ?? line.productName}
@@ -154,13 +157,13 @@ function InquiryPage() {
                             />
                           </div>
                         ) : (
-                          <div className="flex min-h-20 w-20 shrink-0 self-stretch items-center justify-center bg-muted text-xl">
+                          <div className="flex min-h-20 w-20 shrink-0 self-stretch items-center justify-center border border-foreground/20 bg-muted text-xl">
                             <span className="font-display">{line.productName.slice(0, 2).toUpperCase()}</span>
                           </div>
                         )}
                         <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="font-semibold leading-tight">{line.productName}</div>
+                            <div className="leading-tight">{line.productName}</div>
                             <div className="mt-1 text-xs text-muted-foreground">{line.variantLabel}</div>
                             <div className="mt-2 text-xs text-muted-foreground">Cantidad: {line.quantity}</div>
                           </div>
@@ -264,7 +267,12 @@ function InquiryPage() {
     return (
       <div className="mx-auto max-w-lg px-4 py-20 text-center">
         <ShoppingBag className="mx-auto h-10 w-10 text-muted-foreground" />
-        <h1 className="mt-4 font-display text-3xl">Carrito vacio</h1>
+        <h1
+          className="mt-4 w-full text-center font-display text-3xl"
+          style={{ transform: "none", transformOrigin: "center" }}
+        >
+          Carrito vacio
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">Agrega productos antes de crear un pedido.</p>
         <Link
           to="/tienda"
@@ -282,8 +290,12 @@ function InquiryPage() {
         <ChevronLeft className="h-3.5 w-3.5" /> Volver al carrito
       </Link>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_404px]">
-        <section className="flex self-start flex-col rounded-3xl border border-foreground/15 bg-card p-5 sm:p-6 lg:sticky lg:top-24">
+      <div ref={orderFormFollower.containerRef} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_404px]">
+        <section
+          ref={orderFormFollower.floatingRef}
+          className="flex self-start flex-col rounded-3xl border border-foreground/15 bg-card p-5 will-change-transform transition-transform duration-500 ease-out sm:p-6"
+          style={{ transform: `translate3d(0, ${orderFormFollower.offset}px, 0)` }}
+        >
           <h1 className="font-body text-3xl font-bold sm:text-4xl" style={{ transform: "none" }}>Genera tu numero de orden</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
             Este sitio no procesa pagos dentro de la app. Completa este paso para crear tu pedido y luego escribenos por WhatsApp con el numero PUL para terminar la compra.
@@ -516,7 +528,7 @@ function InquiryPage() {
               <div key={line.id} className="rounded-2xl border border-foreground/10 bg-background p-3">
                 <div className="flex items-stretch gap-6">
                   {line.image ? (
-                    <div className="h-24 w-24 shrink-0 overflow-hidden">
+                    <div className="h-24 w-24 shrink-0 overflow-hidden border border-foreground/20">
                       <img
                         src={line.image.url}
                         alt={line.image.altText ?? line.title}
@@ -524,12 +536,12 @@ function InquiryPage() {
                       />
                     </div>
                   ) : (
-                    <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-muted text-xl">
+                    <div className="flex h-24 w-24 shrink-0 items-center justify-center border border-foreground/20 bg-muted text-xl">
                       <span className="font-display">{line.title.slice(0, 2).toUpperCase()}</span>
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <div className="font-semibold leading-tight">{line.title}</div>
+                    <div className="leading-tight">{line.title}</div>
                     {line.options ? <div className="mt-1 text-xs text-muted-foreground">{line.options}</div> : null}
                     <div className="mt-2 text-xs text-muted-foreground">Cantidad: {line.quantity}</div>
                     <div className="mt-2 font-bold">{formatPrice(line.total, cart.currencyCode)}</div>

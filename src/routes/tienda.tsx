@@ -2,18 +2,14 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { CatalogBrowser } from "@/components/catalog/CatalogBrowser";
 import { useCatalogProducts } from "@/context/catalog";
 import { validateCatalogSearch } from "@/lib/store-filters";
+import { createSeoHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/tienda")({
-  ssr: false,
   validateSearch: validateCatalogSearch,
-  head: () => ({
-    meta: [
-      { title: "Tienda - Pulpiña RD" },
-      {
-        name: "description",
-        content: "Explora toda la coleccion Pulpina: Moon, Sunshine, Men y mas.",
-      },
-    ],
+  head: () => createSeoHead({
+    pageName: "Tienda",
+    path: "/tienda",
+    description: "Catálogo de Pulpiña RD: Moon, Sunshine y Men.",
   }),
   component: Tienda,
 });
@@ -24,12 +20,7 @@ function Tienda() {
   const navigate = useNavigate();
 
   return (
-    <div className="py-10">
-      <div className="mx-auto mb-6 max-w-7xl px-4 md:hidden">
-        <h1 className="text-4xl">Tienda</h1>
-      </div>
-      <div className="mb-6 hidden h-[60px] md:block" aria-hidden="true" />
-
+    <div className="pb-10 pt-5 sm:pt-6">
       <div id="shop">
         <CatalogBrowser
           products={products}
@@ -39,11 +30,10 @@ function Tienda() {
           tone="store"
           soldOutMode="standard"
           showDepartmentFilter
-          departmentTitle="Tienda"
+          departmentTitle="Subtienda"
           enableNsfwGate
           resetFiltersOnQuery
           wideResults
-          wideResultsTitle="Tienda"
         />
       </div>
     </div>

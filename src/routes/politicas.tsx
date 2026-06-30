@@ -1,11 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { getStorefrontSettings } from "@/lib/admin-content";
+import { createSeoHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/politicas")({
-  ssr: false,
   loader: async () => ({ settings: await getStorefrontSettings() }),
-  head: () => ({ meta: [{ title: "Politicas, privacidad y terminos - Pulpiña RD" }] }),
+  head: () => createSeoHead({
+    pageName: "Políticas",
+    path: "/politicas",
+    description: "Políticas, privacidad y términos de Pulpiña RD.",
+  }),
   component: Policies,
 });
 

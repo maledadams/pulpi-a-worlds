@@ -9,7 +9,7 @@ const CONTENT_SECURITY_POLICY = [
   "font-src 'self' data: https://fonts.gstatic.com",
   "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
   "connect-src 'self' https://challenges.cloudflare.com https://*.cloudflareaccess.com",
-  "frame-src https://challenges.cloudflare.com",
+  "frame-src https://challenges.cloudflare.com https://www.google.com",
   "upgrade-insecure-requests",
 ].join("; ");
 

@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { ProductCard } from "@/components/product/ProductCard";
+import { useScrollFollow } from "@/hooks/use-scroll-follow";
 import { getCategoryLabel, type Product, type Vibe } from "@/data/products";
 import {
   CATALOG_SORTS,
@@ -88,10 +89,11 @@ function HorizontalFilter({
   open: boolean;
   onToggle: () => void;
   activeCount?: number;
-  theme?: "default" | "moon";
+  theme?: "default" | "moon" | "sunshine";
   children: ReactNode;
 }) {
   const isMoon = theme === "moon";
+  const isSunshine = theme === "sunshine";
 
   return (
     <div className="relative">
@@ -99,14 +101,16 @@ function HorizontalFilter({
       <button
         type="button"
         onClick={onToggle}
-        className={`flex h-9 items-center gap-1.5 rounded-full border px-4 text-xs font-bold uppercase tracking-wider transition-colors ${
+        className={`flex h-9 items-center gap-1.5 rounded-full border px-4 text-xs font-bold tracking-wide transition-colors ${
           open || activeCount > 0
             ? isMoon
               ? "border-[#8f2015] bg-[#8f2015] text-[#fff7f2]"
               : "border-foreground bg-foreground text-background"
             : isMoon
               ? "border-[#f2e9e1]/10 bg-[#111111] text-[#f2e9e1] hover:border-[#f2e9e1]/22"
-              : "border-foreground/25 bg-card text-foreground hover:border-foreground/60"
+              : isSunshine
+                ? "border-[#d2a0ca] bg-white text-[#3a0a14] hover:border-[#bb82b2]"
+                : "border-foreground/25 bg-card text-foreground hover:border-foreground/60"
         }`}
       >
         <span>{title}</span>
@@ -132,7 +136,9 @@ function HorizontalFilter({
           className={`absolute left-0 top-[calc(100%+6px)] z-30 min-w-[220px] rounded-xl border p-4 shadow-xl ${
             isMoon
               ? "border-[#f2e9e1]/10 bg-[#111111] text-[#f2e9e1] [&_input]:accent-[#8f2015] [&_input]:border-[#f2e9e1]/18"
-              : "border-foreground/20 bg-background"
+              : isSunshine
+                ? "border-[#d2a0ca] bg-white text-[#3a0a14] [&_input]:accent-[#d2a0ca]"
+                : "border-foreground/20 bg-background"
           }`}
         >
           {children}
@@ -184,9 +190,11 @@ export function CatalogBrowser({
   wideProductResultsOnly = false,
 }: CatalogBrowserProps) {
   const [drawer, setDrawer] = useState(false);
+  const filterFollower = useScrollFollow(768);
   const [openHorizontalFilter, setOpenHorizontalFilter] = useState<string | null>(null);
   const filters = useMemo(() => parseCatalogSearch(search), [search]);
   const isMoonVibe = (themeVibe ?? vibeScope) === "moon";
+  const isSunshineVibe = (themeVibe ?? vibeScope) === "sunshine";
   const scopedVibe = vibeScope ?? themeVibe;
   const emptyTitleFontFamily =
     scopedVibe === "moon"
@@ -282,7 +290,21 @@ export function CatalogBrowser({
   const moonActiveClass = "border-[#8f2015] bg-[#8f2015] text-[#fff7f2]";
   const searchControlFrameClass = isMoonVibe
     ? `${moonBorderClass} ${moonSurfaceClass} ${moonTextClass} focus:border-[#f2e9e1]/22`
-    : "border-foreground/20 bg-card focus:border-foreground";
+    : isSunshineVibe
+      ? "border-[#d2a0ca] bg-white text-[#3a0a14] focus:border-[#bb82b2]"
+      : "border-foreground/20 bg-card focus:border-foreground";
+  const sortControlFrameClass = searchControlFrameClass;
+  const horizontalFilterTheme: "default" | "moon" | "sunshine" = isMoonVibe
+    ? "moon"
+    : isSunshineVibe
+      ? "sunshine"
+      : "default";
+  const substoreLastRowCount = filtered.length > 6 ? filtered.length % 6 : 0;
+  const substoreLastRowClass =
+    substoreLastRowCount > 0 ? `substore-last-row-${substoreLastRowCount}` : "";
+  const storeLastRowCount = filtered.length > 5 ? filtered.length % 5 : 0;
+  const storeLastRowClass =
+    storeLastRowCount > 0 ? `store-last-row-${storeLastRowCount}` : "";
 
   /* ── Sidebar filter panel ── */
   const filtersPanel = (
@@ -477,7 +499,13 @@ export function CatalogBrowser({
 
   /* ── Search + sort bar ── */
   const searchBar = (
-    <div className="mb-5 flex flex-col gap-2 sm:flex-row">
+    <div
+      className={`mb-5 flex flex-col gap-2 sm:flex-row ${
+        wideProductResultsOnly
+          ? "md:w-[calc(100%+5rem)] md:max-w-[calc(100vw-2rem)]"
+          : ""
+      }`}
+    >
       <div className="relative flex-1">
         <Search
           className={`absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 ${
@@ -498,7 +526,7 @@ export function CatalogBrowser({
         onChange={(e) =>
           setFilters({ ...filters, sort: e.target.value as CatalogFilters["sort"] })
         }
-        className={`border px-4 py-2.5 text-sm font-semibold outline-none ${searchControlFrameClass}`}
+        className={`border px-4 py-2.5 text-sm font-semibold outline-none ${sortControlFrameClass}`}
       >
         {CATALOG_SORTS.map((s) => (
           <option key={s.id} value={s.id}>
@@ -529,14 +557,14 @@ export function CatalogBrowser({
   /* ── Horizontal filter pills ── */
   const horizontalFilters = (
     <div className="mb-5">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap justify-center gap-2">
         {showDepartmentFilter && departmentOptions.length > 0 && (
           <HorizontalFilter
             title={departmentTitle}
             open={openHorizontalFilter === "dept"}
             onToggle={() => toggle("dept")}
             activeCount={filters.departments.size}
-            theme={isMoonVibe ? "moon" : "default"}
+            theme={horizontalFilterTheme}
           >
             <div className="space-y-2">
               {departmentOptions.map((o) => (
@@ -559,7 +587,7 @@ export function CatalogBrowser({
             open={openHorizontalFilter === "nsfw"}
             onToggle={() => toggle("nsfw")}
             activeCount={Number(filters.nsfwEnabled)}
-            theme={isMoonVibe ? "moon" : "default"}
+            theme={horizontalFilterTheme}
           >
             <CheckboxRow
               checked={filters.nsfwEnabled}
@@ -581,7 +609,7 @@ export function CatalogBrowser({
           open={openHorizontalFilter === "cat"}
           onToggle={() => toggle("cat")}
           activeCount={filters.categories.size}
-          theme={isMoonVibe ? "moon" : "default"}
+          theme={horizontalFilterTheme}
         >
           <div className="max-h-56 overflow-y-auto space-y-2 pr-1">
             {categoryOptions.map((c) => (
@@ -602,7 +630,7 @@ export function CatalogBrowser({
           open={openHorizontalFilter === "size"}
           onToggle={() => toggle("size")}
           activeCount={filters.apparelSizes.size}
-          theme={isMoonVibe ? "moon" : "default"}
+          theme={horizontalFilterTheme}
         >
           <div className="grid grid-cols-4 gap-1.5">
             {sizeOptions.map((o) => {
@@ -617,7 +645,9 @@ export function CatalogBrowser({
                   className={`flex aspect-square min-h-9 items-center justify-center rounded-lg border text-xs font-bold transition-colors ${
                     filters.apparelSizes.has(o.value)
                       ? "border-foreground bg-foreground text-background"
-                      : "border-foreground/20 bg-background text-foreground hover:border-foreground/50"
+                      : isSunshineVibe
+                        ? "border-[#d2a0ca] bg-white text-[#3a0a14] hover:border-[#bb82b2]"
+                        : "border-foreground/20 bg-background text-foreground hover:border-foreground/50"
                   }`}
                 >
                   {short}
@@ -632,7 +662,7 @@ export function CatalogBrowser({
             open={openHorizontalFilter === "shoe"}
             onToggle={() => toggle("shoe")}
             activeCount={filters.shoeSizes.size}
-            theme={isMoonVibe ? "moon" : "default"}
+            theme={horizontalFilterTheme}
           >
             <div className="grid grid-cols-4 gap-1.5">
               {shoeSizeOptions.map((o) => (
@@ -644,7 +674,9 @@ export function CatalogBrowser({
                   className={`flex aspect-square min-h-9 items-center justify-center rounded-lg border text-xs font-bold transition-colors ${
                     filters.shoeSizes.has(o.value)
                       ? "border-foreground bg-foreground text-background"
-                      : "border-foreground/20 bg-background text-foreground hover:border-foreground/50"
+                      : isSunshineVibe
+                        ? "border-[#d2a0ca] bg-white text-[#3a0a14] hover:border-[#bb82b2]"
+                        : "border-foreground/20 bg-background text-foreground hover:border-foreground/50"
                   }`}
                 >
                   {o.value}
@@ -658,7 +690,7 @@ export function CatalogBrowser({
           open={openHorizontalFilter === "color"}
           onToggle={() => toggle("color")}
           activeCount={filters.colors.size}
-          theme={isMoonVibe ? "moon" : "default"}
+          theme={horizontalFilterTheme}
         >
           <div className="space-y-2">
             {colorOptions.map((o) => (
@@ -686,7 +718,7 @@ export function CatalogBrowser({
           open={openHorizontalFilter === "price"}
           onToggle={() => toggle("price")}
           activeCount={filters.priceBuckets.size}
-          theme={isMoonVibe ? "moon" : "default"}
+          theme={horizontalFilterTheme}
         >
           <div className="space-y-2">
             {PRICE_BUCKETS.map((b) => (
@@ -708,7 +740,7 @@ export function CatalogBrowser({
           activeCount={
             Number(filters.onlyAvail) + Number(filters.onlyNew) + Number(filters.onlySale)
           }
-          theme={isMoonVibe ? "moon" : "default"}
+          theme={horizontalFilterTheme}
         >
           <div className="space-y-2">
             <CheckboxRow
@@ -741,9 +773,13 @@ export function CatalogBrowser({
   );
 
   /* ── Product grid ── */
-  const productGrid = (cols: string) => (
+  const productGrid = (cols: string, lastRowClass = "") => (
     <>
-      <p className="mb-3 text-xs text-muted-foreground">{filtered.length} productos</p>
+      <p
+        className={`mb-3 text-xs text-muted-foreground ${wideProductResultsOnly ? "text-center" : ""}`}
+      >
+        {filtered.length} productos
+      </p>
       {filtered.length === 0 ? (
         <div className="flex min-h-64 w-full flex-col items-center justify-center text-center">
           <p className="text-3xl" style={{ fontFamily: emptyTitleFontFamily }}>{emptyTitle}</p>
@@ -755,7 +791,7 @@ export function CatalogBrowser({
           </button>
         </div>
       ) : (
-        <div className={`grid ${wideResults ? "gap-4" : "gap-3"} ${cols}`}>
+        <div className={`grid ${wideResults ? "gap-4" : "gap-3"} ${cols} ${lastRowClass}`}>
           {filtered.map((p) => (
             <ProductCard
               key={p.id}
@@ -774,16 +810,17 @@ export function CatalogBrowser({
   return (
     <div>
       {wideResults ? (
-        <div className="grid items-start gap-6 px-4 md:grid-cols-[240px_1fr] xl:px-[5cm]">
+        <div className="px-4 xl:px-[5cm]">
           {wideResultsTitle ? (
-            <div className="hidden h-[42px] items-center md:flex">
-              <h1 className="inline-block text-4xl md:text-6xl">{wideResultsTitle}</h1>
+            <div className="mb-8 hidden w-[240px] items-center justify-start md:flex">
+              <h1 className="inline-block text-left text-4xl md:text-6xl">
+                {wideResultsTitle}
+              </h1>
             </div>
           ) : null}
-          <div className="md:col-start-2">{searchBar}</div>
         </div>
       ) : wideProductResultsOnly ? (
-        <div className="mx-auto max-w-7xl px-4">{searchBar}</div>
+        <div className="mx-auto w-full max-w-4xl px-4">{searchBar}</div>
       ) : (
         searchBar
       )}
@@ -792,9 +829,12 @@ export function CatalogBrowser({
         <div>
           {wideProductResultsOnly ? (
             <>
-              <div className="mx-auto max-w-7xl px-4">{horizontalFilters}</div>
+              <div className="mx-auto w-full max-w-4xl px-4">{horizontalFilters}</div>
               <div className="px-4 xl:px-[5cm]">
-                {productGrid("substore-product-grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4")}
+                {productGrid(
+                  "substore-product-grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4",
+                  substoreLastRowClass,
+                )}
               </div>
             </>
           ) : (
@@ -805,20 +845,26 @@ export function CatalogBrowser({
           )}
         </div>
       ) : (
-        <div className={`grid gap-6 md:grid-cols-[240px_1fr] ${wideResults ? "px-4 xl:px-[5cm]" : ""}`}>
+        <div ref={filterFollower.containerRef} className={`grid gap-6 md:grid-cols-[240px_1fr] ${wideResults ? "px-4 xl:px-[5cm]" : ""}`}>
           {/* Sidebar — scrollbar contained inside box */}
-          <aside className="hidden md:block">
-            <div className="sticky top-[calc(3.5rem+1rem)] h-[calc(100vh-5rem)] overflow-hidden rounded-xl border border-foreground/15 bg-card">
+          <aside
+            ref={filterFollower.floatingRef}
+            className="hidden self-start will-change-transform transition-transform duration-500 ease-out md:block"
+            style={{ transform: `translate3d(0, ${filterFollower.offset}px, 0)` }}
+          >
+            <div className="h-[calc(100vh-5rem)] overflow-hidden rounded-xl border border-foreground/15 bg-card">
               <div className="h-full overflow-y-scroll overscroll-contain p-4 [scrollbar-gutter:stable]">
                 {filtersPanel}
               </div>
             </div>
           </aside>
           <div>
+            {wideResults ? searchBar : null}
             {productGrid(
               wideResults
-                ? "grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+                ? "store-product-grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
                 : "grid-cols-2 lg:grid-cols-3",
+              wideResults ? storeLastRowClass : "",
             )}
           </div>
         </div>

@@ -4,6 +4,7 @@ import { useCatalogProducts } from "@/context/catalog";
 import { useVibe } from "@/hooks/use-vibe";
 import { type CatalogSearch } from "@/lib/store-filters";
 import type { ReactNode } from "react";
+import { HeroWaveTransition } from "@/components/collections/HeroWaveTransition";
 
 type Cfg = {
   vibe: Vibe;
@@ -13,6 +14,7 @@ type Cfg = {
   catalogHeading: string;
   catalogThemeVibe?: Vibe;
   heroBorderClassName?: string;
+  heroWaveColor?: string;
   heroTextClassName?: string;
   searchPlaceholderClassName?: string;
   catalogSectionClassName?: string;
@@ -39,7 +41,7 @@ export function VibePage({
 
   return (
     <div>
-      <section className={`relative overflow-hidden border-b-2 ${cfg.heroBorderClassName ?? "border-foreground"}`}>
+      <section className="relative z-10">
         <div className="absolute inset-0" style={{ background: cfg.bg }} />
         {cfg.mood && (
           <img
@@ -48,12 +50,8 @@ export function VibePage({
             className="absolute inset-0 h-full w-full object-cover opacity-30 mix-blend-overlay"
           />
         )}
-        <div className="relative mx-auto grid max-w-7xl gap-8 px-4 py-20 md:grid-cols-2 md:items-center md:py-28">
-          <div className={cfg.heroTextClassName}>
-            <h1 className="text-6xl leading-[0.9] md:text-8xl">{cfg.title}</h1>
-            <p className="mt-5 max-w-md opacity-90">{cfg.intro}</p>
-          </div>
-          <div className="relative flex justify-center">
+        <div className="relative mx-auto flex max-w-7xl items-center justify-center px-4 py-20 md:py-28">
+          <div className="relative flex w-full justify-center">
             <img
               src={cfg.logo}
               alt={cfg.title}
@@ -61,31 +59,34 @@ export function VibePage({
             />
           </div>
         </div>
+        <HeroWaveTransition
+          lineColor={cfg.heroWaveColor ?? "currentColor"}
+        />
       </section>
 
       <section
         id="shop"
-        className={`${cfg.catalogSectionClassName ?? ""} ${
-          cfg.catalogThemeVibe ? "bg-background text-foreground" : ""
+        className={`relative z-0 ${cfg.catalogSectionClassName ?? ""} ${
+          cfg.catalogThemeVibe ? "text-foreground" : ""
         }`}
         data-vibe={cfg.catalogThemeVibe}
       >
-        <div className="py-12">
-          <div className="mx-auto max-w-7xl px-4">
-          <h2
-            className="mb-4 text-3xl md:text-4xl"
-            style={{
-              fontFamily:
-                cfg.vibe === "moon"
-                  ? "var(--font-gothic)"
-                  : cfg.vibe === "sunshine"
-                    ? "var(--font-sunshine)"
-                    : undefined,
-              fontWeight: cfg.vibe === "sunshine" ? 400 : undefined,
-            }}
-          >
-            {catalogHeading}
-          </h2>
+        <div className="relative z-30 py-12">
+          <div className="mx-auto w-full max-w-4xl px-4 text-center">
+            <h2
+              className="mb-4 text-3xl md:text-4xl"
+              style={{
+                fontFamily:
+                  cfg.vibe === "moon"
+                    ? "var(--font-gothic)"
+                    : cfg.vibe === "sunshine"
+                      ? "var(--font-sunshine)"
+                      : undefined,
+                fontWeight: cfg.vibe === "sunshine" ? 400 : undefined,
+              }}
+            >
+              {catalogHeading}
+            </h2>
           </div>
           <CatalogBrowser
             products={products}

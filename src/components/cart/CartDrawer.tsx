@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
+import { Minus, Plus, Trash2, X } from "lucide-react";
 import { useEffect } from "react";
 import { StorePineapple } from "@/components/branding/StorePineapple";
 import { useCart } from "@/context/cart";
@@ -16,6 +16,8 @@ const CART_DRAWER_THEME: Record<
     shellSoftText: string;
     surface: string;
     surfaceBorder: string;
+    imageBorder: string;
+    imageFallback: string;
     qty: string;
     primaryButton: string;
   }
@@ -27,6 +29,8 @@ const CART_DRAWER_THEME: Record<
     shellSoftText: "text-muted-foreground",
     surface: "bg-card",
     surfaceBorder: "border-foreground/8",
+    imageBorder: "border-foreground/20",
+    imageFallback: "bg-muted text-foreground/40",
     qty: "border-foreground/15 bg-background text-foreground",
     primaryButton: "bg-foreground text-background hover:opacity-90",
   },
@@ -37,6 +41,8 @@ const CART_DRAWER_THEME: Record<
     shellSoftText: "text-muted-foreground",
     surface: "bg-foreground",
     surfaceBorder: "border-foreground/8",
+    imageBorder: "border-foreground/20",
+    imageFallback: "bg-background text-foreground/40",
     qty: "border-foreground/15 bg-background text-foreground",
     primaryButton: "bg-foreground text-background hover:opacity-90",
   },
@@ -47,6 +53,8 @@ const CART_DRAWER_THEME: Record<
     shellSoftText: "text-muted-foreground",
     surface: "bg-card",
     surfaceBorder: "border-foreground/8",
+    imageBorder: "border-foreground/20",
+    imageFallback: "bg-muted text-foreground/40",
     qty: "border-foreground/15 bg-background text-foreground",
     primaryButton: "bg-foreground text-background hover:opacity-90",
   },
@@ -57,6 +65,8 @@ const CART_DRAWER_THEME: Record<
     shellSoftText: "text-[#f2e9e1]/66",
     surface: "bg-white",
     surfaceBorder: "border-[#231717]/10",
+    imageBorder: "border-[#231717]/10",
+    imageFallback: "bg-[#f3eee8] text-[#231717]/40",
     qty: "border-transparent bg-[#111111] text-[#f2e9e1]",
     primaryButton: "bg-[#8f2015] text-[#fff7f2] hover:opacity-90",
   },
@@ -90,13 +100,12 @@ export function CartDrawer({ theme = "store" }: { theme?: CartDrawerTheme }) {
         />
       )}
       <aside
-        className={`fixed right-0 top-0 z-50 flex h-full w-full flex-col border-l shadow-2xl transition-transform duration-300 sm:w-[400px] ${palette.shellBorder} ${palette.shell} ${palette.shellText} ${
+        className={`fixed right-0 top-0 z-50 flex h-full w-[calc(100%-1rem)] max-w-[400px] flex-col border-l shadow-2xl transition-transform duration-300 sm:w-[400px] ${palette.shellBorder} ${palette.shell} ${palette.shellText} ${
           cart.open ? "translate-x-0" : "translate-x-full"
         }`}
       >
         <div className={`flex items-center justify-between border-b px-4 py-3.5 ${palette.shellBorder}`}>
-          <div className="flex items-center gap-2">
-            <ShoppingBag className="h-[1.125rem] w-[1.125rem] -rotate-12" />
+          <div>
             <span className="brand-wordmark font-display text-lg uppercase">TU CARRITO</span>
           </div>
           <button
@@ -111,7 +120,12 @@ export function CartDrawer({ theme = "store" }: { theme?: CartDrawerTheme }) {
           {cart.lines.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 py-12 text-center">
               <StorePineapple theme={theme} className="h-16 w-auto object-contain" />
-              <p className="font-display text-lg uppercase">TU CARRITO ESTA VACIO</p>
+              <p
+                className="w-full text-center font-display text-lg uppercase"
+                style={{ transform: "none", transformOrigin: "center" }}
+              >
+                TU CARRITO ESTA VACIO
+              </p>
               <p className={`text-sm ${palette.shellSoftText}`}>Aun no has elegido tu vibra.</p>
               <Link
                 to="/tienda"
@@ -136,12 +150,12 @@ export function CartDrawer({ theme = "store" }: { theme?: CartDrawerTheme }) {
                     <img
                       src={line.image.url}
                       alt={line.image.altText ?? line.productTitle}
-                      className="h-18 w-18 shrink-0 self-start rounded-lg object-cover"
+                      className={`h-18 w-18 shrink-0 self-start border object-cover ${palette.imageBorder}`}
                       style={{ width: "4.5rem" }}
                     />
                   ) : (
                     <div
-                      className="flex h-18 w-18 shrink-0 self-start items-center justify-center rounded-lg bg-muted text-base text-foreground/40"
+                      className={`flex h-18 w-18 shrink-0 self-start items-center justify-center border text-base ${palette.imageBorder} ${palette.imageFallback}`}
                       style={{ width: "4.5rem" }}
                     >
                       <span className="font-display">
@@ -181,11 +195,11 @@ export function CartDrawer({ theme = "store" }: { theme?: CartDrawerTheme }) {
                           <Plus className="h-3 w-3" />
                         </button>
                       </div>
-                      <span className="text-sm font-bold">
-                        {availability.available
-                          ? formatPrice(availability.currentPrice * line.quantity, line.currencyCode)
-                          : "No se cobrara"}
-                      </span>
+                      {availability.available ? (
+                        <span className="text-sm font-bold">
+                          {formatPrice(availability.currentPrice * line.quantity, line.currencyCode)}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
 

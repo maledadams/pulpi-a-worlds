@@ -3,14 +3,23 @@ import { CatalogBrowser } from "@/components/catalog/CatalogBrowser";
 import { useCatalogProducts } from "@/context/catalog";
 import { getStorefrontCollectionBySlug } from "@/lib/admin-content";
 import { validateCatalogSearch } from "@/lib/store-filters";
+import { createSeoHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/coleccion/$slug")({
-  ssr: false,
   validateSearch: validateCatalogSearch,
   loader: async ({ params }) => {
     const collection = await getStorefrontCollectionBySlug({ data: { slug: params.slug } });
     if (!collection) throw notFound();
     return { collection };
+  },
+  head: ({ loaderData, params }) => {
+    const collection = loaderData?.collection;
+    if (!collection) return {};
+    return createSeoHead({
+      pageName: collection.name,
+      path: `/coleccion/${params.slug}`,
+      description: collection.description || `Colección ${collection.name} de Pulpiña RD.`,
+    });
   },
   component: CollectionPage,
 });

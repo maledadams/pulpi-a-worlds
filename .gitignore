@@ -15,6 +15,9 @@ dist-ssr
 .tanstack/**
 .nitro
 *.local
+output/
+docs/*
+!docs/d1-commerce-schema.sql
 
 # Wrangler / Cloudflare
 .wrangler/

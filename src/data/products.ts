@@ -1,6 +1,7 @@
 import { getProductColorHex } from "@/lib/product-colors";
 
 export type Vibe = "pulpina" | "men" | "moon" | "sunshine";
+export type SubstoreVibe = Exclude<Vibe, "pulpina">;
 
 export type ProductImage = {
   url: string;
@@ -54,11 +55,15 @@ export type Product = {
   salePrice?: number | null;
 };
 
+export type CategoryImages = Partial<Record<SubstoreVibe, ProductImage>>;
+
 export type StorefrontCategoryConfig = {
   id: string;
   isNsfw: boolean;
   label: string;
   sortOrder: number;
+  vibes: SubstoreVibe[];
+  images: CategoryImages;
 };
 
 export type CartLine = {
@@ -156,6 +161,8 @@ const DEFAULT_CATEGORY_CONFIG = Object.entries(CATEGORY_LABELS).map(
       isNsfw: DEFAULT_NSFW_CATEGORY_IDS.has(id),
       label,
       sortOrder: index,
+      vibes: ["moon", "sunshine", "men"],
+      images: {} as CategoryImages,
     }) satisfies StorefrontCategoryConfig,
 );
 
@@ -216,6 +223,10 @@ export function getCategoryConfig(category: string) {
   return runtimeCategoryConfig.get(normalized) ?? null;
 }
 
+export function getCategoryImage(category: string, vibe: SubstoreVibe) {
+  return getCategoryConfig(category)?.images[vibe] ?? null;
+}
+
 export function getCategorySortOrder(category: string) {
   return getCategoryConfig(category)?.sortOrder ?? DEFAULT_CATEGORY_CONFIG.length + 100;
 }
@@ -239,6 +250,14 @@ export function setRuntimeCategoryConfig(categories: StorefrontCategoryConfig[])
       isNsfw: category.isNsfw,
       label: category.label.trim() || humanizeCategoryId(normalizedId),
       sortOrder: Math.max(0, Number(category.sortOrder) || 0),
+      vibes: Array.from(new Set(category.vibes)),
+      images: Object.fromEntries(
+        Object.entries(category.images ?? {}).filter(
+          ([vibe, image]) =>
+            (vibe === "moon" || vibe === "sunshine" || vibe === "men") &&
+            Boolean(image?.url),
+        ),
+      ) as CategoryImages,
     });
   }
 }

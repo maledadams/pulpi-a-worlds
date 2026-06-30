@@ -8,14 +8,49 @@ import { formatPrice, type Product } from "@/data/products";
 import { useVibe } from "@/hooks/use-vibe";
 import { getStorefrontProductBySlug } from "@/lib/catalog";
 import { buildProductColorRecord, normalizeProductColorName } from "@/lib/product-colors";
+import { absoluteSiteUrl, createSeoHead, SITE_NAME } from "@/lib/seo";
 
 export const Route = createFileRoute("/producto/$slug")({
-  ssr: false,
   loader: async ({ params }) => {
     const product = await getStorefrontProductBySlug({ data: { slug: params.slug } });
     if (!product) throw notFound();
 
     return { product };
+  },
+  head: ({ loaderData, params }) => {
+    const product = loaderData?.product;
+    if (!product) return {};
+    const seo = createSeoHead({
+      pageName: product.name,
+      path: `/producto/${params.slug}`,
+      description: product.description,
+      type: "product",
+    });
+    return {
+      ...seo,
+      scripts: [
+        {
+          type: "application/ld+json",
+          children: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Product",
+            name: product.name,
+            description: product.description,
+            url: absoluteSiteUrl(`/producto/${params.slug}`),
+            brand: { "@type": "Brand", name: SITE_NAME },
+            offers: {
+              "@type": "Offer",
+              price: product.price,
+              priceCurrency: product.currencyCode,
+              availability: product.available
+                ? "https://schema.org/InStock"
+                : "https://schema.org/OutOfStock",
+              url: absoluteSiteUrl(`/producto/${params.slug}`),
+            },
+          }),
+        },
+      ],
+    };
   },
   notFoundComponent: () => (
     <div className="mx-auto max-w-3xl px-4 py-20 text-center">
@@ -95,7 +130,7 @@ function ProductPage() {
       }`}
     >
       <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-[minmax(0,32rem)_minmax(0,1fr)]">
-        <div>
+        <div className="xl:-translate-x-[2.5cm]">
           <div
             className="relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl border border-foreground/20 grain"
             style={{ background: `linear-gradient(135deg, ${product.swatch[0]}, ${product.swatch[1]})` }}
@@ -115,26 +150,30 @@ function ProductPage() {
                   .join("")}
               </span>
             )}
+            {galleryImages.length > 1 ? (
+              <>
+                <button
+                  onClick={() => setImageIndex((current) => (current === 0 ? galleryImages.length - 1 : current - 1))}
+                  className={`absolute left-3 top-1/2 z-10 -translate-y-1/2 bg-black/20 p-2 transition hover:bg-black/35 ${arrowToneClass}`}
+                  aria-label="Imagen anterior"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={() => setImageIndex((current) => (current === galleryImages.length - 1 ? 0 : current + 1))}
+                  className={`absolute right-3 top-1/2 z-10 -translate-y-1/2 bg-black/20 p-2 transition hover:bg-black/35 ${arrowToneClass}`}
+                  aria-label="Imagen siguiente"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </>
+            ) : null}
           </div>
           {galleryImages.length > 1 ? (
-            <div className={`mt-3 flex items-center justify-end gap-3 text-sm font-black uppercase ${arrowToneClass}`}>
-              <button
-                onClick={() => setImageIndex((current) => (current === 0 ? galleryImages.length - 1 : current - 1))}
-                className="transition hover:opacity-60"
-                aria-label="Imagen anterior"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
+            <div className={`mt-3 flex items-center justify-center text-sm font-black uppercase ${arrowToneClass}`}>
               <span className="text-[10px] tracking-[0.24em] opacity-80">
                 {imageIndex + 1} / {galleryImages.length}
               </span>
-              <button
-                onClick={() => setImageIndex((current) => (current === galleryImages.length - 1 ? 0 : current + 1))}
-                className="transition hover:opacity-60"
-                aria-label="Imagen siguiente"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
             </div>
           ) : null}
         </div>
@@ -231,7 +270,9 @@ function ProductPage() {
 
       {related.length > 0 ? (
         <section className="mt-16">
-          <h2 className="mb-4 text-3xl md:text-4xl">Mas De Esta Vibra</h2>
+          <div className="relative left-1/2 mb-4 w-screen -translate-x-1/2 px-4 xl:px-[5cm]">
+            <h2 className="text-3xl md:text-4xl">Mas De Esta Vibra</h2>
+          </div>
           <div className="related-product-grid substore-product-grid relative left-1/2 grid w-screen -translate-x-1/2 grid-cols-2 gap-4 px-4 sm:grid-cols-3 lg:grid-cols-4 xl:px-[5cm]">
             {related.map((entry) => (
               <ProductCard key={entry.id} product={entry} />

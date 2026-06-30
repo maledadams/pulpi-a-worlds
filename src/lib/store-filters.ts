@@ -1,4 +1,5 @@
 import {
+  getCategoryConfig,
   getCategoryLabel,
   getCategorySortOrder,
   isConfiguredNsfwCategory,
@@ -335,6 +336,14 @@ export function getCategoryOptions(products: Product[]) {
   const counts = new Map<string, number>();
   products.forEach((product) => {
     getProductCategories(product).forEach((category) => {
+      const config = getCategoryConfig(category);
+      if (
+        product.vibe !== "pulpina" &&
+        config &&
+        !config.vibes.includes(product.vibe)
+      ) {
+        return;
+      }
       counts.set(category, (counts.get(category) ?? 0) + 1);
     });
   });
@@ -432,6 +441,11 @@ export function getAvailableMenuCategories(
       id: category,
       label: getCategoryLabel(category),
     }))
+    .filter((category) => {
+      if (!vibe || vibe === "pulpina") return true;
+      const config = getCategoryConfig(category.id);
+      return !config || config.vibes.includes(vibe);
+    })
     .filter((category) => safeIncludeNsfw || !isNsfwCategory(category.id))
     .sort((a, b) => categorySortKey(a.id) - categorySortKey(b.id) || a.label.localeCompare(b.label));
 }

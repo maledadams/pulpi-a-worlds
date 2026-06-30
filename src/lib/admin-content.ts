@@ -43,6 +43,7 @@ type CategoryRow = {
   department_scope: string | null;
   size_format: string | null;
   sort_order: number | null;
+  images_json: string | null;
 };
 
 type CollectionRow = {
@@ -76,15 +77,25 @@ type SizeFormatRow = {
   sort_order: number | null;
 };
 
+const categoryImageSchema = z.object({
+  url: z.string().trim().url(),
+  altText: z.string().nullable(),
+});
+
 const categorySchema = z.object({
   id: z.string().trim().min(1),
   previousId: z.string().trim().min(1).optional(),
   label: z.string().trim().min(1),
   isNsfw: z.boolean(),
-  vibes: z.array(z.enum(["pulpina", "men", "moon", "sunshine"])).min(1),
+  vibes: z.array(z.enum(["men", "moon", "sunshine"])).min(1),
   sizeFormat: z.enum(["standard", "shoes", "onesize"]),
   productCount: z.number().int().nonnegative(),
   sortOrder: z.number().int().nonnegative(),
+  images: z.object({
+    moon: categoryImageSchema.optional(),
+    sunshine: categoryImageSchema.optional(),
+    men: categoryImageSchema.optional(),
+  }),
 });
 
 const sizeFormatSchema = z.object({
@@ -247,6 +258,9 @@ function cloneCategory(category: AdminCategoryRecord): AdminCategoryRecord {
   return {
     ...category,
     vibes: [...category.vibes],
+    images: Object.fromEntries(
+      Object.entries(category.images).map(([vibe, image]) => [vibe, image ? { ...image } : image]),
+    ),
   };
 }
 
@@ -378,6 +392,7 @@ async function ensureAdminContentReady(db: D1Database) {
           department_scope TEXT,
           size_format TEXT NOT NULL DEFAULT 'standard',
           sort_order INTEGER NOT NULL DEFAULT 0,
+          images_json TEXT NOT NULL DEFAULT '{}',
           created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
 
@@ -423,6 +438,7 @@ async function ensureAdminContentReady(db: D1Database) {
 
       const migrations = [
         "ALTER TABLE categories ADD COLUMN size_format TEXT NOT NULL DEFAULT 'standard';",
+        "ALTER TABLE categories ADD COLUMN images_json TEXT NOT NULL DEFAULT '{}';",
         "ALTER TABLE collections ADD COLUMN category_ids_json TEXT NOT NULL DEFAULT '[]';",
         "ALTER TABLE collections ADD COLUMN product_ids_json TEXT NOT NULL DEFAULT '[]';",
         "ALTER TABLE collections ADD COLUMN is_published INTEGER NOT NULL DEFAULT 1;",
@@ -442,8 +458,8 @@ async function ensureAdminContentReady(db: D1Database) {
       const categoryCount = await db.prepare("SELECT COUNT(*) AS count FROM categories").first<{ count: number }>();
       if ((categoryCount?.count ?? 0) === 0) {
         const insertCategory = db.prepare(`
-          INSERT INTO categories (id, slug, name_es, is_nsfw, department_scope, size_format, sort_order)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO categories (id, slug, name_es, is_nsfw, department_scope, size_format, sort_order, images_json)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `);
         await db.batch(
           ADMIN_CATEGORIES.map((category, index) =>
@@ -455,6 +471,7 @@ async function ensureAdminContentReady(db: D1Database) {
               category.vibes.join(","),
               category.sizeFormat,
               index,
+              JSON.stringify(category.images),
             ),
           ),
         );
@@ -580,6 +597,7 @@ function parseCategoryRow(row: CategoryRow): AdminCategoryRecord {
     ),
   );
   const sizeFormat = (row.size_format?.trim() || getCategorySizeFormat(row.id)) as AdminSizeFormat;
+  const images = parseCategoryImages(row.images_json);
 
   return {
     id: row.id,
@@ -589,7 +607,24 @@ function parseCategoryRow(row: CategoryRow): AdminCategoryRecord {
     sizeFormat: sizeFormat === "shoes" || sizeFormat === "onesize" ? sizeFormat : "standard",
     productCount: 0,
     sortOrder: row.sort_order ?? 0,
+    images,
   };
+}
+
+function parseCategoryImages(raw: string | null | undefined): AdminCategoryRecord["images"] {
+  try {
+    const parsed = JSON.parse(raw || "{}");
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        ([vibe, image]) =>
+          LOCAL_VIBES.has(vibe) &&
+          Boolean(image && typeof image === "object" && "url" in image && typeof image.url === "string"),
+      ),
+    ) as AdminCategoryRecord["images"];
+  } catch {
+    return {};
+  }
 }
 
 function parseCollectionRow(row: CollectionRow): AdminCollectionRecord {
@@ -706,8 +741,8 @@ async function listCategoriesInternal() {
   await ensureAdminContentReady(db);
   const rows = await db
     .prepare(`
-      SELECT id, slug, name_es, is_nsfw, department_scope, sort_order
-      , size_format
+      SELECT id, slug, name_es, is_nsfw, department_scope, sort_order,
+        size_format, images_json
       FROM categories
       ORDER BY sort_order ASC, name_es ASC
     `)
@@ -768,7 +803,12 @@ async function reassignCategoryReferences(previousId: string, nextId: string) {
 }
 
 async function saveCategoryInternal(input: AdminCategoryRecord) {
-  const normalizedVibes = Array.from(new Set(input.vibes.filter((vibe) => vibe !== "pulpina")));
+  const normalizedVibes = Array.from(new Set(input.vibes));
+  const normalizedImages = Object.fromEntries(
+    Object.entries(input.images ?? {}).filter(
+      ([vibe, image]) => normalizedVibes.includes(vibe as AdminCategoryRecord["vibes"][number]) && Boolean(image?.url),
+    ),
+  ) as AdminCategoryRecord["images"];
   const normalized = {
     ...input,
     id: normalizeCategoryId(input.id),
@@ -777,11 +817,13 @@ async function saveCategoryInternal(input: AdminCategoryRecord) {
     vibes: normalizedVibes.length > 0 ? normalizedVibes : ["moon"],
     sizeFormat: input.sizeFormat,
     sortOrder: Math.max(0, input.sortOrder),
+    images: normalizedImages,
   } satisfies AdminCategoryRecord;
 
   const db = await getDatabase();
   if (!db) {
     seedMemoryContent();
+    const previousImages = memoryCategories.get(normalized.previousId ?? normalized.id)?.images ?? {};
     if (normalized.previousId && normalized.previousId !== normalized.id) {
       const existing = memoryCategories.get(normalized.previousId);
       if (existing) {
@@ -790,13 +832,17 @@ async function saveCategoryInternal(input: AdminCategoryRecord) {
       }
     }
     memoryCategories.set(normalized.id, cloneCategory(normalized));
+    await cleanupCategoryImages(previousImages, normalized.images);
     const products = await listCatalogProductsInternal();
     return withCategoryStats([cloneCategory(normalized)], products)[0]!;
   }
 
   await ensureAdminContentReady(db);
   const currentId = normalized.previousId ?? normalized.id;
-  const existing = await db.prepare("SELECT id FROM categories WHERE id = ? LIMIT 1").bind(currentId).first();
+  const existing = await db
+    .prepare("SELECT id, images_json FROM categories WHERE id = ? LIMIT 1")
+    .bind(currentId)
+    .first<{ id: string; images_json: string | null }>();
   const conflicting = normalized.previousId && normalized.previousId !== normalized.id
     ? await db.prepare("SELECT id FROM categories WHERE id = ? LIMIT 1").bind(normalized.id).first()
     : null;
@@ -813,15 +859,16 @@ async function saveCategoryInternal(input: AdminCategoryRecord) {
 
   await db
     .prepare(`
-      INSERT INTO categories (id, slug, name_es, is_nsfw, department_scope, size_format, sort_order)
-      VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, 0))
+      INSERT INTO categories (id, slug, name_es, is_nsfw, department_scope, size_format, sort_order, images_json)
+      VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, 0), ?)
       ON CONFLICT(id) DO UPDATE SET
         slug = excluded.slug,
         name_es = excluded.name_es,
         is_nsfw = excluded.is_nsfw,
         department_scope = excluded.department_scope,
         size_format = excluded.size_format,
-        sort_order = excluded.sort_order
+        sort_order = excluded.sort_order,
+        images_json = excluded.images_json
     `)
     .bind(
       normalized.id,
@@ -831,8 +878,11 @@ async function saveCategoryInternal(input: AdminCategoryRecord) {
       normalized.vibes.join(","),
       normalized.sizeFormat,
       normalized.sortOrder ?? sortOrder ?? null,
+      JSON.stringify(normalized.images),
     )
     .run();
+
+  await cleanupCategoryImages(parseCategoryImages(existing?.images_json), normalized.images);
 
   const products = await listCatalogProductsInternal();
   return withCategoryStats([cloneCategory(normalized)], products)[0]!;
@@ -843,6 +893,8 @@ async function deleteCategoryInternal(id: string, replacementCategoryId?: string
   const normalizedReplacementId = replacementCategoryId ? normalizeCategoryId(replacementCategoryId) : null;
   const products = await listCatalogProductsInternal();
   const collections = await listCollectionsInternal();
+  const categories = await listCategoriesInternal();
+  const categoryImages = categories.find((category) => category.id === normalizedId)?.images ?? {};
   const linkedProduct = products.find((product) =>
     (product.categories?.length ? product.categories : [product.category]).includes(normalizedId),
   );
@@ -856,7 +908,6 @@ async function deleteCategoryInternal(id: string, replacementCategoryId?: string
   }
 
   if (normalizedReplacementId) {
-    const categories = await listCategoriesInternal();
     if (!categories.some((category) => category.id === normalizedReplacementId)) {
       throw new Error("La categoria de reemplazo no existe.");
     }
@@ -867,11 +918,13 @@ async function deleteCategoryInternal(id: string, replacementCategoryId?: string
   if (!db) {
     seedMemoryContent();
     memoryCategories.delete(normalizedId);
+    await cleanupCategoryImages(categoryImages, {});
     return { success: true };
   }
 
   await ensureAdminContentReady(db);
   await db.prepare("DELETE FROM categories WHERE id = ?").bind(normalizedId).run();
+  await cleanupCategoryImages(categoryImages, {});
   return { success: true };
 }
 
@@ -991,7 +1044,7 @@ async function listHomeCollectionsInternal() {
     .sort((a, b) => a.homeOrder - b.homeOrder || a.name.localeCompare(b.name));
 }
 
-async function listPublicCollectionsInternal() {
+export async function listPublicCollectionsInternal() {
   const [collections, products] = await Promise.all([
     listCollectionsInternal(),
     listStorefrontCatalogProductsInternal(),
@@ -1188,6 +1241,9 @@ async function listStorefrontCategoriesInternal() {
       label: category.label,
       sortOrder: category.sortOrder,
       vibes: [...category.vibes],
+      images: Object.fromEntries(
+        Object.entries(category.images).map(([vibe, image]) => [vibe, image ? { ...image } : image]),
+      ),
     }))
     .sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label));
 }
@@ -1299,6 +1355,100 @@ function getExistingR2Key(url: string | null | undefined, baseUrl: string) {
       }
     })
     .join("/");
+}
+
+async function cleanupCategoryImages(
+  previous: AdminCategoryRecord["images"],
+  next: AdminCategoryRecord["images"],
+) {
+  const workerEnv = await getWorkerEnv();
+  const bucket = workerEnv.PUBLIC_MEDIA;
+  const baseUrl = workerEnv.R2_PUBLIC_BASE_URL?.trim() || "";
+  if (!bucket || !baseUrl) return;
+
+  const nextUrls = new Set(Object.values(next).map((image) => image?.url).filter(Boolean));
+  const staleKeys = Object.values(previous)
+    .map((image) => image?.url)
+    .filter((url): url is string => Boolean(url) && !nextUrls.has(url))
+    .map((url) => getExistingR2Key(url, baseUrl))
+    .filter((key): key is string => Boolean(key));
+
+  await Promise.all(
+    staleKeys.map(async (key) => {
+      try {
+        await bucket.delete(key);
+      } catch {
+        // The category record is authoritative; stale media cleanup is best effort.
+      }
+    }),
+  );
+}
+
+async function uploadCategoryImageInternal(formData: FormData) {
+  const workerEnv = await getWorkerEnv();
+  const bucket = workerEnv.PUBLIC_MEDIA;
+  const baseUrl = workerEnv.R2_PUBLIC_BASE_URL?.trim();
+  if (!bucket) throw new Error("PUBLIC_MEDIA no esta configurado todavia.");
+  if (!baseUrl) throw new Error("R2_PUBLIC_BASE_URL no esta configurado todavia.");
+
+  const categoryId = normalizeCategoryId(String(formData.get("categoryId") ?? ""));
+  const vibe = String(formData.get("vibe") ?? "").trim();
+  const file = formData.get("file");
+  if (!categoryId) throw new Error("Falta la categoria del asset.");
+  if (vibe !== "moon" && vibe !== "sunshine" && vibe !== "men") {
+    throw new Error("Selecciona una subtienda valida.");
+  }
+  if (!(file instanceof File) || !file.type.startsWith("image/") || file.size <= 0) {
+    throw new Error("Selecciona una imagen valida antes de subir.");
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    throw new Error("La imagen supera el limite de 10 MB.");
+  }
+
+  const category = (await listCategoriesInternal()).find((entry) => entry.id === categoryId);
+  if (!category) throw new Error("La categoria ya no existe.");
+  if (!category.vibes.includes(vibe)) {
+    throw new Error("Esta categoria no esta activa en esa subtienda.");
+  }
+
+  const extension = extensionFromFile(file);
+  const safeBaseName = sanitizeFileName(file.name.replace(/\.[^.]+$/, ""));
+  const objectKey = `categories/${categoryId}/${vibe}-${Date.now()}-${safeBaseName}${extension}`;
+  await bucket.put(objectKey, await file.arrayBuffer(), {
+    httpMetadata: { contentType: file.type || undefined },
+    customMetadata: { categoryId, vibe },
+  });
+
+  const image = {
+    url: buildPublicMediaUrl(baseUrl, objectKey),
+    altText: `${category.label} · ${vibe === "moon" ? "Moon" : vibe === "sunshine" ? "Sunshine" : "Men"}`,
+  };
+
+  try {
+    return await saveCategoryInternal({
+      ...category,
+      images: { ...category.images, [vibe]: image },
+    });
+  } catch (error) {
+    try {
+      await bucket.delete(objectKey);
+    } catch {
+      // Preserve the original upload error.
+    }
+    throw error;
+  }
+}
+
+async function deleteCategoryImageInternal(input: {
+  categoryId: string;
+  vibe: "moon" | "sunshine" | "men";
+}) {
+  const categoryId = normalizeCategoryId(input.categoryId);
+  const category = (await listCategoriesInternal()).find((entry) => entry.id === categoryId);
+  if (!category) throw new Error("La categoria ya no existe.");
+  const images = { ...category.images };
+  delete images[input.vibe];
+  return saveCategoryInternal({ ...category, images });
 }
 
 async function uploadProductImageInternal(formData: FormData) {
@@ -1579,6 +1729,33 @@ export const uploadAdminProductImage = createServerFn({ method: "POST" })
     await enforceAdminAccess();
     setResponseHeader("Cache-Control", "private, no-store");
     return uploadProductImageInternal(data);
+  });
+
+export const uploadAdminCategoryImage = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => {
+    if (!(data instanceof FormData)) {
+      throw new Error("Invalid category image upload form data.");
+    }
+    return data;
+  })
+  .handler(async ({ data }) => {
+    const { setResponseHeader } = await import("@tanstack/react-start/server");
+    await enforceAdminAccess();
+    setResponseHeader("Cache-Control", "private, no-store");
+    return uploadCategoryImageInternal(data);
+  });
+
+export const deleteAdminCategoryImage = createServerFn({ method: "POST" })
+  .inputValidator((data: { categoryId: string; vibe: "moon" | "sunshine" | "men" }) =>
+    z.object({
+      categoryId: z.string().trim().min(1),
+      vibe: z.enum(["moon", "sunshine", "men"]),
+    }).parse(data))
+  .handler(async ({ data }) => {
+    const { setResponseHeader } = await import("@tanstack/react-start/server");
+    await enforceAdminAccess();
+    setResponseHeader("Cache-Control", "private, no-store");
+    return deleteCategoryImageInternal(data);
   });
 
 export const deleteAdminProductImage = createServerFn({ method: "POST" })

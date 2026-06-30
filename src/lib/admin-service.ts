@@ -77,6 +77,7 @@ export function buildAdminCategories(products: AdminProductRecord[]) {
       sizeFormat: getCategorySizeFormat(category.id),
       productCount: matching.length,
       sortOrder: CATEGORIES.findIndex((entry) => entry.id === category.id),
+      images: {},
     } satisfies AdminCategoryRecord;
   });
 }
@@ -436,7 +437,7 @@ const DEFAULT_LEGAL_SECTIONS: AdminLegalSectionRecord[] = [
     id: "identidad",
     title: "1. Identidad del responsable",
     body:
-      "Marca comercial: Pulpiña RD.\nCanales publicados: hola@pulpina.do, Instagram @pulpina.rd y atencion desde Santo Domingo, Republica Dominicana.\nAntes del lanzamiento comercial debes completar razon social, RNC, domicilio legal y telefono empresarial oficial.",
+      "Marca comercial: Pulpiña RD.\nCanales publicados: hola@pulpinastore.com, Instagram @pulpinard y atencion desde Santo Domingo, Republica Dominicana.\nAntes del lanzamiento comercial debes completar razon social, RNC, domicilio legal y telefono empresarial oficial.",
   },
   {
     id: "alcance",
@@ -466,7 +467,7 @@ const DEFAULT_LEGAL_SECTIONS: AdminLegalSectionRecord[] = [
     id: "marketing",
     title: "6. Marketing y newsletter",
     body:
-      "Solo debes suscribirte con un correo propio y valido.\nPuedes pedir la baja escribiendo a hola@pulpina.do o usando el mecanismo disponible en el mensaje recibido.\nNo venderemos tu lista de contactos como base de datos independiente.",
+      "Solo debes suscribirte con un correo propio y valido.\nPuedes pedir la baja escribiendo a hola@pulpinastore.com o usando el mecanismo disponible en el mensaje recibido.\nNo venderemos tu lista de contactos como base de datos independiente.",
   },
   {
     id: "transparencia",
@@ -496,11 +497,11 @@ const DEFAULT_LEGAL_SECTIONS: AdminLegalSectionRecord[] = [
 
 export const ADMIN_SETTINGS: AdminSettingsRecord = {
   businessName: "Pulpiña RD",
-  supportEmail: "hola@pulpina.do",
-  whatsappNumber: "18095550199",
-  whatsappLabel: "+1 (809) 555-0199",
-  instagramHandle: "@pulpina.rd",
-  instagramUrl: "https://instagram.com/pulpina.rd",
+  supportEmail: "hola@pulpinastore.com",
+  whatsappNumber: "18299643104",
+  whatsappLabel: "+1 (829) 964-3104",
+  instagramHandle: "@pulpinard",
+  instagramUrl: "https://www.instagram.com/pulpinard/",
   contactResponseNote:
     "Respondemos solicitudes de producto y disponibilidad por formulario, correo o WhatsApp dentro de 1 a 2 dias habiles.",
   adultAudienceNotice:
@@ -551,8 +552,8 @@ export const ADMIN_SETTINGS: AdminSettingsRecord = {
   legalPageTitle: "Politicas, privacidad y terminos",
   legalLastUpdated: "18 de junio de 2026",
   legalOperatorName: "Pulpiña RD",
-  legalOperatorEmail: "hola@pulpina.do",
-  legalOperatorPhone: "+1 (809) 555-0199",
+  legalOperatorEmail: "hola@pulpinastore.com",
+  legalOperatorPhone: "+1 (829) 964-3104 / +1 (829) 549-0112",
   legalOperatorAddress: "Santo Domingo, Republica Dominicana",
   legalTaxId: "Completar antes del lanzamiento comercial",
   legalIntro:

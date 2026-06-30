@@ -14,11 +14,13 @@ import {
 } from "@/components/admin/AdminControls";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import {
+  deleteAdminCategoryImage,
   deleteAdminCategory,
   getAdminCategories,
   getAdminSizeFormats,
   saveAdminCategory,
   saveAdminSizeFormat,
+  uploadAdminCategoryImage,
 } from "@/lib/admin-content";
 import { getAdminCatalogProducts } from "@/lib/catalog";
 import {
@@ -28,7 +30,7 @@ import {
 } from "@/lib/product-sizing";
 import { getVibeLabel } from "@/lib/admin-service";
 import type { AdminCategoryRecord, AdminSizeFormatRecord } from "@/lib/admin-types";
-import type { Vibe } from "@/data/products";
+import type { SubstoreVibe } from "@/data/products";
 
 const PAGE_SIZE = 9;
 
@@ -36,6 +38,9 @@ function cloneCategory(category: AdminCategoryRecord): AdminCategoryRecord {
   return {
     ...category,
     vibes: [...category.vibes],
+    images: Object.fromEntries(
+      Object.entries(category.images).map(([vibe, image]) => [vibe, image ? { ...image } : image]),
+    ),
   };
 }
 
@@ -49,6 +54,7 @@ function createBlankCategory(): AdminCategoryRecord {
     sizeFormat: "standard",
     productCount: 0,
     sortOrder: 0,
+    images: {},
   };
 }
 
@@ -77,6 +83,10 @@ function AdminCategoriesPage() {
   const [selectedFormatId, setSelectedFormatId] = useState<AdminSizeFormatRecord["id"]>(initialSizeFormats[0]?.id ?? "standard");
   const [formatMessage, setFormatMessage] = useState("");
   const [newSize, setNewSize] = useState("");
+  const [selectedCategoryFiles, setSelectedCategoryFiles] = useState<
+    Partial<Record<SubstoreVibe, File | null>>
+  >({});
+  const [uploadingVibe, setUploadingVibe] = useState<SubstoreVibe | null>(null);
 
   const filtered = useMemo(() => {
     const lowered = query.trim().toLowerCase();
@@ -127,19 +137,69 @@ function AdminCategoriesPage() {
 
     setDraft(cloneCategory(selected));
     setDeleteReplacementId("");
+    setSelectedCategoryFiles({});
   }, [selected]);
 
-  const toggleVibe = (vibe: Vibe) => {
+  const toggleVibe = (vibe: SubstoreVibe) => {
     setDraft((current) => {
       if (!current) return current;
 
       const exists = current.vibes.includes(vibe);
       const nextVibes = exists ? current.vibes.filter((entry) => entry !== vibe) : [...current.vibes, vibe];
+      const nextImages = { ...current.images };
+      if (exists) delete nextImages[vibe as SubstoreVibe];
       return {
         ...current,
         vibes: nextVibes.length > 0 ? nextVibes : [vibe],
+        images: nextImages,
       };
     });
+  };
+
+  const updateSavedCategory = (saved: AdminCategoryRecord) => {
+    setRows((current) =>
+      current.map((category) => (category.id === saved.id ? cloneCategory(saved) : category)),
+    );
+    setDraft(cloneCategory(saved));
+  };
+
+  const handleUploadCategoryImage = (vibe: SubstoreVibe) => {
+    if (!draft || draft.id.startsWith("draft-category-") || !selectedCategoryFiles[vibe]) return;
+    setUploadingVibe(vibe);
+    setSaveMessage("");
+    const formData = new FormData();
+    formData.set("categoryId", draft.id);
+    formData.set("vibe", vibe);
+    formData.set("file", selectedCategoryFiles[vibe]!);
+
+    void uploadAdminCategoryImage({ data: formData })
+      .then((saved) => {
+        updateSavedCategory(saved);
+        setSelectedCategoryFiles((current) => ({ ...current, [vibe]: null }));
+        setSaveMessage(`Imagen de ${getVibeLabel(vibe)} guardada.`);
+      })
+      .catch((error) => {
+        setSaveMessage(error instanceof Error ? error.message : "No se pudo subir la imagen.");
+      })
+      .finally(() => setUploadingVibe(null));
+  };
+
+  const handleDeleteCategoryImage = (vibe: SubstoreVibe) => {
+    if (!draft?.images[vibe]) return;
+    if (!confirmAdminDestructiveAction(`Vas a quitar la imagen de ${getVibeLabel(vibe)}. ¿Quieres continuar?`)) {
+      return;
+    }
+    setUploadingVibe(vibe);
+    setSaveMessage("");
+    void deleteAdminCategoryImage({ data: { categoryId: draft.id, vibe } })
+      .then((saved) => {
+        updateSavedCategory(saved);
+        setSaveMessage(`Imagen de ${getVibeLabel(vibe)} eliminada.`);
+      })
+      .catch((error) => {
+        setSaveMessage(error instanceof Error ? error.message : "No se pudo quitar la imagen.");
+      })
+      .finally(() => setUploadingVibe(null));
   };
 
   const handleCreate = () => {
@@ -319,9 +379,7 @@ function AdminCategoriesPage() {
                           </td>
                           <td className="py-3 pr-3">
                             <div className="flex flex-wrap gap-1">
-                              {category.vibes
-                                .filter((vibe): vibe is "moon" | "sunshine" | "men" => vibe !== "pulpina")
-                                .map((vibe) => (
+                              {category.vibes.map((vibe) => (
                                 <span
                                   key={vibe}
                                   className={getAdminVibeButtonClassName(vibe, true, "pointer-events-none px-2.5 py-1 text-[11px] shadow-none")}
@@ -402,6 +460,89 @@ function AdminCategoriesPage() {
                         </button>
                       );
                     })}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">
+                    Imagen por subtienda
+                  </div>
+                  <p className="mt-1 text-xs leading-5 text-[#6b5a55]">
+                    Cada imagen se usa sobre el nombre de esta categoria en el subnav de su subtienda.
+                  </p>
+                  <div className="mt-3 grid gap-3">
+                    {(["moon", "sunshine", "men"] as const)
+                      .filter((vibe) => draft.vibes.includes(vibe))
+                      .map((vibe) => {
+                        const image = draft.images[vibe];
+                        const isUploading = uploadingVibe === vibe;
+                        const canUpload = !draft.id.startsWith("draft-category-");
+                        return (
+                          <div key={vibe} className="border border-[#231717]/12 bg-[#faf6f0] p-3">
+                          <div className="grid gap-3 sm:grid-cols-[88px_minmax(0,1fr)]">
+                            <div className="flex h-[88px] w-[88px] items-center justify-center overflow-hidden bg-[#f1e7dc]">
+                              {image ? (
+                                <img
+                                  src={image.url}
+                                  alt={image.altText ?? `${draft.label} ${getVibeLabel(vibe)}`}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <span className="px-2 text-center text-[11px] font-bold text-[#8b756d]">
+                                  Sin imagen
+                                </span>
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-bold">{getVibeLabel(vibe)}</div>
+                              {image ? (
+                                <div className="mt-1 truncate text-[11px] text-[#8b756d]">{image.url}</div>
+                              ) : (
+                                <div className="mt-1 text-xs text-[#8b756d]">
+                                  Sube una imagen especifica para {getVibeLabel(vibe)}.
+                                </div>
+                              )}
+                              <input
+                                key={`${draft.id}-${vibe}-${image?.url ?? "empty"}`}
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
+                                disabled={!canUpload || isUploading}
+                                onChange={(event) =>
+                                  setSelectedCategoryFiles((current) => ({
+                                    ...current,
+                                    [vibe]: event.target.files?.[0] ?? null,
+                                  }))
+                                }
+                                className="mt-3 block w-full border border-dashed border-[#231717]/20 bg-white px-3 py-2 text-xs file:mr-3 file:border-0 file:bg-[#231717] file:px-3 file:py-2 file:text-[10px] file:font-black file:uppercase file:tracking-[0.12em] file:text-white"
+                              />
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                <AdminButton
+                                  tone="primary"
+                                  disabled={!canUpload || !selectedCategoryFiles[vibe] || isUploading}
+                                  onClick={() => handleUploadCategoryImage(vibe)}
+                                >
+                                  {isUploading ? "Procesando..." : image ? "Reemplazar imagen" : "Subir imagen"}
+                                </AdminButton>
+                                {image ? (
+                                  <AdminButton
+                                    tone="danger"
+                                    disabled={isUploading}
+                                    onClick={() => handleDeleteCategoryImage(vibe)}
+                                  >
+                                    Quitar
+                                  </AdminButton>
+                                ) : null}
+                              </div>
+                              {!canUpload ? (
+                                <p className="mt-2 text-[11px] text-[#8b756d]">
+                                  Guarda la categoria primero para habilitar la subida.
+                                </p>
+                              ) : null}
+                            </div>
+                          </div>
+                          </div>
+                        );
+                      })}
                   </div>
                 </div>
 

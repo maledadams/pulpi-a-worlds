@@ -2,16 +2,19 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { StorePineapple } from "@/components/branding/StorePineapple";
 import { useCart } from "@/context/cart";
 import { formatPrice } from "@/data/products";
+import { createSeoHead } from "@/lib/seo";
+import { useScrollFollow } from "@/hooks/use-scroll-follow";
 
 export const Route = createFileRoute("/carrito")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Carrito - Pulpiña RD" }] }),
+  head: () => createSeoHead({ pageName: "Carrito", path: "/carrito", noIndex: true }),
   component: CartPage,
 });
 
 function CartPage() {
   const cart = useCart();
   const navigate = useNavigate();
+  const summaryFollower = useScrollFollow(768);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
@@ -20,10 +23,15 @@ function CartPage() {
       {cart.lines.length === 0 ? (
         <div className="mt-8 rounded-xl border border-dashed border-foreground/25 py-12 text-center sm:mt-10 sm:py-16">
           <StorePineapple theme="store" className="mx-auto h-20 w-auto object-contain sm:h-24" />
-          <p className="mt-3 font-display text-xl sm:text-2xl">Aun no hay nada por aqui</p>
+          <p
+            className="mt-3 text-center font-display text-xl sm:text-2xl"
+            style={{ transform: "none", transformOrigin: "center" }}
+          >
+            Aun no hay nada por aqui
+          </p>
           <Link
             to="/tienda"
-            className="sticker mt-5 inline-block rounded-full border border-foreground/20 bg-accent px-6 py-3 font-bold uppercase text-accent-foreground"
+            className="mt-5 inline-block rounded-full bg-[#c5475f] px-6 py-3 font-bold uppercase text-white shadow-none transition-colors hover:bg-[#b53f55]"
           >
             Ir a la tienda
           </Link>
@@ -39,7 +47,7 @@ function CartPage() {
             </div>
           ) : null}
 
-          <div className="grid gap-6 md:grid-cols-[1fr_320px] lg:grid-cols-[1fr_340px] lg:gap-8">
+          <div ref={summaryFollower.containerRef} className="grid gap-6 md:grid-cols-[1fr_320px] lg:grid-cols-[1fr_340px] lg:gap-8">
           <div className="space-y-3">
             {cart.lines.map((line) => {
               const availability = cart.getLineAvailability(line);
@@ -92,17 +100,17 @@ function CartPage() {
                         </div>
                       ) : null}
                     </div>
-                    <div className="text-left font-bold sm:text-right">
-                      {availability.available
-                        ? formatPrice(availability.currentPrice * line.quantity, line.currencyCode)
-                        : "No se cobrara"}
-                    </div>
+                    {availability.available ? (
+                      <div className="text-left font-bold sm:text-right">
+                        {formatPrice(availability.currentPrice * line.quantity, line.currencyCode)}
+                      </div>
+                    ) : null}
                   </div>
                   {!availability.available ? (
                     <div className="mt-2 text-sm font-bold text-[#9a233d]">Fuera de stock · {availabilityMessage}</div>
                   ) : null}
                   <div className="mt-3 flex flex-wrap items-center gap-3">
-                    <div className="ui-quantity-pill flex items-center overflow-hidden border border-foreground/20">
+                    <div className="ui-quantity-pill flex items-center overflow-hidden border border-foreground/20 bg-background">
                       <button
                         onClick={() => void cart.update(line.id, line.quantity - 1)}
                         className="px-3 py-1"
@@ -131,7 +139,11 @@ function CartPage() {
             })}
           </div>
 
-          <aside className="sticky top-24 self-start rounded-xl border border-foreground/20 bg-card p-5">
+          <aside
+            ref={summaryFollower.floatingRef}
+            className="self-start rounded-xl border border-foreground/20 bg-card p-5 will-change-transform transition-transform duration-500 ease-out"
+            style={{ transform: `translate3d(0, ${summaryFollower.offset}px, 0)` }}
+          >
             <div className="font-display text-2xl">Resumen</div>
             <div className="mt-4 space-y-2 text-sm">
               <div className="flex justify-between">
@@ -160,7 +172,7 @@ function CartPage() {
               }}
               disabled={cart.loading}
               aria-disabled={cart.hasUnavailableLines}
-              className={`sticker mt-5 block w-full rounded-full border border-foreground/20 px-6 py-3 text-center font-bold uppercase disabled:cursor-wait ${
+              className={`mt-5 block w-full rounded-full border border-foreground/20 px-6 py-3 text-center font-bold uppercase shadow-none transition-transform hover:-translate-y-0.5 hover:shadow-none disabled:cursor-wait ${
                 cart.hasUnavailableLines
                   ? "cursor-not-allowed bg-muted text-muted-foreground"
                   : "bg-foreground text-background"

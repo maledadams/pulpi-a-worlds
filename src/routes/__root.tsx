@@ -6,12 +6,14 @@ import {
   Scripts,
   createRootRouteWithContext,
   useLocation,
+  useRouterState,
 } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import type { Vibe } from "@/data/products";
 import appCss from "../styles.css?url";
 import { CartDrawer } from "@/components/cart/CartDrawer";
 import { AgentationToolbar } from "@/components/dev/AgentationToolbar";
+import { CheckoutSideWaves } from "@/components/layout/CheckoutSideWaves";
 import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
 import { CartProvider } from "@/context/cart";
@@ -24,6 +26,9 @@ import {
   getStorefrontSettings,
 } from "@/lib/admin-content";
 import { getStorefrontCatalog } from "@/lib/catalog";
+import { SITE_NAME, SITE_URL } from "@/lib/seo";
+import generalPineapple from "@/assets/PULPINAGENERALPINA.svg";
+import moonPineapple from "@/assets/PULPINAMOONPINA.svg";
 
 function NotFoundComponent() {
   return (
@@ -65,19 +70,32 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Pulpiña RD - Prendas de otro mundo" },
+      { title: `${SITE_NAME} | Inicio` },
       {
         name: "description",
-        content: "Marca dominicana de moda alternativa: Pulpiña, Men, Moon y Sunshine. Diseñado en RD.",
+        content: "Tienda de moda alternativa en República Dominicana.",
       },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
+      { rel: "icon", type: "image/svg+xml", href: generalPineapple, media: "(prefers-color-scheme: light)" },
+      { rel: "icon", type: "image/svg+xml", href: moonPineapple, media: "(prefers-color-scheme: dark)" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Coiny&family=Fredoka:wght@400;500;600;700&family=IM+Fell+Great+Primer+SC&family=New+Rocker&family=Outfit:wght@400;500;600;700&family=UnifrakturMaguntia&display=swap",
+      },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: SITE_NAME,
+          url: SITE_URL,
+        }),
       },
     ],
   }),
@@ -132,31 +150,86 @@ function AppChrome({
   announcements: Awaited<ReturnType<typeof getStorefrontAnnouncements>>;
   settings: Awaited<ReturnType<typeof getStorefrontSettings>>;
 }) {
-  const location = useLocation();
   const { catalogProducts } = Route.useLoaderData();
+  const renderedPathname = useRouterState({
+    select: (state) => state.resolvedLocation?.pathname ?? state.location.pathname,
+  });
+  const previousPathRef = useRef(renderedPathname);
+  const transitionEnableFrameRef = useRef(0);
+
+  const isSubstorePath = (path: string) =>
+    path === "/moon" || path === "/sunshine" || path === "/men";
+  const isSubstoreRoute = isSubstorePath(renderedPathname);
+
+  useLayoutEffect(() => {
+    window.cancelAnimationFrame(transitionEnableFrameRef.current);
+    const enableThemeTransition =
+      isSubstorePath(previousPathRef.current) && isSubstorePath(renderedPathname);
+    document.documentElement.classList.toggle(
+      "substore-theme-transition",
+      enableThemeTransition,
+    );
+
+    if (isSubstorePath(renderedPathname) && !enableThemeTransition) {
+      transitionEnableFrameRef.current = window.requestAnimationFrame(() => {
+        document.documentElement.classList.add("substore-theme-transition");
+      });
+    }
+
+    previousPathRef.current = renderedPathname;
+  }, [renderedPathname]);
+
+  useEffect(
+    () => () => {
+      window.cancelAnimationFrame(transitionEnableFrameRef.current);
+      document.documentElement.classList.remove("substore-theme-transition");
+    },
+    [],
+  );
 
   const themeOverride = useMemo(() => {
-    if (location.pathname.startsWith("/producto/")) {
-      const slug = location.pathname.replace(/^\/producto\//, "");
+    if (renderedPathname.startsWith("/producto/")) {
+      const slug = renderedPathname.replace(/^\/producto\//, "");
       const product = catalogProducts.find((entry) => entry.slug === slug);
       return product?.vibe && product.vibe !== "pulpina" ? product.vibe : undefined;
     }
 
-    const section = location.pathname.split("/")[1] as Vibe | undefined;
+    const section = renderedPathname.split("/")[1] as Vibe | undefined;
     if (section === "moon" || section === "sunshine" || section === "men") {
       return section;
     }
 
     return undefined;
-  }, [catalogProducts, location.pathname]);
+  }, [catalogProducts, renderedPathname]);
+  const hasCheckoutTexture =
+    renderedPathname === "/carrito" || renderedPathname === "/solicitud";
+  const mainThemeOverride = isSubstoreRoute
+    ? renderedPathname === "/moon"
+      ? "men"
+      : themeOverride
+    : undefined;
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header announcements={announcements} announcementThemeOverride={themeOverride} />
-      <main className="flex-1">
-        <Outlet />
+    <div className={`min-h-screen flex flex-col ${hasCheckoutTexture ? "checkout-texture relative isolate" : ""}`}>
+      {hasCheckoutTexture ? <CheckoutSideWaves /> : null}
+      <div className={hasCheckoutTexture ? "relative z-10" : undefined}>
+        <Header announcements={announcements} announcementThemeOverride={themeOverride} />
+      </div>
+      <main
+        data-vibe={mainThemeOverride}
+        className={`flex-1 ${isSubstoreRoute ? "bg-background" : ""} ${hasCheckoutTexture ? "relative z-10" : ""}`}
+      >
+        {hasCheckoutTexture ? (
+          <div className="relative z-10">
+            <Outlet />
+          </div>
+        ) : (
+          <Outlet />
+        )}
       </main>
-      <Footer settings={settings} themeOverride={themeOverride} />
+      <div className={hasCheckoutTexture ? "relative z-10" : undefined}>
+        <Footer settings={settings} themeOverride={themeOverride} />
+      </div>
       <CartDrawer theme={themeOverride ?? "store"} />
     </div>
   );

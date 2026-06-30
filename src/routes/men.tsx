@@ -2,14 +2,18 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { VibePage } from "@/components/collections/VibePage";
 import { getStorefrontSettings } from "@/lib/admin-content";
 import { validateCatalogSearch } from "@/lib/store-filters";
+import { createSeoHead } from "@/lib/seo";
 import logo from "@/assets/logo-men.png";
 import mood from "@/assets/mood-men.jpg";
 
 export const Route = createFileRoute("/men")({
-  ssr: false,
   loader: async () => ({ settings: await getStorefrontSettings() }),
   validateSearch: validateCatalogSearch,
-  head: () => ({ meta: [{ title: "Pulpiña Men - Punk - Underground" }] }),
+  head: ({ loaderData }) => createSeoHead({
+    pageName: "Men",
+    path: "/men",
+    description: loaderData?.settings.menPageIntro,
+  }),
   component: MenPage,
 });
 
@@ -29,6 +33,7 @@ function MenPage() {
         intro: settings.menPageIntro,
         catalogHeading: settings.vibeCatalogHeading,
         heroBorderClassName: "border-[#8f2015]",
+        heroWaveColor: "#8f2015",
         searchPlaceholderClassName: "placeholder:text-[#8d8d8d]",
         bg: "linear-gradient(135deg,#0a0a0a,#1a1a1a 60%,#3a0a0a)",
         logo,

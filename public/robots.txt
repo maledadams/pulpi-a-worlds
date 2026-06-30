@@ -1,4 +1,9 @@
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /acceso-admin
+Disallow: /carrito
+Disallow: /solicitud
 
-Sitemap: https://pulpina.do/sitemap.xml
+Host: pulpinastore.com
+Sitemap: https://pulpinastore.com/sitemap.xml

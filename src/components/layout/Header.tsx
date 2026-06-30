@@ -3,7 +3,12 @@ import { ShoppingBag, Search, Menu, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { StorePineapple } from "@/components/branding/StorePineapple";
 import { useCart } from "@/context/cart";
-import { type Product, type Vibe } from "@/data/products";
+import {
+  getCategoryImage,
+  type Product,
+  type ProductImage,
+  type Vibe,
+} from "@/data/products";
 import { useCatalogProducts } from "@/context/catalog";
 import logoMoonImg from "@/assets/logo-moon.png";
 import logoSunImg from "@/assets/logo-sunshine.png";
@@ -48,7 +53,7 @@ type MegaSection = {
   hash?: string;
   overview: string;
   quickLinks: NavChild[];
-  categories: Array<NavChild & { product: Product | null }>;
+  categories: Array<NavChild & { image: ProductImage | null; product: Product | null }>;
 };
 
 /* ── helpers ────────────────────────────────────── */
@@ -160,9 +165,9 @@ const VIBE_PANEL: Partial<Record<MegaKey, VibePanelStyle>> = {
     panelBg: "linear-gradient(135deg,#ff8fc9 0%,#ffe66a 55%,#c5f56a 100%)",
     text: "text-[#3a0a14]",
     muted: "text-[#5a1828]",
-    linkCls: "border-[#3a0a14]/15 bg-[#3a0a14]/6 text-[#3a0a14] hover:bg-[#3a0a14]/12",
-    tabActiveCls: "bg-[#3a0a14] text-[#ffe66a]",
-    tabIdleCls: "bg-[#3a0a14]/12 text-[#3a0a14] hover:bg-[#3a0a14]/20",
+    linkCls: "border-[#b86f8b] bg-[#5a1830]/10 text-[#3a0a14] hover:bg-[#5a1830]/18",
+    tabActiveCls: "bg-[#3a0a14] text-[#fff1b8]",
+    tabIdleCls: "bg-[#5a1830]/10 text-[#3a0a14] hover:bg-[#5a1830]/18",
     logo: logoSunImg,
     /* no blend — show logo naturally on the light gradient */
     logoBlend: "",
@@ -190,6 +195,7 @@ function CategoryCircle({
   isVibe?: boolean;
 }) {
   const p = item.product;
+  const image = item.image ?? p?.featuredImage ?? null;
 
   return (
     <Link
@@ -206,10 +212,10 @@ function CategoryCircle({
             : { background: isVibe ? "rgba(255,255,255,0.15)" : "#f3ece2" }
         }
       >
-        {p?.featuredImage ? (
+        {image ? (
           <img
-            src={p.featuredImage.url}
-            alt={p.featuredImage.altText ?? item.label}
+            src={image.url}
+            alt={image.altText ?? item.label}
             className="ui-circle h-full w-full object-cover"
           />
         ) : (
@@ -289,14 +295,20 @@ function AnnouncementBar({ announcements, theme }: { announcements: StoreAnnounc
     return null;
   }
 
-  const activeAnnouncement = announcements[activeIndex] ?? announcements[0];
-
   return (
     <div className={`px-4 py-2 ${theme.background} ${theme.border} ${theme.text}`}>
-      <div className="mx-auto max-w-7xl text-center">
-        <div key={activeAnnouncement.id} className="font-body text-sm leading-5 transition-opacity duration-300 sm:text-[0.95rem]">
-          {activeAnnouncement.text}
-        </div>
+      <div className="mx-auto grid max-w-7xl text-center">
+        {announcements.map((announcement, index) => (
+          <div
+            key={announcement.id}
+            aria-hidden={index !== activeIndex}
+            className={`col-start-1 row-start-1 font-body text-sm leading-5 transition-opacity duration-300 sm:text-[0.95rem] ${
+              index === activeIndex ? "opacity-100" : "pointer-events-none opacity-0"
+            }`}
+          >
+            {announcement.text}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -410,6 +422,10 @@ export function Header({
             ? getDepartmentCategoryLinkSearch(key, c.id)
             : baseSearch ? { ...baseSearch, category: c.id } : undefined,
         product: getCategoryPreviewProduct(pool, c.id),
+        image:
+          key === "moon" || key === "sunshine" || key === "men"
+            ? getCategoryImage(c.id, key)
+            : null,
       })),
     });
 
@@ -469,7 +485,14 @@ export function Header({
               <Link
                 key={n.to}
                 to={n.to}
-                onMouseEnter={() => n.mega ? setActiveMega(n.mega) : setActiveMega(null)}
+                onMouseEnter={() => {
+                  if (n.mega) {
+                    setRenderedMega(n.mega);
+                    setActiveMega(n.mega);
+                  } else {
+                    setActiveMega(null);
+                  }
+                }}
                 className={`ui-nav-rounded px-3 py-1.5 text-sm font-semibold transition-colors ${
                   active || megaActive
                     ? "bg-foreground text-background"
@@ -527,7 +550,7 @@ export function Header({
           borderBottom: currentMega && VIBE_PANEL[currentMega.key]
             ? "1px solid rgba(255,255,255,0.18)"
             : "1px solid var(--color-border)",
-          transition: "background 0.35s ease, max-height 0.25s ease, opacity 0.25s ease, transform 0.25s ease",
+          transition: "max-height 0.25s ease, opacity 0.25s ease, transform 0.25s ease",
         }}
         onMouseEnter={handleMouseEnterPanel}
       >
@@ -552,7 +575,10 @@ export function Header({
                       to={s.to}
                       search={s.search}
                       hash={s.hash}
-                      onMouseEnter={() => setActiveMega(key)}
+                      onMouseEnter={() => {
+                        setRenderedMega(key);
+                        setActiveMega(key);
+                      }}
                       className={`ui-nav-rounded px-3.5 py-1.5 text-xs font-black uppercase tracking-wider transition-colors ${
                         currentMega.key === key ? tabActiveCls : tabIdleCls
                       }`}
@@ -585,7 +611,22 @@ export function Header({
 
                 {/* 2 — Title + quick links (no description) */}
                 <div>
-                  <h3 className={`font-display text-2xl ${textCls}`}>{currentMega.label}</h3>
+                  <h3
+                    className={`${vs ? "" : "font-display"} text-2xl ${textCls}`}
+                    style={{
+                      fontFamily:
+                        currentMega.key === "moon"
+                          ? "var(--font-gothic)"
+                          : currentMega.key === "sunshine"
+                            ? "var(--font-sunshine)"
+                            : currentMega.key === "men"
+                              ? '"IM FELL Great Primer SC", serif'
+                              : "var(--font-display)",
+                      fontWeight: currentMega.key === "sunshine" ? 400 : undefined,
+                    }}
+                  >
+                    {currentMega.label}
+                  </h3>
                   <div className="mt-3 grid gap-1.5">
                     {currentMega.quickLinks.map((l) => (
                       <Link

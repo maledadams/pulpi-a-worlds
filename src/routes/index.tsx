@@ -13,6 +13,7 @@ import { useCatalogProducts } from "@/context/catalog";
 import type { Product } from "@/data/products";
 import { getStorefrontHomeCollections, getStorefrontSettings } from "@/lib/admin-content";
 import { subscribeNewsletter } from "@/lib/public-forms";
+import { createSeoHead } from "@/lib/seo";
 import men1 from "@/assets/men 1.svg";
 import men2 from "@/assets/men 2.svg";
 import men3 from "@/assets/men 3.svg";
@@ -22,21 +23,20 @@ import moon3 from "@/assets/moon 3.svg";
 import sunshine1 from "@/assets/sunshine 1.svg";
 import sunshine2 from "@/assets/sunshine 2.svg";
 import sunshine3 from "@/assets/sunshine 3.svg";
+import partyHat from "@/assets/PARTYHAT.png";
+import partyHatTwo from "@/assets/PARTYHAT2.png";
+import cakeTwo from "@/assets/CAKE 2.png";
+import cakeFour from "@/assets/CAKE 4.png";
 
 export const Route = createFileRoute("/")({
-  ssr: false,
   loader: async () => ({
     homeCollections: await getStorefrontHomeCollections(),
     settings: await getStorefrontSettings(),
   }),
-  head: () => ({
-    meta: [
-      { title: "Pulpiña RD - Prendas de otro mundo" },
-      {
-        name: "description",
-        content: "Tienda dominicana de moda alternativa. Vibes Moon, Sunshine y Men.",
-      },
-    ],
+  head: () => createSeoHead({
+    pageName: "Inicio",
+    path: "/",
+    description: "Tienda de moda alternativa en República Dominicana.",
   }),
   component: Home,
 });
@@ -135,7 +135,7 @@ function HomeRailSection({
             {products.map((product) => (
               <CarouselItem
                 key={product.id}
-                className="basis-[74%] sm:basis-[42%] md:basis-[31%] lg:basis-[24%] xl:basis-[calc((100%_-_15.5rem)/4)] 2xl:basis-[calc((100%_-_15.5rem)/5)]"
+                className="basis-[calc(50%+0.5rem)] lg:basis-60"
               >
                 <ProductCard
                   product={product}
@@ -190,7 +190,7 @@ function Home() {
       .filter((section) => section.products.length > 0);
   }, [homeCollections, products]);
   const homeSelectionTitle = /^elige tu tienda$/i.test(settings.homeSelectionTitle.trim())
-    ? "Elige Tu Tienda"
+    ? "Elige tu Tienda"
     : settings.homeSelectionTitle;
   const birthdayTitle = /^descuento de cumpleanos$/i.test(settings.newsletterTitle.trim())
     ? "Descuento de Cumpleaños"
@@ -253,15 +253,37 @@ function Home() {
         <HomeRailSection key={section.id} title={section.title} products={section.products} />
       ))}
 
-      <section className="border-t border-[#c5f56a]/45 bg-muted/40 px-4 py-14 text-center">
-        <h2 className="text-4xl md:text-6xl" style={{ transform: "none" }}>
+      <section className="relative overflow-hidden bg-white px-4 py-14 text-center">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 hidden lg:block">
+          <img
+            src={partyHat}
+            alt=""
+            className="absolute left-[2%] top-1/2 w-24 -translate-y-1/2 -rotate-[16deg] object-contain xl:w-32 2xl:w-[9.5rem]"
+          />
+          <img
+            src={cakeTwo}
+            alt=""
+            className="absolute left-[18%] top-1/2 hidden w-44 -translate-y-1/2 -rotate-[10deg] object-contain 2xl:block"
+          />
+          <img
+            src={cakeFour}
+            alt=""
+            className="absolute right-[18%] top-1/2 hidden w-44 -translate-y-1/2 rotate-[10deg] object-contain 2xl:block"
+          />
+          <img
+            src={partyHatTwo}
+            alt=""
+            className="absolute right-[2%] top-1/2 w-24 -translate-y-1/2 rotate-[16deg] object-contain xl:w-32 2xl:w-40"
+          />
+        </div>
+        <h2 className="relative z-10 text-4xl md:text-6xl" style={{ transform: "none" }}>
           {birthdayTitle}
         </h2>
-        <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+        <p className="relative z-10 mx-auto mt-2 max-w-md text-sm text-muted-foreground">
           {settings.newsletterDescription}
         </p>
         <form
-          className="mx-auto mt-5 grid max-w-2xl gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
+          className="relative z-10 mx-auto mt-5 grid max-w-2xl gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
           onSubmit={(event) => {
             event.preventDefault();
             setNewsletterStatus("");
@@ -324,18 +346,18 @@ function Home() {
           </button>
         </form>
         {birthdaySaved ? (
-          <p className="mx-auto mt-3 max-w-md text-sm font-semibold text-emerald-700">
+          <p className="relative z-10 mx-auto mt-3 max-w-md text-sm font-semibold text-emerald-700">
             Este navegador ya tiene tu cumpleaños guardado.
           </p>
         ) : null}
-        <div className="mx-auto mt-3 max-w-sm">
+        <div className="relative z-10 mx-auto mt-3 max-w-sm">
           <TurnstileWidget
             key={newsletterTurnstileVersion}
             onTokenChange={setNewsletterTurnstileToken}
           />
         </div>
         {newsletterStatus ? (
-          <p className="mx-auto mt-3 max-w-md text-sm text-muted-foreground">
+          <p className="relative z-10 mx-auto mt-3 max-w-md text-sm text-muted-foreground">
             {newsletterStatus}
           </p>
         ) : null}

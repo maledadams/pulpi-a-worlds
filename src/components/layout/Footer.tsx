@@ -118,9 +118,9 @@ export function Footer({
   const theme = FOOTER_THEMES[themeKey];
   const resolvedSettings: FooterSettings = {
     businessName: "Pulpiña RD",
-    supportEmail: "hola@pulpina.do",
-    whatsappNumber: "18095550199",
-    instagramUrl: "https://instagram.com/pulpina.rd",
+    supportEmail: "hola@pulpinastore.com",
+    whatsappNumber: "18299643104",
+    instagramUrl: "https://www.instagram.com/pulpinard/",
     footerHeading: "Pulpiña RD",
     footerAccent: "Solicitudes por WhatsApp",
     footerCopyright: "© {year} Pulpiña RD.",
@@ -133,11 +133,9 @@ export function Footer({
     .replaceAll("(c)", "©")
     .replaceAll("Pulpina", "Pulpiña")
     .replace("{year}", String(new Date().getFullYear()));
-  const whatsappHref = `https://wa.me/${resolvedSettings.whatsappNumber}`;
-
   return (
     <footer className={`${theme.spacing} overflow-hidden border-t-2 ${theme.border} ${theme.bg} ${theme.text}`}>
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 md:grid-cols-4">
+      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 md:grid-cols-4 min-[1440px]:translate-x-5">
         <div data-footer-brand>
           <div className="flex h-full min-h-[7.875rem] items-center gap-4 overflow-hidden min-[1440px]:w-[20.5rem] min-[1440px]:-translate-x-10">
             <div className="flex h-[5.5rem] w-[5.5rem] shrink-0 items-center justify-center overflow-hidden" data-footer-logo-slot>
@@ -186,24 +184,20 @@ export function Footer({
         <div>
           <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Redes</div>
           <div className="flex gap-2">
-            <a
-              href={resolvedSettings.instagramUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`ui-circle p-2 transition ${theme.icon}`}
+            <Link
+              to="/contacto"
+              className="ui-circle bg-[linear-gradient(135deg,#4f5bd5,#d62976_52%,#feda75)] p-2 text-white transition hover:brightness-110"
               aria-label="Instagram"
             >
               <Instagram className="h-5 w-5" />
-            </a>
-            <a
-              href={whatsappHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`ui-circle p-2 transition ${theme.icon}`}
+            </Link>
+            <Link
+              to="/contacto"
+              className="ui-circle bg-[linear-gradient(135deg,#25d366,#128c7e)] p-2 text-white transition hover:brightness-110"
               aria-label="WhatsApp"
             >
               <WhatsAppIcon className="h-5 w-5" />
-            </a>
+            </Link>
           </div>
           <p className={`mt-4 text-xs ${theme.textSoft}`}>{resolvedSettings.footerAccent || theme.accent}</p>
           <p className={`mt-2 text-xs ${theme.textSoft}`}>{footerCopyright}</p>

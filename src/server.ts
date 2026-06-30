@@ -69,20 +69,44 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
   return brandedErrorResponse();
 }
 
+function withRequestSeoHeaders(request: Request, response: Response) {
+  const pathname = new URL(request.url).pathname;
+  if (!/^\/(?:admin(?:\/|$)|acceso-admin$|carrito$|solicitud$)/.test(pathname)) {
+    return response;
+  }
+  const headers = new Headers(response.headers);
+  headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+  return new Response(response.body, {
+    headers,
+    status: response.status,
+    statusText: response.statusText,
+  });
+}
+
+function finalizeResponse(request: Request, response: Response) {
+  return withSecurityHeaders(withRequestSeoHeaders(request, response));
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      const requestUrl = new URL(request.url);
+      if (requestUrl.hostname === "www.pulpinastore.com") {
+        requestUrl.hostname = "pulpinastore.com";
+        return finalizeResponse(request, Response.redirect(requestUrl, 308));
+      }
+
       const webhookResponse = await maybeHandleAgentationWebhook(request);
       if (webhookResponse) {
-        return withSecurityHeaders(webhookResponse);
+        return finalizeResponse(request, webhookResponse);
       }
 
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return withSecurityHeaders(await normalizeCatastrophicSsrResponse(response));
+      return finalizeResponse(request, await normalizeCatastrophicSsrResponse(response));
     } catch (error) {
       console.error(error);
-      return withSecurityHeaders(brandedErrorResponse());
+      return finalizeResponse(request, brandedErrorResponse());
     }
   },
   async scheduled(_controller: unknown, _env: unknown, ctx: { waitUntil(promise: Promise<unknown>): void }) {

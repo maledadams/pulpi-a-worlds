@@ -1,4 +1,4 @@
-import type { Product, ProductVariant, Vibe } from "@/data/products";
+import type { CategoryImages, Product, ProductVariant, SubstoreVibe, Vibe } from "@/data/products";
 import type { AdminSizeFormat, AdminSizeFormatRecord } from "@/lib/product-sizing";
 
 export type AdminSection =
@@ -67,7 +67,8 @@ export type AdminCategoryRecord = {
   previousId?: string;
   label: string;
   isNsfw: boolean;
-  vibes: Vibe[];
+  vibes: SubstoreVibe[];
+  images: CategoryImages;
   sizeFormat: AdminSizeFormat;
   productCount: number;
   sortOrder: number;

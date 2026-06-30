@@ -61,6 +61,22 @@ export function ProductCard({
   const visualVibe = themeVibe ?? product.vibe;
   const badgeTheme = PRODUCT_BADGE_THEME[product.vibe];
   const isMoonCard = tone === "vibe" && visualVibe === "moon";
+  const cardOutlineClassName =
+    tone === "store"
+      ? "border-foreground/20"
+      : product.vibe === "sunshine"
+        ? "border-[#d2a0ca]"
+        : "border-foreground/20";
+  const noticeTextClassName =
+    tone === "store"
+      ? "text-[#231717]"
+      : product.vibe === "moon"
+        ? "text-[#3a1c28]"
+        : product.vibe === "sunshine"
+          ? "text-[#3a0a14]"
+          : product.vibe === "men"
+            ? "text-[#3a0808]"
+            : "text-[#231717]";
   const colors =
     product.colors ??
     (product.options.find((option) => option.name === "Color")?.values ?? []).map(
@@ -99,17 +115,16 @@ const cartActionClassName =
 
   return (
     <>
-      <div className="card-lift group relative block rounded-lg">
-        <Link to="/producto/$slug" params={{ slug: product.slug }} className="block">
+      <div className="card-lift group relative block h-full rounded-lg">
+        <Link to="/producto/$slug" params={{ slug: product.slug }} className="block h-full">
           <div
-            className={`overflow-hidden rounded-lg shadow-sm ${
-              isMoonCard ? "border border-[#f2e9e1]/10 bg-[#111111] text-[#f2e9e1]" : "bg-card"
+            className={`flex aspect-[4/7] h-full flex-col overflow-hidden rounded-lg border shadow-sm ${cardOutlineClassName} ${
+              isMoonCard ? "bg-[#111111] text-[#f2e9e1]" : "bg-card"
             }`}
           >
             <div
-              className="relative w-full overflow-hidden"
+              className="relative min-h-0 w-full flex-1 overflow-hidden"
               style={{
-                aspectRatio: "3/4",
                 background: `linear-gradient(135deg, ${product.swatch[0]}, ${product.swatch[1]})`,
               }}
             >
@@ -163,7 +178,7 @@ const cartActionClassName =
               )}
             </div>
 
-            <div className="p-2.5 sm:p-3">
+            <div className="shrink-0 p-2.5 sm:p-3">
               {showSubtitle ? (
                 <p
                   className={`mb-0.5 text-[10px] font-bold uppercase tracking-widest ${
@@ -234,7 +249,7 @@ const cartActionClassName =
       {noticePhase ? (
         <div
           role="status"
-          className={`pointer-events-none fixed bottom-6 left-1/2 z-[80] -translate-x-1/2 bg-[#231717] px-5 py-3 text-center text-sm font-semibold text-white transition-opacity duration-[1500ms] ease-out ${
+          className={`pointer-events-none fixed bottom-6 left-1/2 z-[80] -translate-x-1/2 bg-white px-5 py-3 text-center text-sm font-semibold ${noticeTextClassName} transition-opacity duration-[1500ms] ease-out ${
             noticePhase === "fading" ? "opacity-0" : "opacity-100"
           }`}
         >
