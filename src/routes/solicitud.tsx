@@ -1,11 +1,10 @@
 import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ChevronLeft, MessageCircle, ShoppingBag } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ShoppingBag } from "lucide-react";
 import { TurnstileWidget } from "@/components/forms/TurnstileWidget";
 import { useCatalogProducts } from "@/context/catalog";
 import { useCart } from "@/context/cart";
 import { formatPrice } from "@/data/products";
-import { getStorefrontSettings } from "@/lib/admin-content";
 import { submitManualOrder } from "@/lib/manual-orders";
 import { validateBirthdayCoupon } from "@/lib/public-forms";
 import { createSeoHead } from "@/lib/seo";
@@ -13,9 +12,6 @@ import { useScrollFollow } from "@/hooks/use-scroll-follow";
 
 export const Route = createFileRoute("/solicitud")({
   ssr: false,
-  loader: async () => ({
-    settings: await getStorefrontSettings(),
-  }),
   head: () => createSeoHead({ pageName: "Completar pedido", path: "/solicitud", noIndex: true }),
   component: InquiryPage,
 });
@@ -25,7 +21,6 @@ function InquiryPage() {
   const products = useCatalogProducts();
   const navigate = useNavigate();
   const router = useRouter();
-  const { settings } = Route.useLoaderData();
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -79,11 +74,6 @@ function InquiryPage() {
 
   const shipping = 0;
   const total = Math.max(0, cart.subtotal - appliedDiscount);
-  const whatsappHref = createdOrder
-    ? `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent(
-        `Hola, quiero completar el pedido ${createdOrder.order.requestNumber}.`,
-      )}`
-    : `https://wa.me/${settings.whatsappNumber}`;
 
   useEffect(() => {
     if (cart.lines.length === 0 || createdOrder) return;
@@ -133,7 +123,7 @@ function InquiryPage() {
             Tu numero de orden es {createdOrder.order.requestNumber}
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-            Ya registramos tu pedido. Ahora solo tienes que escribirnos por WhatsApp y enviarnos ese numero para confirmar disponibilidad y entrega.
+            Ya registramos tu pedido. Revisa tu correo: ahi tienes el detalle y el boton para confirmar por WhatsApp.
           </p>
 
           <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_264px]">
@@ -213,18 +203,10 @@ function InquiryPage() {
                 Siguiente paso
               </p>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Envianos el numero <strong>{createdOrder.order.requestNumber}</strong> por WhatsApp para terminar la compra.
+                Te enviamos un correo con tu pedido <strong>{createdOrder.order.requestNumber}</strong>. Abrelo y
+                confirma por WhatsApp desde ahi para completar tu compra.
               </p>
               <div className="mt-4 flex flex-col gap-3">
-                <a
-                  href={whatsappHref}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-[#25D366] px-5 py-3 text-sm font-bold uppercase tracking-wider text-white"
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  Enviar por WhatsApp
-                </a>
                 <Link
                   to="/tienda"
                   className="inline-flex items-center justify-center rounded-full border border-foreground/20 px-5 py-3 text-sm font-bold uppercase tracking-wider"
