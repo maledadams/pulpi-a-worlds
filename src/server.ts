@@ -5,6 +5,7 @@ import { renderErrorPage } from "./lib/error-page";
 import { maybeHandleAgentationWebhook } from "./lib/agentation-webhook";
 import { withSecurityHeaders } from "./lib/security-headers";
 import { processBirthdayEmailsInternal } from "./lib/public-forms";
+import { maybeHandleOrderConfirmRequest } from "./lib/manual-orders";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -99,6 +100,11 @@ export default {
       const webhookResponse = await maybeHandleAgentationWebhook(request);
       if (webhookResponse) {
         return finalizeResponse(request, webhookResponse);
+      }
+
+      const orderConfirmResponse = await maybeHandleOrderConfirmRequest(request);
+      if (orderConfirmResponse) {
+        return finalizeResponse(request, orderConfirmResponse);
       }
 
       const handler = await getServerEntry();
