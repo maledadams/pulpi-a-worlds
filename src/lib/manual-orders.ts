@@ -4,9 +4,14 @@ import { getStorefrontSettingsInternal } from "@/lib/admin-content";
 import { ADMIN_INQUIRIES } from "@/lib/admin-service";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { formatPrice, isStorefrontVisible } from "@/data/products";
-import { adjustCatalogVariantInventoryInternal, getCatalogVariantByIdInternal } from "@/lib/catalog";
+import {
+  adjustCatalogVariantInventoryInternal,
+  getCatalogVariantByIdInternal,
+  listStorefrontCatalogProductsInternal,
+} from "@/lib/catalog";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { redeemBirthdayCouponInternal, validateBirthdayCouponInternal } from "@/lib/public-forms";
+import { signOrderConfirmToken, verifyOrderConfirmToken } from "@/lib/order-confirm-token";
 import type { AdminInquiryChannel, AdminInquiryRecord, AdminInquiryStatus } from "@/lib/admin-types";
 
 const ORDER_SEQUENCE_KEY = "manual_orders";
@@ -102,6 +107,7 @@ type CanonicalManualOrderLine = {
 
 type WorkerEnv = {
   DB?: D1Database;
+  ORDER_CONFIRM_SECRET?: string;
   ORDER_NOTIFICATION_EMAIL?: string;
   PUBLIC_SUPPORT_EMAIL?: string;
   RESEND_API_KEY?: string;
@@ -315,6 +321,11 @@ async function getEmailConfig() {
       process.env.PUBLIC_SUPPORT_EMAIL ??
       (await getStorefrontSettingsInternal()).supportEmail,
   };
+}
+
+async function getOrderConfirmSecret() {
+  const workerEnv = await getWorkerEnv();
+  return workerEnv.ORDER_CONFIRM_SECRET ?? process.env.ORDER_CONFIRM_SECRET ?? "";
 }
 
 async function buildCanonicalLines(lines: ManualOrderInput["lines"], enforceStock = true) {
@@ -1257,64 +1268,140 @@ async function sendEmailViaResend(input: {
   return response.ok;
 }
 
-async function sendOrderEmails(record: AdminInquiryRecord): Promise<OrderEmailState> {
-  const config = await getEmailConfig();
-  const settings = await getStorefrontSettingsInternal();
-  if (!config.apiKey || !config.from) {
-    return {
-      configured: false,
-      customerSent: false,
-      teamSent: false,
-    };
+async function buildVariantImageMap(lines: AdminInquiryRecord["lines"]) {
+  const products = await listStorefrontCatalogProductsInternal();
+  const variantIds = new Set(lines.map((line) => line.variantId));
+  const map = new Map<string, { url: string; altText: string | null }>();
+
+  for (const product of products) {
+    for (const variant of product.variants) {
+      if (!variantIds.has(variant.id)) continue;
+      const image = variant.image ?? product.featuredImage;
+      if (image) map.set(variant.id, image);
+    }
   }
 
+  return map;
+}
+
+async function sendCustomerInvoiceEmail(record: AdminInquiryRecord): Promise<boolean> {
+  const config = await getEmailConfig();
+  if (!config.apiKey || !config.from) return false;
+
+  const settings = await getStorefrontSettingsInternal();
+  const secret = await getOrderConfirmSecret();
+  const imageMap = await buildVariantImageMap(record.lines);
+
+  const confirmUrl = secret
+    ? `https://pulpinastore.com/pedido/confirmar?order=${encodeURIComponent(record.id)}&token=${encodeURIComponent(
+        await signOrderConfirmToken(record.id, secret),
+      )}`
+    : `https://wa.me/${settings.whatsappNumber}`;
+
+  const rows = record.lines
+    .map((line) => {
+      const image = imageMap.get(line.variantId);
+      const imageCell = image
+        ? `<img src="${escapeHtml(image.url)}" alt="${escapeHtml(image.altText ?? line.productName)}" width="72" height="72" style="width:72px;height:72px;object-fit:cover;border:1px solid #231717;border-radius:12px;display:block" />`
+        : `<div style="width:72px;height:72px;border:1px solid #231717;border-radius:12px;background:#f7f2ec"></div>`;
+
+      return `
+        <tr>
+          <td style="padding:12px 0;border-bottom:1px solid rgba(35,23,23,0.12)">${imageCell}</td>
+          <td style="padding:12px 16px;border-bottom:1px solid rgba(35,23,23,0.12);color:#231717">
+            <div style="font-weight:700">${escapeHtml(line.productName)}</div>
+            <div style="font-size:13px;color:#6b5a55">${escapeHtml(line.variantLabel)} &middot; x${line.quantity}</div>
+          </td>
+          <td style="padding:12px 0;border-bottom:1px solid rgba(35,23,23,0.12);color:#231717;text-align:right;white-space:nowrap">
+            ${escapeHtml(formatPrice(line.unitPrice * line.quantity))}
+          </td>
+        </tr>`;
+    })
+    .join("");
+
+  const totalsRows = [
+    ["Subtotal", formatPrice(record.subtotal)],
+    ...(record.discount > 0 ? [["Descuento", `-${formatPrice(record.discount)}`]] : []),
+    ...(record.shipping > 0 ? [["Envio", formatPrice(record.shipping)]] : []),
+  ]
+    .map(
+      ([label, value]) => `
+        <tr>
+          <td style="padding:4px 0;color:#6b5a55" colspan="2">${label}</td>
+          <td style="padding:4px 0;text-align:right;color:#231717">${value}</td>
+        </tr>`,
+    )
+    .join("");
+
+  const html = `
+    <div style="background:#fbf4e8;padding:32px 16px;font-family:Arial,sans-serif">
+      <div style="max-width:560px;margin:auto;background:#ffffff;border:1px solid #231717;border-radius:20px;padding:32px">
+        <p style="letter-spacing:.18em;text-transform:uppercase;color:#6b5a55;font-size:12px;margin:0 0 4px">Pulpiña RD</p>
+        <h1 style="font-size:26px;margin:0 0 8px;color:#231717">Pedido ${escapeHtml(record.requestNumber)}</h1>
+        <p style="font-size:14px;line-height:1.6;color:#231717;margin:0 0 20px">
+          Recibimos tu pedido. Para completarlo, confirma por WhatsApp con el boton de abajo.
+        </p>
+        <table style="width:100%;border-collapse:collapse">${rows}</table>
+        <table style="width:100%;border-collapse:collapse;margin-top:12px">
+          ${totalsRows}
+          <tr>
+            <td colspan="2" style="padding:10px 0 0;font-weight:700;color:#231717;border-top:1px solid #231717">Total</td>
+            <td style="padding:10px 0 0;text-align:right;font-weight:700;color:#231717;border-top:1px solid #231717">${escapeHtml(formatPrice(record.total))}</td>
+          </tr>
+        </table>
+        <div style="text-align:center;margin-top:28px">
+          <a href="${confirmUrl}" style="display:inline-block;background:#25D366;color:#ffffff;text-decoration:none;font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:13px;padding:14px 28px;border-radius:999px">
+            Confirmar por WhatsApp
+          </a>
+        </div>
+        <p style="font-size:12px;line-height:1.6;color:#6b5a55;text-align:center;margin-top:16px">
+          Este paso es necesario para confirmar disponibilidad, envio y pago.
+        </p>
+      </div>
+    </div>`;
+
+  const text = [
+    `Pedido ${record.requestNumber}`,
+    "",
+    ...record.lines.map(
+      (line) => `- ${line.productName} (${line.variantLabel}) x${line.quantity} - ${formatPrice(line.unitPrice * line.quantity)}`,
+    ),
+    "",
+    `Total: ${formatPrice(record.total)}`,
+    "",
+    "Confirma por WhatsApp para completar tu pedido:",
+    confirmUrl,
+  ].join("\n");
+
+  return sendEmailViaResend({
+    html,
+    subject: `Tu pedido ${record.requestNumber} - ${settings.businessName}`,
+    text,
+    to: record.customerEmail,
+  });
+}
+
+async function sendTeamOrderNotificationEmail(record: AdminInquiryRecord): Promise<boolean> {
+  const config = await getEmailConfig();
+  if (!config.apiKey || !config.from) return false;
+
   const summary = buildOrderSummary(record);
-  const customerText = [
-    `Recibimos tu pedido ${record.requestNumber}.`,
-    "",
-    "Proximo paso:",
-    `Escribenos por WhatsApp al ${settings.whatsappLabel} y comparte este numero de orden para confirmar tu compra.`,
-    "",
-    summary,
-  ].join("\n");
+  const html = `
+    <div style="background:#fbf4e8;padding:24px;font-family:Arial,sans-serif;color:#231717">
+      <div style="max-width:560px;margin:auto;background:#ffffff;border:1px solid #231717;border-radius:16px;padding:24px">
+        <p style="letter-spacing:.18em;text-transform:uppercase;color:#6b5a55;font-size:12px;margin:0 0 4px">Pulpiña RD</p>
+        <h1 style="font-size:20px;margin:0 0 12px">Pedido confirmado: ${escapeHtml(record.requestNumber)}</h1>
+        <p style="margin:0 0 12px">El cliente confirmo por WhatsApp. Detalle:</p>
+        <pre style="white-space:pre-wrap;font-family:Arial,sans-serif;font-size:14px;margin:0">${escapeHtml(summary)}</pre>
+      </div>
+    </div>`;
 
-  const teamText = [
-    "Nuevo pedido manual recibido.",
-    "",
-    summary,
-  ].join("\n");
-
-  const customerHtml = `
-    <p>Recibimos tu pedido <strong>${escapeHtml(record.requestNumber)}</strong>.</p>
-    <p>Escribenos por WhatsApp al <strong>${escapeHtml(settings.whatsappLabel)}</strong> y comparte ese numero para confirmar disponibilidad, envio y cierre manual.</p>
-    <pre>${escapeHtml(summary)}</pre>
-  `;
-
-  const teamHtml = `
-    <p>Nuevo pedido manual recibido: <strong>${escapeHtml(record.requestNumber)}</strong></p>
-    <pre>${escapeHtml(summary)}</pre>
-  `;
-
-  const [customerSent, teamSent] = await Promise.all([
-    sendEmailViaResend({
-      html: customerHtml,
-      subject: `Confirmacion de pedido ${record.requestNumber} - ${settings.businessName}`,
-      text: customerText,
-      to: record.customerEmail,
-    }),
-    sendEmailViaResend({
-      html: teamHtml,
-      subject: `Nuevo pedido manual ${record.requestNumber}`,
-      text: teamText,
-      to: config.supportEmail,
-    }),
-  ]);
-
-  return {
-    configured: true,
-    customerSent,
-    teamSent,
-  };
+  return sendEmailViaResend({
+    html,
+    subject: `Nuevo pedido confirmado ${record.requestNumber}`,
+    text: ["Nuevo pedido confirmado por WhatsApp.", "", summary].join("\n"),
+    to: config.supportEmail,
+  });
 }
 
 export const submitManualOrder = createServerFn({ method: "POST" })
@@ -1380,6 +1467,7 @@ export const submitManualOrder = createServerFn({ method: "POST" })
         notes: discountCode
           ? `${data.notes}${data.notes ? "\n" : ""}Código de cumpleaños: ${discountCode}`
           : data.notes,
+        status: "pending_contact",
       };
       const record = db
         ? (await createOrderInDatabase(orderInput, canonicalLines)) ?? (await createOrderInMemory(orderInput, canonicalLines))
@@ -1387,12 +1475,18 @@ export const submitManualOrder = createServerFn({ method: "POST" })
       if (discountCode) {
         await redeemBirthdayCouponInternal(discountCode, data.customerEmail);
       }
-      const emailState = await sendOrderEmails(record);
+      const config = await getEmailConfig();
+      const customerSent = config.apiKey && config.from ? await sendCustomerInvoiceEmail(record) : false;
+      const emailState: OrderEmailState = {
+        configured: Boolean(config.apiKey && config.from),
+        customerSent,
+        teamSent: false,
+      };
 
       return {
         emailState,
         message: emailState.configured
-          ? "Pedido creado y correos de confirmacion procesados."
+          ? "Pedido creado. Revisa tu correo para confirmar por WhatsApp."
           : "Pedido creado. Falta configurar el proveedor de correo para enviar confirmaciones automaticas.",
         ok: true as const,
         order: {
@@ -1430,7 +1524,13 @@ export const createAdminManualOrder = createServerFn({ method: "POST" })
       (await createOrderInDatabase(data, lines)) ??
       (await createOrderInMemory(data, lines));
 
-    const emailState = data.sendEmails ? await sendOrderEmails(record) : null;
+    const emailState: OrderEmailState | null = data.sendEmails
+      ? {
+          configured: true,
+          customerSent: await sendCustomerInvoiceEmail(record),
+          teamSent: await sendTeamOrderNotificationEmail(record),
+        }
+      : null;
 
     return {
       ...record,
@@ -1477,3 +1577,96 @@ export const deleteAdminOrder = createServerFn({ method: "POST" })
 
     return deleteOrderInternal(data.id);
   });
+
+function buildWhatsappRedirectUrl(whatsappNumber: string, requestNumber?: string) {
+  const base = `https://wa.me/${whatsappNumber}`;
+  if (!requestNumber) return base;
+  return `${base}?text=${encodeURIComponent(`Hola, quiero completar el pedido ${requestNumber}.`)}`;
+}
+
+export async function maybeHandleOrderConfirmRequest(request: Request): Promise<Response | null> {
+  const url = new URL(request.url);
+  if (url.pathname !== "/pedido/confirmar") return null;
+
+  const settings = await getStorefrontSettingsInternal();
+  const fallbackRedirect = buildWhatsappRedirectUrl(settings.whatsappNumber);
+  const orderId = url.searchParams.get("order") ?? "";
+  const token = url.searchParams.get("token") ?? "";
+  const secret = await getOrderConfirmSecret();
+
+  if (!orderId || !secret || !(await verifyOrderConfirmToken(orderId, token, secret))) {
+    return Response.redirect(fallbackRedirect, 302);
+  }
+
+  const db = await getDatabase();
+  if (!db) {
+    const record = memoryOrders.get(orderId);
+    if (!record) return Response.redirect(fallbackRedirect, 302);
+    if (record.status === "pending_contact") {
+      const confirmed = { ...record, status: "new" as const };
+      memoryOrders.set(orderId, confirmed);
+      await sendTeamOrderNotificationEmail(confirmed);
+      return Response.redirect(buildWhatsappRedirectUrl(settings.whatsappNumber, confirmed.requestNumber), 302);
+    }
+    return Response.redirect(buildWhatsappRedirectUrl(settings.whatsappNumber, record.requestNumber), 302);
+  }
+
+  await ensureOrderStorageReady(db);
+  const existing = await db
+    .prepare(
+      `
+        SELECT
+          id, request_number, customer_name, customer_email, customer_phone,
+          status, channel, fulfillment_method, subtotal_cents, shipping_cents,
+          discount_cents, total_cents, payment_status, shipping_line1,
+          shipping_city, shipping_province, notes, items_json, created_at
+        FROM inquiries
+        WHERE id = ?
+        LIMIT 1
+      `,
+    )
+    .bind(orderId)
+    .first<InquiryRow>();
+
+  if (!existing) {
+    return Response.redirect(fallbackRedirect, 302);
+  }
+
+  if (existing.status !== "pending_contact") {
+    return Response.redirect(buildWhatsappRedirectUrl(settings.whatsappNumber, existing.request_number), 302);
+  }
+
+  await db
+    .prepare(`UPDATE inquiries SET status = 'new', contact_confirmed_at = ? WHERE id = ?`)
+    .bind(new Date().toISOString(), orderId)
+    .run();
+
+  const confirmedRecord = buildInquiryRecord({
+    channel: normalizeOrderChannel(existing.channel),
+    createdAt: existing.created_at,
+    customerEmail: existing.customer_email,
+    customerName: existing.customer_name ?? "",
+    customerPhone: existing.customer_phone ?? "",
+    discount: fromCents(existing.discount_cents),
+    fulfillmentMethod: normalizeFulfillmentMethod(existing.fulfillment_method),
+    id: existing.id,
+    lines: deserializeInquiryLines(existing.items_json),
+    notes: existing.notes ?? "",
+    paymentStatus:
+      existing.payment_status === "confirmed" || existing.payment_status === "cancelled"
+        ? existing.payment_status
+        : "pending",
+    requestNumber: existing.request_number,
+    shipping: fromCents(existing.shipping_cents),
+    shippingAddress: {
+      line1: existing.shipping_line1 ?? "",
+      city: existing.shipping_city ?? "",
+      province: existing.shipping_province ?? "",
+    },
+    status: "new",
+  });
+
+  await sendTeamOrderNotificationEmail(confirmedRecord);
+
+  return Response.redirect(buildWhatsappRedirectUrl(settings.whatsappNumber, existing.request_number), 302);
+}
