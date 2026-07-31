@@ -52,6 +52,7 @@ function cloneInquiry(inquiry: AdminInquiryRecord): AdminInquiryRecord {
 }
 
 function statusTone(status: AdminInquiryStatus) {
+  if (status === "pending_contact") return "info";
   if (status === "new") return "warn";
   if (status === "closed") return "success";
   if (status === "cancelled") return "danger";
@@ -188,7 +189,8 @@ function AdminOrdersPage() {
   const filtered = useMemo(() => {
     const lowered = query.trim().toLowerCase();
     return rows.filter((inquiry) => {
-      const matchesStatus = statusFilter === "all" || inquiry.status === statusFilter;
+      const matchesStatus =
+        statusFilter === "all" ? inquiry.status !== "pending_contact" : inquiry.status === statusFilter;
       const haystack = `${inquiry.requestNumber} ${inquiry.customerName} ${inquiry.customerEmail} ${inquiry.customerPhone}`.toLowerCase();
       return matchesStatus && haystack.includes(lowered);
     });
@@ -454,7 +456,7 @@ function AdminOrdersPage() {
           title="Ordenes"
           actions={
             <div className="flex flex-wrap gap-2">
-              {(["all", "new", "follow_up", "quoted", "closed", "cancelled"] as const).map((entry) => (
+              {(["all", "pending_contact", "new", "follow_up", "quoted", "closed", "cancelled"] as const).map((entry) => (
                 <AdminButton key={entry} tone={statusFilter === entry ? "active" : "ghost"} onClick={() => setStatusFilter(entry)}>
                   {entry === "all" ? "Todas" : formatAdminInquiryStatus(entry)}
                 </AdminButton>

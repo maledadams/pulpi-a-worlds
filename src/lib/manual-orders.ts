@@ -1020,8 +1020,11 @@ async function getAdminOrderSnapshotInternal(limit = 4) {
     const inquiries = Array.from(memoryOrders.values()).map(cloneInquiry);
     return {
       inquiryCount: inquiries.length,
-      openInquiryCount: inquiries.filter((inquiry) => inquiry.status !== "closed" && inquiry.status !== "cancelled").length,
+      openInquiryCount: inquiries.filter(
+        (inquiry) => !["closed", "cancelled", "pending_contact"].includes(inquiry.status),
+      ).length,
       recentInquiries: inquiries
+        .filter((inquiry) => inquiry.status !== "pending_contact")
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.requestNumber.localeCompare(a.requestNumber))
         .slice(0, limit),
     };
@@ -1034,7 +1037,7 @@ async function getAdminOrderSnapshotInternal(limit = 4) {
       `
         SELECT
           COUNT(*) AS inquiry_count,
-          SUM(CASE WHEN status NOT IN ('closed', 'cancelled') THEN 1 ELSE 0 END) AS open_inquiry_count
+          SUM(CASE WHEN status NOT IN ('closed', 'cancelled', 'pending_contact') THEN 1 ELSE 0 END) AS open_inquiry_count
         FROM inquiries
       `,
     )
@@ -1064,6 +1067,7 @@ async function getAdminOrderSnapshotInternal(limit = 4) {
           items_json,
           created_at
         FROM inquiries
+        WHERE status <> 'pending_contact'
         ORDER BY created_at DESC, request_number DESC
         LIMIT ?
       `,
