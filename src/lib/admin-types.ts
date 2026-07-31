@@ -14,6 +14,7 @@ export type AdminSection =
 export type AdminInquiryChannel = "formulario" | "whatsapp" | "instagram" | "email";
 
 export type AdminInquiryStatus =
+  | "pending_contact"
   | "new"
   | "follow_up"
   | "quoted"

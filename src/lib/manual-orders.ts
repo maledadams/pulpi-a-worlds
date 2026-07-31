@@ -12,7 +12,7 @@ import type { AdminInquiryChannel, AdminInquiryRecord, AdminInquiryStatus } from
 const ORDER_SEQUENCE_KEY = "manual_orders";
 const ORDER_PREFIX = "PUL-";
 const CONTACT_CHANNELS = ["formulario", "whatsapp", "instagram", "email"] as const;
-const ORDER_STATUSES = ["new", "follow_up", "quoted", "closed", "cancelled"] as const;
+const ORDER_STATUSES = ["pending_contact", "new", "follow_up", "quoted", "closed", "cancelled"] as const;
 const FULFILLMENT_METHODS = ["pickup", "delivery"] as const;
 
 const shippingAddressSchema = z.object({
@@ -116,6 +116,7 @@ type OrderEmailState = {
 
 type InquiryRow = {
   channel: string;
+  contact_confirmed_at: string | null;
   created_at: string;
   customer_email: string;
   customer_name: string | null;
@@ -455,6 +456,7 @@ async function ensureOrderStorageReady(db: D1Database) {
         "ALTER TABLE inquiries ADD COLUMN shipping_line1 TEXT;",
         "ALTER TABLE inquiries ADD COLUMN shipping_city TEXT;",
         "ALTER TABLE inquiries ADD COLUMN shipping_province TEXT;",
+        "ALTER TABLE inquiries ADD COLUMN contact_confirmed_at TEXT;",
       ]) {
         try {
           await db.exec(statement);
