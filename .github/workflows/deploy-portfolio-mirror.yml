@@ -19,9 +19,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # No explicit version: package.json's "packageManager": "pnpm@11.3.0"
+      # already pins one; setting both causes ERR_PNPM_BAD_PM_VERSION.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11
 
       - uses: actions/setup-node@v5
         with:
