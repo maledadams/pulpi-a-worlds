@@ -17,7 +17,6 @@ dist-ssr
 *.local
 output/
 docs/*
-!docs/d1-commerce-schema.sql
 !docs/superpowers/
 !docs/superpowers/**
 

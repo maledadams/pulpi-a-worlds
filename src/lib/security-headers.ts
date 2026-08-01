@@ -17,6 +17,7 @@ const SECURITY_HEADERS = {
   "Content-Security-Policy": CONTENT_SECURITY_POLICY,
   "Permissions-Policy": "camera=(), geolocation=(), microphone=(), payment=(), usb=()",
   "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
 } as const;
