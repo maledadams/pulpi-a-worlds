@@ -1,6 +1,6 @@
 name: Deploy portfolio mirror (Cloudflare Workers)
 
-# Deploys this repo's main branch to pulpina.lucia-adams.com, a separate
+# Deploys the pulpina-portfolio branch (never main) to pulpina.lucia-adams.com, a separate
 # Worker ("pulpi-a-worlds-portfolio") using the "portfolio" env in
 # wrangler.jsonc. Completely isolated from the "production" env that
 # serves pulpinastore.com: different Worker name, no cron trigger, and
@@ -11,7 +11,7 @@ name: Deploy portfolio mirror (Cloudflare Workers)
 on:
   push:
     branches:
-      - main
+      - pulpina-portfolio
 
 jobs:
   deploy:
