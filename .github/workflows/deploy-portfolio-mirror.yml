@@ -1,0 +1,38 @@
+name: Deploy portfolio mirror (Cloudflare Workers)
+
+# Deploys this repo's main branch to pulpina.lucia-adams.com, a separate
+# Worker ("pulpi-a-worlds-portfolio") using the "portfolio" env in
+# wrangler.jsonc. Completely isolated from the "production" env that
+# serves pulpinastore.com: different Worker name, no cron trigger, and
+# no secrets/bindings of its own (there is nothing to leak — RESEND_API_KEY,
+# D1, R2, etc. are only ever configured on the production Worker).
+# Every page on this mirror sends X-Robots-Tag: noindex.
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Deploy portfolio Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --env portfolio
