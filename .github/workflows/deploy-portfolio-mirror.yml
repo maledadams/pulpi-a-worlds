@@ -25,11 +25,14 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          # Pinned to 20, not 22: vite@7.3.3 (locked in pnpm-lock.yaml) hits
-          # ERR_PACKAGE_IMPORT_NOT_DEFINED ("#module-sync-enabled") on at
-          # least Node 22.20.0. Worth checking whether the production
-          # deploy pipeline is exposed to the same issue.
-          node-version: 20
+          # pnpm@11.3.0 (pinned via packageManager) requires Node >=22.13,
+          # so this can't be 20. Pinned to the exact minimum (22.13.0)
+          # rather than floating "22", since floating resolved to 22.20.0
+          # locally and hit ERR_PACKAGE_IMPORT_NOT_DEFINED
+          # ("#module-sync-enabled") in vite@7.3.3 — a version-specific
+          # bug, not a general Node 22 issue (this project's own tooling
+          # already requires Node >=22.13 to run pnpm at all).
+          node-version: 22.13.0
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
