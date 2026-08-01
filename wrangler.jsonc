@@ -12,37 +12,29 @@
   "triggers": {
     "crons": ["5 12 * * *"]
   },
-  // Bindings go here once you create real resources.
   // Keep secrets out of this file and use `wrangler secret put`.
-  //
-  // "vars": {
-  //   "CF_ACCESS_TEAM_DOMAIN": "https://your-team.cloudflareaccess.com",
-  //   "CF_ACCESS_AUD": "your-access-app-aud",
-  //   "R2_PUBLIC_BASE_URL": "https://assets.example.com",
-  //   "ORDER_NOTIFICATION_EMAIL": "pedidos@example.com",
-  //   "RESEND_FROM_EMAIL": "Pulpiña RD <pedidos@example.com>"
-  // },
-  // "d1_databases": [
-  //   {
-  //     "binding": "DB",
-  //     "database_name": "pulpi-local",
-  //     "database_id": "replace-with-real-d1-id"
-  //   }
-  // ],
-  // "r2_buckets": [
-  //   {
-  //     "binding": "PUBLIC_MEDIA",
-  //     "bucket_name": "pulpi-local-public"
-  //   }
-  // ],
-  // "env": {
-  //   "staging": {
-  //     "name": "tanstack-start-app-staging"
-  //   },
-  //   "production": {
-  //     "name": "tanstack-start-app-production"
-  //   }
-  // }
+  "vars": {
+    "ADMIN_ALLOWED_HOSTS": "localhost,pulpinastore.com,www.pulpinastore.com",
+    "ADMIN_ALLOWED_EMAILS": "maledadams@gmail.com",
+    "R2_PUBLIC_BASE_URL": "https://pub-72ed85dd58ca47b88e2ad8e4427a381b.r2.dev",
+    "ORDER_NOTIFICATION_EMAIL": "maledadams@gmail.com",
+    "RESEND_FROM_EMAIL": "Pulpiña RD <pedidos@pulpinastore.com>",
+    "CF_ACCESS_TEAM_DOMAIN": "https://raspy-dew-414c.cloudflareaccess.com",
+    "CF_ACCESS_AUD": "a3b9f2de9d9477c0239bf676fa5f869178525536e8727482688cdc795643aa7e"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "pulpi-production",
+      "database_id": "087ecbfd-db34-423a-904c-b024381e4338"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "PUBLIC_MEDIA",
+      "bucket_name": "pulpi-production-public"
+    }
+  ],
   "env": {
     "production": {
       "name": "tanstack-start-app-production",
@@ -55,7 +47,29 @@
           "pattern": "www.pulpinastore.com",
           "custom_domain": true
         }
-      ]
+      ],
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "pulpi-production",
+          "database_id": "087ecbfd-db34-423a-904c-b024381e4338"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "PUBLIC_MEDIA",
+          "bucket_name": "pulpi-production-public"
+        }
+      ],
+      "vars": {
+        "ADMIN_ALLOWED_HOSTS": "localhost,pulpinastore.com,www.pulpinastore.com",
+        "ADMIN_ALLOWED_EMAILS": "maledadams@gmail.com",
+        "R2_PUBLIC_BASE_URL": "https://pub-72ed85dd58ca47b88e2ad8e4427a381b.r2.dev",
+        "ORDER_NOTIFICATION_EMAIL": "maledadams@gmail.com",
+        "RESEND_FROM_EMAIL": "Pulpiña RD <pedidos@pulpinastore.com>",
+        "CF_ACCESS_TEAM_DOMAIN": "https://raspy-dew-414c.cloudflareaccess.com",
+        "CF_ACCESS_AUD": "a3b9f2de9d9477c0239bf676fa5f869178525536e8727482688cdc795643aa7e"
+      }
     }
   }
 }
