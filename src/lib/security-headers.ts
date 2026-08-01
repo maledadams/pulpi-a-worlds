@@ -7,8 +7,8 @@ const CONTENT_SECURITY_POLICY = [
   "img-src 'self' data: https: blob:",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
-  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
-  "connect-src 'self' https://challenges.cloudflare.com https://*.cloudflareaccess.com",
+  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://static.cloudflareinsights.com",
+  "connect-src 'self' https://challenges.cloudflare.com https://*.cloudflareaccess.com https://cloudflareinsights.com",
   "frame-src https://challenges.cloudflare.com https://www.google.com",
   "upgrade-insecure-requests",
 ].join("; ");
