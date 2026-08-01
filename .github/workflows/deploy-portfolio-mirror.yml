@@ -41,7 +41,17 @@ jobs:
       # tanstack-start-manifest:v virtual modules only exist after Vite's
       # build runs — `wrangler deploy` alone can't resolve them (Cloudflare's
       # own docs confirm the pattern is "build && wrangler deploy").
+      #
+      # CLOUDFLARE_ENV must be set here, at build time — @cloudflare/vite-plugin
+      # flattens wrangler.jsonc's named environments into a single redirected
+      # config (dist/server/wrangler.json) during the build, and `wrangler
+      # deploy --env` alone does NOT select which one; without this, the build
+      # silently flattens to the top-level default (wrong name, wrong routes,
+      # wrong triggers — this is exactly what deployed to "tanstack-start-app"
+      # with the production cron attached instead of "pulpi-a-worlds-portfolio").
       - run: pnpm build
+        env:
+          CLOUDFLARE_ENV: portfolio
 
       - name: Deploy portfolio Worker
         uses: cloudflare/wrangler-action@v3
