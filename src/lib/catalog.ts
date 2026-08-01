@@ -297,7 +297,8 @@ async function getDatabase() {
 async function ensureCatalogStorageReady(db: D1Database) {
   if (!catalogStorageReadyPromise) {
     catalogStorageReadyPromise = (async () => {
-      await db.exec(`
+      await db.exec(
+        `
         CREATE TABLE IF NOT EXISTS products (
           id TEXT PRIMARY KEY,
           slug TEXT NOT NULL UNIQUE,
@@ -315,9 +316,11 @@ async function ensureCatalogStorageReady(db: D1Database) {
           created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
           updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
-      `);
+      `.replace(/\n/g, " "),
+      );
 
-      await db.exec(`
+      await db.exec(
+        `
         CREATE TABLE IF NOT EXISTS inventory_movements (
           id TEXT PRIMARY KEY,
           product_id TEXT NOT NULL,
@@ -334,7 +337,8 @@ async function ensureCatalogStorageReady(db: D1Database) {
 
         CREATE INDEX IF NOT EXISTS inventory_movements_variant_created
         ON inventory_movements (variant_id, created_at DESC);
-      `);
+      `.replace(/\n/g, " "),
+      );
 
       const schemaUpdates = [
         "ALTER TABLE products ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0;",

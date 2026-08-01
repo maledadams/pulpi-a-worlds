@@ -36,7 +36,8 @@ async function getDatabase() {
 async function ensureDiscountStorageReady(db: D1Database) {
   if (!discountStorageReadyPromise) {
     discountStorageReadyPromise = (async () => {
-      await db.exec(`
+      await db.exec(
+        `
         CREATE TABLE IF NOT EXISTS discounts (
           id TEXT PRIMARY KEY,
           code TEXT NOT NULL UNIQUE,
@@ -47,7 +48,8 @@ async function ensureDiscountStorageReady(db: D1Database) {
           scope TEXT NOT NULL DEFAULT 'store',
           created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
-      `);
+      `.replace(/\n/g, " "),
+      );
 
       const discountCount = await db.prepare("SELECT COUNT(*) AS count FROM discounts").first<{ count: number }>();
       if ((discountCount?.count ?? 0) > 0) {

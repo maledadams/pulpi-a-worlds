@@ -59,7 +59,8 @@ async function getDatabase() {
 async function ensurePublicFormsReady(db: D1Database) {
   if (!publicFormsReadyPromise) {
     publicFormsReadyPromise = (async () => {
-      await db.exec(`
+      await db.exec(
+        `
         CREATE TABLE IF NOT EXISTS contact_messages (
           id TEXT PRIMARY KEY,
           name TEXT NOT NULL,
@@ -98,7 +99,8 @@ async function ensurePublicFormsReady(db: D1Database) {
 
         CREATE INDEX IF NOT EXISTS birthday_coupons_valid_date
         ON birthday_coupons (valid_date, email);
-      `);
+      `.replace(/\n/g, " "),
+      );
     })().catch((error) => {
       publicFormsReadyPromise = null;
       throw error;

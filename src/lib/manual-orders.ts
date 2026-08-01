@@ -424,7 +424,8 @@ function buildInquiryRecord(input: {
 async function ensureOrderStorageReady(db: D1Database) {
   if (!orderStorageReadyPromise) {
     orderStorageReadyPromise = (async () => {
-      await db.exec(`
+      await db.exec(
+        `
         CREATE TABLE IF NOT EXISTS inquiries (
           id TEXT PRIMARY KEY,
           request_number TEXT NOT NULL UNIQUE,
@@ -454,7 +455,8 @@ async function ensureOrderStorageReady(db: D1Database) {
           current_value INTEGER NOT NULL DEFAULT -1,
           updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
-      `);
+      `.replace(/\n/g, " "),
+      );
 
       try {
         await db.exec(`ALTER TABLE inquiries ADD COLUMN items_json TEXT NOT NULL DEFAULT '[]';`);

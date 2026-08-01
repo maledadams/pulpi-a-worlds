@@ -383,7 +383,8 @@ async function getDatabase() {
 async function ensureAdminContentReady(db: D1Database) {
   if (!adminContentReadyPromise) {
     adminContentReadyPromise = (async () => {
-      await db.exec(`
+      await db.exec(
+        `
         CREATE TABLE IF NOT EXISTS categories (
           id TEXT PRIMARY KEY,
           slug TEXT NOT NULL UNIQUE,
@@ -434,7 +435,8 @@ async function ensureAdminContentReady(db: D1Database) {
           created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
           updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
-      `);
+      `.replace(/\n/g, " "),
+      );
 
       const migrations = [
         "ALTER TABLE categories ADD COLUMN size_format TEXT NOT NULL DEFAULT 'standard';",
