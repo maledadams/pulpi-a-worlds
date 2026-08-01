@@ -56,24 +56,6 @@
           "custom_domain": true
         }
       ]
-    },
-    // Noindex-able portfolio demo. Separate Worker name and zero secrets/
-    // bindings/cron of its own — it can never read production keys or
-    // touch the real store's data, and it always noindexes every page.
-    "portfolio": {
-      "name": "pulpi-a-worlds-portfolio",
-      "triggers": {
-        "crons": []
-      },
-      "vars": {
-        "PORTFOLIO_NOINDEX_ALL": "true"
-      },
-      "routes": [
-        {
-          "pattern": "pulpina.lucia-adams.com",
-          "custom_domain": true
-        }
-      ]
     }
   }
 }

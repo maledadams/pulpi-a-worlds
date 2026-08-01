@@ -69,11 +69,9 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
   return brandedErrorResponse();
 }
 
-function withRequestSeoHeaders(request: Request, env: unknown, response: Response) {
+function withRequestSeoHeaders(request: Request, response: Response) {
   const pathname = new URL(request.url).pathname;
-  const noindexAll = (env as { PORTFOLIO_NOINDEX_ALL?: string } | undefined)?.PORTFOLIO_NOINDEX_ALL === "true";
-  const shouldNoindex = noindexAll || /^\/(?:admin(?:\/|$)|acceso-admin$|carrito$|solicitud$)/.test(pathname);
-  if (!shouldNoindex) {
+  if (!/^\/(?:admin(?:\/|$)|acceso-admin$|carrito$|solicitud$)/.test(pathname)) {
     return response;
   }
   const headers = new Headers(response.headers);
@@ -85,8 +83,8 @@ function withRequestSeoHeaders(request: Request, env: unknown, response: Respons
   });
 }
 
-function finalizeResponse(request: Request, env: unknown, response: Response) {
-  return withSecurityHeaders(withRequestSeoHeaders(request, env, response));
+function finalizeResponse(request: Request, response: Response) {
+  return withSecurityHeaders(withRequestSeoHeaders(request, response));
 }
 
 export default {
@@ -95,20 +93,20 @@ export default {
       const requestUrl = new URL(request.url);
       if (requestUrl.hostname === "www.pulpinastore.com") {
         requestUrl.hostname = "pulpinastore.com";
-        return finalizeResponse(request, env, Response.redirect(requestUrl, 308));
+        return finalizeResponse(request, Response.redirect(requestUrl, 308));
       }
 
       const webhookResponse = await maybeHandleAgentationWebhook(request);
       if (webhookResponse) {
-        return finalizeResponse(request, env, webhookResponse);
+        return finalizeResponse(request, webhookResponse);
       }
 
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return finalizeResponse(request, env, await normalizeCatastrophicSsrResponse(response));
+      return finalizeResponse(request, await normalizeCatastrophicSsrResponse(response));
     } catch (error) {
       console.error(error);
-      return finalizeResponse(request, env, brandedErrorResponse());
+      return finalizeResponse(request, brandedErrorResponse());
     }
   },
   async scheduled(_controller: unknown, _env: unknown, ctx: { waitUntil(promise: Promise<unknown>): void }) {
