@@ -538,7 +538,7 @@ export const ADMIN_SETTINGS: AdminSettingsRecord = {
   vibeCatalogHeading: "Toda la Linea",
   productDetailsTitle: "Detalles",
   productDetailsBody:
-    "Diseno exclusivo Pulpiña RD. Edicion limitada, hecha en Republica Dominicana.",
+    "Seleccion exclusiva Pulpiña RD. Edicion limitada, disponible en Republica Dominicana.",
   productCareTitle: "Cuidado",
   productCareBody: "Lavar a mano con agua fria. No usar secadora.",
   productShippingTitle: "Envio",

@@ -376,6 +376,18 @@ export function Header({
     }
   }, [activeMega]);
 
+  /* block page scroll while the mega dropdown is open/hovered, so it stays put */
+  useEffect(() => {
+    if (!activeMega) return;
+    const preventScroll = (event: WheelEvent | TouchEvent) => event.preventDefault();
+    window.addEventListener("wheel", preventScroll, { passive: false });
+    window.addEventListener("touchmove", preventScroll, { passive: false });
+    return () => {
+      window.removeEventListener("wheel", preventScroll);
+      window.removeEventListener("touchmove", preventScroll);
+    };
+  }, [activeMega]);
+
   const navItems = useMemo<NavItem[]>(() => {
     const buildChildren = (to: string, label: string, vibe?: Vibe) => [
       { to, label },
