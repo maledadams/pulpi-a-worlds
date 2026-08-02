@@ -10,7 +10,7 @@ import {
   listStorefrontCatalogProductsInternal,
 } from "@/lib/catalog";
 import { verifyTurnstileToken } from "@/lib/turnstile";
-import { validateBirthdayCouponInternal } from "@/lib/public-forms";
+import { validateDiscountCodeInternal } from "@/lib/public-forms";
 import { signOrderConfirmToken, verifyOrderConfirmToken } from "@/lib/order-confirm-token";
 import type { AdminInquiryChannel, AdminInquiryRecord, AdminInquiryStatus } from "@/lib/admin-types";
 
@@ -1542,7 +1542,7 @@ export const submitManualOrder = createServerFn({ method: "POST" })
     let discount = 0;
     let discountCode = "";
     if (data.discountCode.trim()) {
-      const validation = await validateBirthdayCouponInternal({
+      const validation = await validateDiscountCodeInternal({
         code: data.discountCode,
         email: data.customerEmail,
         subtotal: canonicalSubtotal,
@@ -1568,7 +1568,7 @@ export const submitManualOrder = createServerFn({ method: "POST" })
         ...data,
         discount,
         notes: discountCode
-          ? `${data.notes}${data.notes ? "\n" : ""}Código de cumpleaños: ${discountCode}`
+          ? `${data.notes}${data.notes ? "\n" : ""}Código de descuento: ${discountCode}`
           : data.notes,
         status: "pending_contact",
       };

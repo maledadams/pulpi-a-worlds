@@ -4,6 +4,7 @@ import { getStorefrontSettingsInternal } from "@/lib/admin-content";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { signOrderConfirmToken, verifyOrderConfirmToken } from "@/lib/order-confirm-token";
+import { computeCheckoutDiscountAmount, findActiveCheckoutDiscount } from "@/lib/store-discounts";
 
 type WorkerEnv = {
   DB?: D1Database;
@@ -329,43 +330,50 @@ export async function processBirthdayEmailsInternal(now = new Date(), onlyEmail?
   return { sent };
 }
 
-export async function validateBirthdayCouponInternal(input: z.infer<typeof couponValidationSchema>) {
+export async function validateDiscountCodeInternal(input: z.infer<typeof couponValidationSchema>) {
   const email = input.email.trim().toLowerCase();
   const code = input.code.trim().toUpperCase();
   const invalidResult = {
+    code: "",
     discount: 0,
-    message: "El código no es válido para este correo o para el día de hoy.",
+    message: "Código inválido.",
     ok: false as const,
   };
 
-  if (code !== BIRTHDAY_COUPON_CODE) {
+  if (code === BIRTHDAY_COUPON_CODE) {
+    const secret = await getBirthdayTokenSecret();
+    const today = getDominicanDateParts();
+    if (!secret || !input.token || !(await verifyOrderConfirmToken(birthdayTokenSubject(email, today.dateKey), input.token, secret))) {
+      return invalidResult;
+    }
+
+    const db = await getDatabase();
+    const birthDate = db
+      ? await (async () => {
+          await ensurePublicFormsReady(db);
+          const row = await db
+            .prepare("SELECT birth_date FROM birthday_subscribers WHERE email = ?")
+            .bind(email)
+            .first<{ birth_date: string }>();
+          return row?.birth_date ?? null;
+        })()
+      : memorySubscribers.get(email)?.birthDate ?? null;
+
+    if (!birthDate || birthDate.slice(5) !== today.monthDay) {
+      return invalidResult;
+    }
+
+    const discount = Math.round(input.subtotal * BIRTHDAY_DISCOUNT_RATE * 100) / 100;
+    return { code, discount, message: "Descuento aplicado.", ok: true as const };
+  }
+
+  const generalDiscount = await findActiveCheckoutDiscount(code);
+  if (!generalDiscount) {
     return invalidResult;
   }
 
-  const secret = await getBirthdayTokenSecret();
-  const today = getDominicanDateParts();
-  if (!secret || !input.token || !(await verifyOrderConfirmToken(birthdayTokenSubject(email, today.dateKey), input.token, secret))) {
-    return invalidResult;
-  }
-
-  const db = await getDatabase();
-  const birthDate = db
-    ? await (async () => {
-        await ensurePublicFormsReady(db);
-        const row = await db
-          .prepare("SELECT birth_date FROM birthday_subscribers WHERE email = ?")
-          .bind(email)
-          .first<{ birth_date: string }>();
-        return row?.birth_date ?? null;
-      })()
-    : memorySubscribers.get(email)?.birthDate ?? null;
-
-  if (!birthDate || birthDate.slice(5) !== today.monthDay) {
-    return invalidResult;
-  }
-
-  const discount = Math.round(input.subtotal * BIRTHDAY_DISCOUNT_RATE * 100) / 100;
-  return { code, discount, message: "Código aplicado: 15% de descuento de cumpleaños.", ok: true as const };
+  const discount = computeCheckoutDiscountAmount(generalDiscount, input.subtotal);
+  return { code: generalDiscount.code, discount, message: "Descuento aplicado.", ok: true as const };
 }
 
 export const submitContactForm = createServerFn({ method: "POST" })
@@ -417,12 +425,12 @@ export const subscribeNewsletter = createServerFn({ method: "POST" })
     return saveNewsletterSubscriber(data);
   });
 
-export const validateBirthdayCoupon = createServerFn({ method: "POST" })
+export const validateDiscountCode = createServerFn({ method: "POST" })
   .inputValidator((data: z.input<typeof couponValidationSchema>) => couponValidationSchema.parse(data))
   .handler(async ({ data }) => {
     const { setResponseHeader } = await import("@tanstack/react-start/server");
     setResponseHeader("Cache-Control", "private, no-store");
-    return validateBirthdayCouponInternal(data);
+    return validateDiscountCodeInternal(data);
   });
 
 function birthdayRedirectPage(email: string, token: string) {

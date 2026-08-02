@@ -139,6 +139,22 @@ export async function listActiveDiscountsInternal() {
   return discounts.map((discount) => ({ ...discount }));
 }
 
+export async function findActiveCheckoutDiscount(code: string) {
+  const normalized = code.trim().toUpperCase();
+  if (!normalized) return null;
+
+  const discounts = await listActiveDiscountsInternal();
+  return discounts.find((discount) => discount.scope === "store" && discount.code.toUpperCase() === normalized) ?? null;
+}
+
+export function computeCheckoutDiscountAmount(discount: AdminDiscountRecord, subtotal: number) {
+  if (discount.type === "percentage") {
+    return roundPrice(subtotal * (discount.value / 100));
+  }
+
+  return roundPrice(Math.min(subtotal, discount.value));
+}
+
 export function applyDiscountsToProduct(product: Product, discounts: AdminDiscountRecord[]) {
   const applicable = discounts.filter(
     (discount) => discount.active && (discount.scope === "store" || discount.scope === product.vibe),
