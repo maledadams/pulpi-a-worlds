@@ -10,6 +10,22 @@ import { validateBirthdayCoupon } from "@/lib/public-forms";
 import { createSeoHead } from "@/lib/seo";
 import { useScrollFollow } from "@/hooks/use-scroll-follow";
 
+function formatPhoneInput(raw: string) {
+  let digits = raw.replace(/\D/g, "");
+  if (digits.startsWith("1") && digits.length > 10) digits = digits.slice(1);
+  digits = digits.slice(0, 10);
+  const area = digits.slice(0, 3);
+  const mid = digits.slice(3, 6);
+  const last = digits.slice(6, 10);
+
+  let formatted = "+1";
+  if (area) formatted += ` (${area}`;
+  if (area.length === 3) formatted += ")";
+  if (mid) formatted += ` ${mid}`;
+  if (last) formatted += `-${last}`;
+  return formatted;
+}
+
 export const Route = createFileRoute("/solicitud")({
   ssr: false,
   head: () => createSeoHead({ pageName: "Completar pedido", path: "/solicitud", noIndex: true }),
@@ -35,6 +51,7 @@ function InquiryPage() {
   const [turnstileVersion, setTurnstileVersion] = useState(0);
   const [discountCode, setDiscountCode] = useState("");
   const [appliedDiscountCode, setAppliedDiscountCode] = useState("");
+  const [appliedDiscountToken, setAppliedDiscountToken] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState(0);
   const [discountStatus, setDiscountStatus] = useState("");
   const [applyingDiscount, setApplyingDiscount] = useState(false);
@@ -292,6 +309,7 @@ function InquiryPage() {
                   customerName,
                   customerPhone,
                   discountCode: appliedDiscountCode,
+                  discountToken: appliedDiscountToken,
                   fulfillmentMethod,
                   lines: cart.lines.map((line) => ({
                     quantity: line.quantity,
@@ -334,6 +352,7 @@ function InquiryPage() {
                   setNotes("");
                   setDiscountCode("");
                   setAppliedDiscountCode("");
+                  setAppliedDiscountToken("");
                   setAppliedDiscount(0);
                   setDiscountStatus("");
                   setTurnstileToken("");
@@ -366,6 +385,7 @@ function InquiryPage() {
                 onChange={(event) => {
                   setCustomerEmail(event.target.value);
                   setAppliedDiscountCode("");
+                  setAppliedDiscountToken("");
                   setAppliedDiscount(0);
                   setDiscountStatus("");
                 }}
@@ -374,10 +394,12 @@ function InquiryPage() {
 
             <input
               required
+              type="tel"
+              inputMode="numeric"
               value={customerPhone}
-              placeholder="Tu WhatsApp o telefono"
+              placeholder="+1 (809) 000-0000"
               className="w-full rounded-2xl border border-[#231717]/15 bg-[#fbf4e8] px-4 py-3 text-[#231717] caret-[#231717] placeholder:text-[#7c665f]"
-              onChange={(event) => setCustomerPhone(event.target.value)}
+              onChange={(event) => setCustomerPhone(formatPhoneInput(event.target.value))}
             />
 
             <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
@@ -398,13 +420,26 @@ function InquiryPage() {
                 className="border border-[#231717] bg-[#231717] px-5 py-3 text-sm font-bold uppercase text-[#fbf4e8] disabled:cursor-not-allowed disabled:opacity-45"
                 onClick={() => {
                   setApplyingDiscount(true);
+                  let birthdayToken = "";
+                  try {
+                    const raw = localStorage.getItem("pulpina_birthday_token");
+                    if (raw) {
+                      const saved = JSON.parse(raw) as { email?: string; token?: string };
+                      if (saved.email === customerEmail.trim().toLowerCase() && saved.token) {
+                        birthdayToken = saved.token;
+                      }
+                    }
+                  } catch {
+                    // Ignore invalid local storage data.
+                  }
                   void validateBirthdayCoupon({
-                    data: { code: discountCode, email: customerEmail, subtotal: cart.subtotal },
+                    data: { code: discountCode, email: customerEmail, subtotal: cart.subtotal, token: birthdayToken },
                   })
                     .then((result) => {
                       setDiscountStatus(result.message);
                       if (result.ok) {
                         setAppliedDiscountCode(result.code);
+                        setAppliedDiscountToken(birthdayToken);
                         setAppliedDiscount(result.discount);
                       }
                     })

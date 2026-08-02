@@ -10,7 +10,7 @@ import {
   listStorefrontCatalogProductsInternal,
 } from "@/lib/catalog";
 import { verifyTurnstileToken } from "@/lib/turnstile";
-import { redeemBirthdayCouponInternal, validateBirthdayCouponInternal } from "@/lib/public-forms";
+import { validateBirthdayCouponInternal } from "@/lib/public-forms";
 import { signOrderConfirmToken, verifyOrderConfirmToken } from "@/lib/order-confirm-token";
 import type { AdminInquiryChannel, AdminInquiryRecord, AdminInquiryStatus } from "@/lib/admin-types";
 
@@ -36,6 +36,7 @@ const manualOrderSchema = z.object({
   customerName: z.string().trim().min(2).max(120),
   customerPhone: z.string().trim().min(7).max(40),
   discountCode: z.string().trim().max(20).optional().default(""),
+  discountToken: z.string().trim().optional().default(""),
   fulfillmentMethod: z.enum(FULFILLMENT_METHODS).default("pickup"),
   lines: z.array(manualOrderLineSchema).min(1),
   notes: z.string().trim().max(1200).optional().default(""),
@@ -1230,15 +1231,14 @@ function buildOrderSummary(record: AdminInquiryRecord) {
     "Productos:",
     ...lines,
     "",
-    `Subtotal de referencia: ${formatPrice(record.subtotal)}`,
+    `Subtotal: ${formatPrice(record.subtotal)}`,
     record.discount > 0 ? `Descuento aplicado: -${formatPrice(record.discount)}` : "",
-    record.shipping > 0 ? `Envio de referencia: ${formatPrice(record.shipping)}` : "",
-    `Total de referencia: ${formatPrice(record.total)}`,
+    record.shipping > 0 ? `Envio: ${formatPrice(record.shipping)}` : "",
+    `Total: ${formatPrice(record.total)}`,
     `Entrega: ${record.fulfillmentMethod === "delivery" ? "Delivery" : "Recoger"}`,
     record.fulfillmentMethod === "delivery" && record.shippingAddress.line1
       ? `Direccion: ${record.shippingAddress.line1}, ${record.shippingAddress.city}, ${record.shippingAddress.province}`
       : "",
-    "Siguiente paso: escribe por WhatsApp con tu numero de orden para confirmar disponibilidad, envio y cierre manual.",
     record.notes ? `Notas del cliente: ${record.notes}` : "",
   ]
     .filter(Boolean)
@@ -1387,25 +1387,121 @@ async function sendCustomerInvoiceEmail(record: AdminInquiryRecord): Promise<boo
   });
 }
 
+function toWhatsappDigits(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length === 10) return `1${digits}`;
+  return digits;
+}
+
 async function sendTeamOrderNotificationEmail(record: AdminInquiryRecord): Promise<boolean> {
   const config = await getEmailConfig();
   if (!config.apiKey || !config.from) return false;
 
-  const summary = buildOrderSummary(record);
+  const imageMap = await buildVariantImageMap(record.lines);
+  const customerDigits = toWhatsappDigits(record.customerPhone);
+  const whatsappMessage = `¡Hola ${record.customerName}! 🐙 Somos Pulpiña RD. Vimos tu pedido ${record.requestNumber} y queremos confirmar disponibilidad, envío y forma de pago contigo. ¿Nos cuentas cuándo te viene bien?`;
+  const whatsappUrl = customerDigits
+    ? `https://wa.me/${customerDigits}?text=${encodeURIComponent(whatsappMessage)}`
+    : "";
+
+  const rows = record.lines
+    .map((line) => {
+      const image = imageMap.get(line.variantId);
+      const imageCell = image
+        ? `<img src="${escapeHtml(image.url)}" alt="${escapeHtml(image.altText ?? line.productName)}" width="72" height="72" style="width:72px;height:72px;object-fit:cover;border:1px solid #231717;border-radius:12px;display:block" />`
+        : `<div style="width:72px;height:72px;border:1px solid #231717;border-radius:12px;background:#f7f2ec"></div>`;
+
+      return `
+        <tr>
+          <td style="padding:12px 0;border-bottom:1px solid rgba(35,23,23,0.12)">${imageCell}</td>
+          <td style="padding:12px 16px;border-bottom:1px solid rgba(35,23,23,0.12);color:#231717">
+            <div style="font-weight:700">${escapeHtml(line.productName)}</div>
+            <div style="font-size:13px;color:#6b5a55">${escapeHtml(line.variantLabel)} &middot; x${line.quantity}</div>
+          </td>
+          <td style="padding:12px 0;border-bottom:1px solid rgba(35,23,23,0.12);color:#231717;text-align:right;white-space:nowrap">
+            ${escapeHtml(formatPrice(line.unitPrice * line.quantity))}
+          </td>
+        </tr>`;
+    })
+    .join("");
+
+  const totalsRows = [
+    ["Subtotal", formatPrice(record.subtotal)],
+    ...(record.discount > 0 ? [["Descuento", `-${formatPrice(record.discount)}`]] : []),
+    ...(record.shipping > 0 ? [["Envio", formatPrice(record.shipping)]] : []),
+  ]
+    .map(
+      ([label, value]) => `
+        <tr>
+          <td style="padding:4px 0;color:#6b5a55" colspan="2">${label}</td>
+          <td style="padding:4px 0;text-align:right;color:#231717">${value}</td>
+        </tr>`,
+    )
+    .join("");
+
+  const addressLine =
+    record.fulfillmentMethod === "delivery" && record.shippingAddress.line1
+      ? `${record.shippingAddress.line1}, ${record.shippingAddress.city}, ${record.shippingAddress.province}`
+      : "";
+
   const html = `
-    <div style="background:#fbf4e8;padding:24px;font-family:Arial,sans-serif;color:#231717">
-      <div style="max-width:560px;margin:auto;background:#ffffff;border:1px solid #231717;border-radius:16px;padding:24px">
+    <div style="background:#fbf4e8;padding:32px 16px;font-family:Arial,sans-serif">
+      <div style="max-width:560px;margin:auto;background:#ffffff;border:1px solid #231717;border-radius:20px;padding:32px">
         <p style="letter-spacing:.18em;text-transform:uppercase;color:#6b5a55;font-size:12px;margin:0 0 4px">Pulpiña RD</p>
-        <h1 style="font-size:20px;margin:0 0 12px">Pedido confirmado: ${escapeHtml(record.requestNumber)}</h1>
-        <p style="margin:0 0 12px">El cliente confirmo por WhatsApp. Detalle:</p>
-        <pre style="white-space:pre-wrap;font-family:Arial,sans-serif;font-size:14px;margin:0">${escapeHtml(summary)}</pre>
+        <h1 style="font-size:26px;margin:0 0 8px;color:#231717">Nuevo pedido confirmado</h1>
+        <p style="font-size:14px;line-height:1.6;color:#231717;margin:0 0 4px">
+          <strong>${escapeHtml(record.requestNumber)}</strong> &middot; ${escapeHtml(record.customerName)}
+        </p>
+        <p style="font-size:13px;line-height:1.6;color:#6b5a55;margin:0 0 20px">
+          ${escapeHtml(record.customerEmail)} &middot; ${escapeHtml(record.customerPhone)}
+        </p>
+        <table style="width:100%;border-collapse:collapse">${rows}</table>
+        <table style="width:100%;border-collapse:collapse;margin-top:12px">
+          ${totalsRows}
+          <tr>
+            <td colspan="2" style="padding:10px 0 0;font-weight:700;color:#231717;border-top:1px solid #231717">Total</td>
+            <td style="padding:10px 0 0;text-align:right;font-weight:700;color:#231717;border-top:1px solid #231717">${escapeHtml(formatPrice(record.total))}</td>
+          </tr>
+        </table>
+        <p style="font-size:13px;line-height:1.6;color:#231717;margin-top:16px">
+          Entrega: ${record.fulfillmentMethod === "delivery" ? "Delivery" : "Recoger"}${addressLine ? ` — ${escapeHtml(addressLine)}` : ""}
+        </p>
+        ${record.notes ? `<p style="font-size:13px;line-height:1.6;color:#231717;margin-top:4px">Notas: ${escapeHtml(record.notes)}</p>` : ""}
+        ${
+          whatsappUrl
+            ? `<div style="text-align:center;margin-top:24px">
+          <a href="${whatsappUrl}" style="display:inline-block;background:#25D366;color:#ffffff;text-decoration:none;font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:13px;padding:14px 28px;border-radius:999px">
+            Contactar por WhatsApp
+          </a>
+        </div>`
+            : ""
+        }
       </div>
     </div>`;
+
+  const text = [
+    `Nuevo pedido confirmado: ${record.requestNumber}`,
+    `Cliente: ${record.customerName}`,
+    `Email: ${record.customerEmail}`,
+    `Telefono: ${record.customerPhone}`,
+    "",
+    ...record.lines.map(
+      (line) => `- ${line.productName} (${line.variantLabel}) x${line.quantity} - ${formatPrice(line.unitPrice * line.quantity)}`,
+    ),
+    "",
+    `Subtotal: ${formatPrice(record.subtotal)}`,
+    record.discount > 0 ? `Descuento: -${formatPrice(record.discount)}` : "",
+    record.shipping > 0 ? `Envio: ${formatPrice(record.shipping)}` : "",
+    `Total: ${formatPrice(record.total)}`,
+    whatsappUrl ? `Contactar por WhatsApp: ${whatsappUrl}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   return sendEmailViaResend({
     html,
     subject: `Nuevo pedido confirmado ${record.requestNumber}`,
-    text: ["Nuevo pedido confirmado por WhatsApp.", "", summary].join("\n"),
+    text,
     to: config.supportEmail,
   });
 }
@@ -1450,6 +1546,7 @@ export const submitManualOrder = createServerFn({ method: "POST" })
         code: data.discountCode,
         email: data.customerEmail,
         subtotal: canonicalSubtotal,
+        token: data.discountToken,
       });
       if (!validation.ok) {
         return { message: validation.message, ok: false as const };
@@ -1478,9 +1575,6 @@ export const submitManualOrder = createServerFn({ method: "POST" })
       const record = db
         ? (await createOrderInDatabase(orderInput, canonicalLines)) ?? (await createOrderInMemory(orderInput, canonicalLines))
         : await createOrderInMemory(orderInput, canonicalLines);
-      if (discountCode) {
-        await redeemBirthdayCouponInternal(discountCode, data.customerEmail);
-      }
       const config = await getEmailConfig();
       let customerSent = false;
       if (config.apiKey && config.from) {
