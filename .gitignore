@@ -28,6 +28,9 @@ docs/*
 !.env.example
 !.env.production
 
+# Playwright MCP test artifacts
+.playwright-mcp/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
