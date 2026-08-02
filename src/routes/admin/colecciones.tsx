@@ -249,7 +249,7 @@ function AdminCollectionsPage() {
         </AdminButton>
       }
     >
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(460px,0.95fr)]">
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(460px,0.95fr)]">
         <AdminPanel
           title="Colecciones"
           actions={

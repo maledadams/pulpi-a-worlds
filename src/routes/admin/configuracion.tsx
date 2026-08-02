@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AdminPanel, AdminShell } from "@/components/admin/AdminShell";
 import {
@@ -33,6 +34,7 @@ function AdminSettingsPage() {
   const [form, setForm] = useState(settings);
   const [saveMessage, setSaveMessage] = useState("");
   const [tab, setTab] = useState<SettingsTab>("contacto");
+  const [expandedLegalId, setExpandedLegalId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!saveMessage) return;
@@ -199,15 +201,14 @@ function AdminSettingsPage() {
           actions={
             <AdminButton
               tone="secondary"
-              onClick={() =>
+              onClick={() => {
+                const newId = `legal-${Date.now()}`;
                 setForm((current) => ({
                   ...current,
-                  legalSections: [
-                    ...current.legalSections,
-                    { id: `legal-${Date.now()}`, title: "", body: "" },
-                  ],
-                }))
-              }
+                  legalSections: [...current.legalSections, { id: newId, title: "", body: "" }],
+                }));
+                setExpandedLegalId(newId);
+              }}
             >
               Agregar bloque legal
             </AdminButton>
@@ -267,53 +268,66 @@ function AdminSettingsPage() {
               />
             </AdminField>
 
-            {form.legalSections.map((section) => (
-              <div key={section.id} className="rounded-[18px] border border-[#231717]/15 bg-[#faf6f0] p-4">
-                <div className="grid gap-3">
-                  <div className="flex justify-end">
-                    <AdminButton
-                      tone="ghost"
-                      onClick={() =>
-                        confirmAdminDestructiveAction("Vas a eliminar este bloque legal. ¿Quieres continuar?") &&
-                        setForm((current) => ({
-                          ...current,
-                          legalSections: current.legalSections.filter((entry) => entry.id !== section.id),
-                        }))
-                      }
-                    >
-                      Quitar
-                    </AdminButton>
-                  </div>
-                  <AdminField label="Titulo del bloque">
-                    <AdminInput
-                      value={section.title}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          legalSections: current.legalSections.map((entry) =>
-                            entry.id === section.id ? { ...entry, title: event.target.value } : entry,
-                          ),
-                        }))
-                      }
-                    />
-                  </AdminField>
-                  <AdminField label="Contenido del bloque">
-                    <AdminTextarea
-                      value={section.body}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          legalSections: current.legalSections.map((entry) =>
-                            entry.id === section.id ? { ...entry, body: event.target.value } : entry,
-                          ),
-                        }))
-                      }
-                      rows={6}
-                    />
-                  </AdminField>
+            {form.legalSections.map((section) => {
+              const isOpen = expandedLegalId === section.id;
+              return (
+                <div key={section.id} className="rounded-[18px] border border-[#231717]/15 bg-[#faf6f0]">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedLegalId(isOpen ? null : section.id)}
+                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                  >
+                    <span className="min-w-0 truncate text-sm font-bold">{section.title || "Bloque sin titulo"}</span>
+                    <ChevronDown className={`h-4 w-4 shrink-0 text-[#7c665f] transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  {isOpen ? (
+                    <div className="grid gap-3 border-t border-[#231717]/10 p-4">
+                      <div className="flex justify-end">
+                        <AdminButton
+                          tone="ghost"
+                          onClick={() =>
+                            confirmAdminDestructiveAction("Vas a eliminar este bloque legal. ¿Quieres continuar?") &&
+                            setForm((current) => ({
+                              ...current,
+                              legalSections: current.legalSections.filter((entry) => entry.id !== section.id),
+                            }))
+                          }
+                        >
+                          Quitar
+                        </AdminButton>
+                      </div>
+                      <AdminField label="Titulo del bloque">
+                        <AdminInput
+                          value={section.title}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              legalSections: current.legalSections.map((entry) =>
+                                entry.id === section.id ? { ...entry, title: event.target.value } : entry,
+                              ),
+                            }))
+                          }
+                        />
+                      </AdminField>
+                      <AdminField label="Contenido del bloque">
+                        <AdminTextarea
+                          value={section.body}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              legalSections: current.legalSections.map((entry) =>
+                                entry.id === section.id ? { ...entry, body: event.target.value } : entry,
+                              ),
+                            }))
+                          }
+                          rows={6}
+                        />
+                      </AdminField>
+                    </div>
+                  ) : null}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </AdminPanel>
         ) : null}

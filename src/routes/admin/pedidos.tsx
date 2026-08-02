@@ -451,7 +451,7 @@ function AdminOrdersPage() {
         </AdminButton>
       }
     >
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_460px]">
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.2fr)_460px]">
         <AdminPanel
           title="Ordenes"
           actions={

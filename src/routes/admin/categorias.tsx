@@ -337,6 +337,7 @@ function AdminCategoriesPage() {
       }
     >
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.1fr)_430px]">
+        <div className="grid gap-4">
         <AdminPanel>
           <div className="mb-4 flex flex-col gap-3 md:flex-row">
             <AdminInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nombre o id" />
@@ -409,9 +410,88 @@ function AdminCategoriesPage() {
           )}
         </AdminPanel>
 
-        <div className="grid gap-4">
-          <AdminPanel
-            title={draft?.label || "Editor"}
+        <AdminPanel
+          title="Formatos de talla"
+          actions={
+            <AdminButton tone="primary" onClick={handleSaveFormat}>
+              Guardar formato
+            </AdminButton>
+          }
+        >
+          <div className="grid gap-4">
+            {formatMessage ? (
+              <div className="rounded-2xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2 text-xs font-semibold text-[#5f4941]">
+                {formatMessage}
+              </div>
+            ) : null}
+
+            <div className="flex flex-wrap gap-2">
+              {sizeFormats.map((format) => (
+                <AdminButton
+                  key={format.id}
+                  tone={selectedFormatId === format.id ? "active" : "ghost"}
+                  onClick={() => {
+                    setSelectedFormatId(format.id);
+                    setFormatMessage("");
+                    setNewSize("");
+                  }}
+                >
+                  {format.label}
+                </AdminButton>
+              ))}
+            </div>
+
+            <AdminField label="Nombre del formato">
+              <AdminInput
+                value={selectedFormat.label}
+                onChange={(event) => {
+                  const nextLabel = event.target.value;
+                  updateSelectedFormat((current) => ({ ...current, label: nextLabel }));
+                }}
+              />
+            </AdminField>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <AdminSectionLabel>Tallas disponibles</AdminSectionLabel>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {selectedFormat.sizes.map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => handleRemoveSize(size)}
+                      disabled={usedSizesForSelectedFormat.has(size)}
+                      className={`rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] transition ${
+                        usedSizesForSelectedFormat.has(size)
+                          ? "cursor-not-allowed border-[#231717]/10 bg-[#efebe7] text-[#a08f87]"
+                          : "border-[#231717]/15 bg-[#faf6f0] text-[#5f4941] hover:border-[#231717] hover:bg-[#f3eadf]"
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-3 content-start">
+                <AdminField label="Agregar talla nueva">
+                  <AdminInput
+                    value={newSize}
+                    onChange={(event) => setNewSize(event.target.value)}
+                    placeholder={selectedFormat.id === "shoes" ? "Ej: 47" : "Ej: 7XL"}
+                  />
+                </AdminField>
+                <AdminButton tone="secondary" onClick={handleAddSize}>
+                  Agregar talla
+                </AdminButton>
+              </div>
+            </div>
+          </div>
+        </AdminPanel>
+        </div>
+
+        <AdminPanel
+          title={draft?.label || "Editor"}
             className="self-start"
             actions={
               <div className="flex flex-wrap gap-2">
@@ -580,88 +660,6 @@ function AdminCategoriesPage() {
               />
             )}
           </AdminPanel>
-
-          <AdminPanel
-            title="Formatos de talla"
-            className="h-full"
-            actions={
-              <AdminButton tone="primary" onClick={handleSaveFormat}>
-                Guardar formato
-              </AdminButton>
-            }
-          >
-              <div className="grid h-full content-start gap-4">
-              {formatMessage ? (
-                <div className="rounded-2xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2 text-xs font-semibold text-[#5f4941]">
-                  {formatMessage}
-                </div>
-              ) : null}
-
-              <div className="flex flex-wrap gap-2">
-                {sizeFormats.map((format) => (
-                  <AdminButton
-                    key={format.id}
-                    tone={selectedFormatId === format.id ? "active" : "ghost"}
-                    onClick={() => {
-                      setSelectedFormatId(format.id);
-                      setFormatMessage("");
-                      setNewSize("");
-                    }}
-                  >
-                    {format.label}
-                  </AdminButton>
-                ))}
-              </div>
-
-              <AdminField label="Nombre del formato">
-                <AdminInput
-                  value={selectedFormat.label}
-                  onChange={(event) => {
-                    const nextLabel = event.target.value;
-                    updateSelectedFormat((current) => ({ ...current, label: nextLabel }));
-                  }}
-                />
-              </AdminField>
-
-              <div>
-                <AdminSectionLabel>Tallas disponibles</AdminSectionLabel>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {selectedFormat.sizes.map((size) => (
-                    <button
-                      key={size}
-                      type="button"
-                      onClick={() => handleRemoveSize(size)}
-                      disabled={usedSizesForSelectedFormat.has(size)}
-                      className={`rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] transition ${
-                        usedSizesForSelectedFormat.has(size)
-                          ? "cursor-not-allowed border-[#231717]/10 bg-[#efebe7] text-[#a08f87]"
-                          : "border-[#231717]/15 bg-[#faf6f0] text-[#5f4941] hover:border-[#231717] hover:bg-[#f3eadf]"
-                      }`}
-                    >
-                      {size}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
-                <AdminField label="Agregar talla nueva">
-                  <AdminInput
-                    value={newSize}
-                    onChange={(event) => setNewSize(event.target.value)}
-                    placeholder={selectedFormat.id === "shoes" ? "Ej: 47" : "Ej: 7XL"}
-                  />
-                </AdminField>
-                <div className="flex items-end">
-                  <AdminButton tone="secondary" onClick={handleAddSize}>
-                    Agregar talla
-                  </AdminButton>
-                </div>
-              </div>
-
-            </div>
-          </AdminPanel>
-        </div>
       </div>
     </AdminShell>
   );

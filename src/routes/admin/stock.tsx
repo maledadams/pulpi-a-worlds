@@ -158,7 +158,7 @@ function AdminStockPage() {
       subtitle="Inventario por variante con entradas, salidas, reservas e historial permanente. La estructura del producto (categorias, tallas, colores) se edita en Productos."
       actions={<AdminButton tone="primary" onClick={saveChanges} disabled={!draft || busy}>Guardar cambios</AdminButton>}
     >
-      <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
+      <div className="grid items-start gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
         <AdminPanel title="Productos" className="self-start xl:sticky xl:top-4">
           <AdminInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar producto" />
           <div className="mt-3 grid max-h-[70vh] gap-2 overflow-y-auto pr-1">

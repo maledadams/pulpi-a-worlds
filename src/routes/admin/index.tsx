@@ -125,20 +125,16 @@ function AdminDashboardPage() {
         <AdminStatCard label="Inventario" value={formatPrice(snapshot.inventoryBaseValue)} icon={ShieldCheck} iconClassName="bg-[#fde2bf] text-[#8a531b]" />
       </div>
 
-      <div className="mt-5 grid gap-4 xl:grid-cols-[1.2fr_1fr]">
+      <div className="mt-5 grid items-start gap-4 xl:grid-cols-[1.2fr_1fr]">
         <AdminPanel title="Pedidos recientes">
           {snapshot.recentInquiries.length > 0 ? (
-            <div className="grid gap-3">
+            <div className="grid gap-2.5">
               {snapshot.recentInquiries.map((inquiry) => (
-                <div key={inquiry.id} className="rounded-2xl border border-[#231717]/10 bg-[#faf6f0] p-3">
-                  <div className="min-w-0">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="text-sm font-black">{inquiry.requestNumber}</div>
-                          <div className="mt-1 text-xs text-[#6b5a55]">
-                            {inquiry.customerName} / {formatAdminInquiryChannel(inquiry.channel)}
-                          </div>
-                        </div>
+                <div key={inquiry.id} className="rounded-2xl border border-[#231717]/10 bg-[#faf6f0] p-3.5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-black">{inquiry.requestNumber}</span>
                         <AdminTag
                           tone={
                             inquiry.status === "new"
@@ -153,25 +149,33 @@ function AdminDashboardPage() {
                           {formatAdminInquiryStatus(inquiry.status)}
                         </AdminTag>
                       </div>
-                      {inquiry.lines[0] ? (
-                        <div className="mt-3 rounded-2xl border border-[#231717]/10 bg-white px-3 py-2">
-                          <div className="text-sm font-normal leading-normal">{inquiry.lines[0].productName}</div>
-                          <div className="mt-1 text-xs text-[#6b5a55]">
-                            {inquiry.lines[0].variantLabel} / Cantidad: {inquiry.lines[0].quantity}
-                          </div>
-                        </div>
-                      ) : null}
-                      <div className="mt-3 grid gap-1 text-xs text-[#6b5a55]">
-                        <div>Entrega: {inquiry.fulfillmentMethod === "delivery" ? "Delivery" : "Recoger"}</div>
-                        {inquiry.fulfillmentMethod === "delivery" && inquiry.shippingAddress.line1 ? (
-                          <div>
-                            Direccion: {inquiry.shippingAddress.line1}, {inquiry.shippingAddress.city}, {inquiry.shippingAddress.province}
-                          </div>
-                        ) : null}
+                      <div className="mt-1 truncate text-xs text-[#6b5a55]">
+                        {inquiry.customerName} · {formatAdminInquiryChannel(inquiry.channel)} ·{" "}
+                        {inquiry.fulfillmentMethod === "delivery" ? "Delivery" : "Recoger"}
                       </div>
-                      <div className="mt-3 text-sm text-[#5f4941]">{inquiry.notes || "Sin notas."}</div>
-                      <div className="mt-3 text-sm font-black">{formatPrice(inquiry.total)}</div>
+                    </div>
+                    <div className="shrink-0 text-sm font-black">{formatPrice(inquiry.total)}</div>
                   </div>
+
+                  {inquiry.lines[0] ? (
+                    <div className="mt-2.5 flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-xs">
+                      <span className="min-w-0 truncate font-semibold">{inquiry.lines[0].productName}</span>
+                      <span className="shrink-0 text-[#6b5a55]">
+                        {inquiry.lines[0].variantLabel} · x{inquiry.lines[0].quantity}
+                        {inquiry.lines.length > 1 ? ` · +${inquiry.lines.length - 1} mas` : ""}
+                      </span>
+                    </div>
+                  ) : null}
+
+                  {inquiry.fulfillmentMethod === "delivery" && inquiry.shippingAddress.line1 ? (
+                    <div className="mt-2 truncate text-xs text-[#6b5a55]">
+                      {inquiry.shippingAddress.line1}, {inquiry.shippingAddress.city}, {inquiry.shippingAddress.province}
+                    </div>
+                  ) : null}
+
+                  {inquiry.notes ? (
+                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-[#5f4941]">{inquiry.notes}</p>
+                  ) : null}
                 </div>
               ))}
             </div>
