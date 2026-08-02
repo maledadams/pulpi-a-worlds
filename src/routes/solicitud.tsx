@@ -82,14 +82,6 @@ function InquiryPage() {
     });
   }, [cart.lines.length, cart.refreshAvailability, createdOrder, navigate]);
 
-  useEffect(() => {
-    if (!createdOrder) return;
-    const timeout = window.setTimeout(() => {
-      void navigate({ to: "/", replace: true });
-    }, 1500);
-    return () => window.clearTimeout(timeout);
-  }, [createdOrder, navigate]);
-
   const summaryCards = useMemo(
     () =>
       cart.lines.map((line) => {
