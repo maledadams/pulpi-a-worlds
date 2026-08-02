@@ -342,9 +342,9 @@ function createMockProduct({
     sortOrder: 0,
     category,
     categories: categories ?? [category],
-    description: "Pieza alternativa diseñada en República Dominicana. Edición limitada del universo Pulpiña.",
+    description: "Pieza alternativa seleccionada por Pulpiña RD. Edición limitada, disponible en República Dominicana.",
     descriptionHtml:
-      "<p>Pieza alternativa diseñada en República Dominicana. Edición limitada del universo Pulpiña.</p>",
+      "<p>Pieza alternativa seleccionada por Pulpiña RD. Edición limitada, disponible en República Dominicana.</p>",
     price,
     compareAtPrice,
     currencyCode: "DOP",

@@ -437,7 +437,7 @@ const DEFAULT_LEGAL_SECTIONS: AdminLegalSectionRecord[] = [
     id: "identidad",
     title: "1. Identidad del responsable",
     body:
-      "Marca comercial: Pulpiña RD.\nCanales publicados: hola@pulpinastore.com, Instagram @pulpinard y atencion desde Santo Domingo, Republica Dominicana.\nAntes del lanzamiento comercial debes completar razon social, RNC, domicilio legal y telefono empresarial oficial.",
+      "Marca comercial: Pulpiña RD.\nCanales publicados: hola@pulpinastore.com, Instagram @pulpinard y atencion desde Santo Domingo, Republica Dominicana.",
   },
   {
     id: "alcance",
