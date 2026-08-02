@@ -8,6 +8,7 @@ import {
   AdminField,
   AdminInput,
   AdminPagination,
+  AdminSectionLabel,
   AdminSelect,
   confirmAdminDestructiveAction,
   getAdminVibeButtonClassName,
@@ -445,7 +446,7 @@ function AdminCategoriesPage() {
                 />
 
                 <div>
-                  <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">Subtiendas activas</div>
+                  <AdminSectionLabel>Subtiendas activas</AdminSectionLabel>
                   <div className="mt-2 grid gap-2 sm:grid-cols-3">
                     {(["moon", "sunshine", "men"] as const).map((vibe) => {
                       const active = draft.vibes.includes(vibe);
@@ -464,9 +465,7 @@ function AdminCategoriesPage() {
                 </div>
 
                 <div>
-                  <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">
-                    Imagen por subtienda
-                  </div>
+                  <AdminSectionLabel>Imagen por subtienda</AdminSectionLabel>
                   <p className="mt-1 text-xs leading-5 text-[#6b5a55]">
                     Cada imagen se usa sobre el nombre de esta categoria en el subnav de su subtienda.
                   </p>
@@ -625,7 +624,7 @@ function AdminCategoriesPage() {
               </AdminField>
 
               <div>
-                <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">Tallas disponibles</div>
+                <AdminSectionLabel>Tallas disponibles</AdminSectionLabel>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {selectedFormat.sizes.map((size) => (
                     <button

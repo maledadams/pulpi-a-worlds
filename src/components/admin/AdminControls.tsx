@@ -70,6 +70,52 @@ export function AdminButton({
   );
 }
 
+export function AdminSectionLabel({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cn("text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]", className)}>
+      {children}
+    </div>
+  );
+}
+
+export function getAdminChipClassName(active: boolean, className?: string) {
+  return cn(
+    "rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] transition",
+    active ? "border-[#231717] bg-[#231717] text-white" : "border-[#231717]/20 bg-[#faf6f0] text-[#5f4941]",
+    className,
+  );
+}
+
+export function AdminTabs<T extends string>({
+  tabs,
+  active,
+  onChange,
+}: {
+  tabs: Array<{ id: T; label: string }>;
+  active: T;
+  onChange: (id: T) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2 border-b border-[#231717]/10 pb-3">
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          onClick={() => onChange(tab.id)}
+          className={cn(
+            "rounded-xl border px-4 py-2 text-xs font-black uppercase tracking-[0.16em] transition",
+            active === tab.id
+              ? "border-[#231717] bg-[#231717] text-white"
+              : "border-[#231717]/15 bg-[#f2ede7] text-[#5f4941] hover:border-[#231717]/30 hover:bg-[#ece4db]",
+          )}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function AdminField({
   label,
   hint,

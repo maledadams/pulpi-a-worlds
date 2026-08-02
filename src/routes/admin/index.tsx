@@ -77,11 +77,18 @@ function AdminDashboardPage() {
       0,
     );
 
-    const periodOrders = orders.filter((order) => isInWindow(order, salesWindow));
+    const periodOrders = orders.filter((order) => isInWindow(order, salesWindow) && order.status !== "pending_contact");
     const gains = periodOrders
       .filter((order) => order.status === "closed")
       .reduce((sum, order) => sum + order.total, 0);
     const cancelledCount = periodOrders.filter((order) => order.status === "cancelled").length;
+    const statusBreakdown = {
+      new: periodOrders.filter((order) => order.status === "new").length,
+      follow_up: periodOrders.filter((order) => order.status === "follow_up").length,
+      quoted: periodOrders.filter((order) => order.status === "quoted").length,
+      closed: periodOrders.filter((order) => order.status === "closed").length,
+      cancelled: cancelledCount,
+    };
     return {
       gains,
       cancelledCount,
@@ -91,6 +98,7 @@ function AdminDashboardPage() {
       openInquiryCount: orders.filter((order) => order.status !== "closed" && order.status !== "cancelled").length,
       productCount: products.length,
       recentInquiries,
+      statusBreakdown,
     };
   }, [orders, products, salesWindow]);
 
@@ -202,6 +210,17 @@ function AdminDashboardPage() {
               <div className="flex items-center justify-between rounded-2xl border border-[#231717]/10 bg-[#faf6f0] px-3 py-3">
                 <span>Canceladas</span>
                 <span className="font-black text-[#7d291b]">{snapshot.cancelledCount}</span>
+              </div>
+            </div>
+            <div className="border-t border-[#231717]/10 pt-4">
+              <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">Pedidos por estado</div>
+              <div className="mt-2 grid gap-2 text-sm text-[#5f4941]">
+                {(["new", "follow_up", "quoted", "closed", "cancelled"] as const).map((status) => (
+                  <div key={status} className="flex items-center justify-between rounded-2xl border border-[#231717]/10 bg-[#faf6f0] px-3 py-2.5">
+                    <span>{formatAdminInquiryStatus(status)}</span>
+                    <span className="font-black">{snapshot.statusBreakdown[status]}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

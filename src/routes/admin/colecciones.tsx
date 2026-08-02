@@ -8,6 +8,7 @@ import {
   AdminField,
   AdminInput,
   AdminPagination,
+  AdminSectionLabel,
   AdminSelect,
   AdminToast,
   AdminTextarea,
@@ -401,7 +402,7 @@ function AdminCollectionsPage() {
               </AdminField>
 
               <div>
-                <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">Categorias destacadas</div>
+                <AdminSectionLabel>Categorias destacadas</AdminSectionLabel>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {categories.map((category) => {
                     const active = draft.categoryIds.includes(category.id);
@@ -423,7 +424,7 @@ function AdminCollectionsPage() {
 
               <div>
                 <div className="flex items-center justify-between gap-3">
-                  <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">Productos incluidos</div>
+                  <AdminSectionLabel>Productos incluidos</AdminSectionLabel>
                   <div className="text-xs font-semibold text-[#6b5a55]">{draft.productIds.length} seleccionados</div>
                 </div>
                 <div className="mt-2">

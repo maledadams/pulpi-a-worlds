@@ -5,12 +5,21 @@ import {
   AdminButton,
   AdminField,
   AdminInput,
+  AdminTabs,
   AdminToast,
   AdminTextarea,
   confirmAdminDestructiveAction,
 } from "@/components/admin/AdminControls";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { getAdminSettingsRecord, saveAdminSettingsRecord } from "@/lib/admin-content";
+
+type SettingsTab = "contacto" | "faqs" | "legal";
+
+const SETTINGS_TABS: Array<{ id: SettingsTab; label: string }> = [
+  { id: "contacto", label: "Contacto" },
+  { id: "faqs", label: "Preguntas frecuentes" },
+  { id: "legal", label: "Legal y privacidad" },
+];
 
 export const Route = createFileRoute("/admin/configuracion")({
   beforeLoad: () => enforceAdminAccess(),
@@ -23,6 +32,7 @@ function AdminSettingsPage() {
   const { settings } = Route.useLoaderData();
   const [form, setForm] = useState(settings);
   const [saveMessage, setSaveMessage] = useState("");
+  const [tab, setTab] = useState<SettingsTab>("contacto");
 
   useEffect(() => {
     if (!saveMessage) return;
@@ -52,6 +62,9 @@ function AdminSettingsPage() {
       }
     >
       <div className="grid gap-4">
+        <AdminTabs tabs={SETTINGS_TABS} active={tab} onChange={setTab} />
+
+        {tab === "contacto" ? (
         <AdminPanel title="Canales de contacto">
           <div className="grid gap-3 md:grid-cols-2">
             <AdminField label="Nombre del negocio">
@@ -106,7 +119,9 @@ function AdminSettingsPage() {
             </AdminField>
           </div>
         </AdminPanel>
+        ) : null}
 
+        {tab === "faqs" ? (
         <AdminPanel
           title="Preguntas frecuentes"
           actions={
@@ -176,7 +191,9 @@ function AdminSettingsPage() {
             ))}
           </div>
         </AdminPanel>
+        ) : null}
 
+        {tab === "legal" ? (
         <AdminPanel
           title="Legal y privacidad"
           actions={
@@ -299,6 +316,7 @@ function AdminSettingsPage() {
             ))}
           </div>
         </AdminPanel>
+        ) : null}
       </div>
       <AdminToast message={saveMessage} />
     </AdminShell>

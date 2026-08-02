@@ -9,10 +9,12 @@ import {
   AdminField,
   AdminInput,
   AdminPagination,
+  AdminSectionLabel,
   AdminSelect,
   AdminToast,
   AdminTextarea,
   confirmAdminDestructiveAction,
+  getAdminChipClassName,
   getAdminVibeButtonClassName,
 } from "@/components/admin/AdminControls";
 import { enforceAdminAccess } from "@/lib/admin-access";
@@ -648,19 +650,15 @@ function AdminProductsPage() {
                     </AdminField>
                   </div>
 
-                  <AdminField
-                    label="Product ID"
-                    hint="Cambia esto solo si sabes lo que haces. Mover IDs puede romper referencias existentes."
-                  >
-                    <div className="grid gap-2">
+                  {draft.id.startsWith("draft-") ? (
+                    <AdminField label="Product ID" hint="Se usa como referencia interna unica para este producto.">
                       <AdminInput value={draft.id} onChange={(event) => updateDraft("id", event.target.value)} />
-                      {selected && draft.id !== selected.id ? (
-                        <div className="rounded-xl border border-[#9a3423]/20 bg-[#fff1ec] px-3 py-2 text-xs leading-5 text-[#9a3423]">
-                          Cambiar el ID puede romper pedidos, colecciones o referencias internas que ya apunten a este producto.
-                        </div>
-                      ) : null}
-                    </div>
-                  </AdminField>
+                    </AdminField>
+                  ) : (
+                    <AdminField label="Product ID">
+                      <AdminInput value={draft.id} disabled className="cursor-not-allowed opacity-60" />
+                    </AdminField>
+                  )}
 
                   <div className="grid gap-3 md:grid-cols-2">
                     <AdminField label="Subtienda">
@@ -777,53 +775,39 @@ function AdminProductsPage() {
             <AdminPanel title="Categorias, tallas y colores">
               <div className="grid gap-6">
                 <div>
-                  <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">Categorias asignadas</div>
+                  <AdminSectionLabel>Categorias asignadas</AdminSectionLabel>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {categories.map((category) => {
-                      const active = draft.categories.includes(category.id);
-                      return (
-                        <button
-                          key={category.id}
-                          type="button"
-                          onClick={() => toggleCategory(category.id)}
-                          className={`rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] transition ${
-                            active
-                              ? "border-[#231717] bg-[#231717] text-white"
-                              : "border-[#231717]/20 bg-[#faf6f0] text-[#5f4941]"
-                          }`}
-                        >
-                          {category.label}
-                        </button>
-                      );
-                    })}
+                    {categories.map((category) => (
+                      <button
+                        key={category.id}
+                        type="button"
+                        onClick={() => toggleCategory(category.id)}
+                        className={getAdminChipClassName(draft.categories.includes(category.id))}
+                      >
+                        {category.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">Formato de tallas</div>
+                  <AdminSectionLabel>Formato de tallas</AdminSectionLabel>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {sizeOptions.map((size) => {
-                      const active = draft.sizes.includes(size);
-                      return (
-                        <button
-                          key={size}
-                          type="button"
-                          onClick={() => toggleSize(size)}
-                          className={`rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] transition ${
-                            active
-                              ? "border-[#231717] bg-[#231717] text-white"
-                              : "border-[#231717]/20 bg-[#faf6f0] text-[#5f4941]"
-                          }`}
-                        >
-                          {size}
-                        </button>
-                      );
-                    })}
+                    {sizeOptions.map((size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => toggleSize(size)}
+                        className={getAdminChipClassName(draft.sizes.includes(size))}
+                      >
+                        {size}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">Colores del producto</div>
+                  <AdminSectionLabel>Colores del producto</AdminSectionLabel>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {PRODUCT_COLOR_PRESETS.map((preset) => {
                       const active = activeColorKeys.has(preset.label.toLowerCase());
@@ -832,11 +816,7 @@ function AdminProductsPage() {
                           key={preset.id}
                           type="button"
                           onClick={() => toggleColor(preset.label)}
-                          className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] transition ${
-                            active
-                              ? "border-[#231717] bg-[#231717] text-white"
-                              : "border-[#231717]/20 bg-[#faf6f0] text-[#5f4941]"
-                          }`}
+                          className={getAdminChipClassName(active, "inline-flex items-center gap-2")}
                         >
                           <span className="h-3 w-3 rounded-full border border-black/10" style={{ backgroundColor: preset.hex }} />
                           <span>{preset.label}</span>
