@@ -206,21 +206,21 @@ function AdminDashboardPage() {
             <div className="border-b border-[#231717]/10 pb-4">
               <div className={`text-3xl font-black ${netTone}`}>{netLabel}</div>
             </div>
-            <div className="grid gap-2 text-sm text-[#5f4941]">
-              <div className="flex items-center justify-between rounded-2xl border border-[#231717]/10 bg-[#faf6f0] px-3 py-3">
+            <div className="grid gap-1 text-sm text-[#5f4941]">
+              <div className="flex items-center justify-between rounded-xl bg-[#faf6f0] px-3 py-2.5">
                 <span>Ventas cerradas</span>
                 <span className="font-black text-emerald-700">+{formatPrice(snapshot.gains)}</span>
               </div>
-              <div className="flex items-center justify-between rounded-2xl border border-[#231717]/10 bg-[#faf6f0] px-3 py-3">
+              <div className="flex items-center justify-between rounded-xl bg-[#faf6f0] px-3 py-2.5">
                 <span>Canceladas</span>
                 <span className="font-black text-[#7d291b]">{snapshot.cancelledCount}</span>
               </div>
             </div>
             <div className="border-t border-[#231717]/10 pt-4">
               <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">Pedidos por estado</div>
-              <div className="mt-2 grid gap-2 text-sm text-[#5f4941]">
+              <div className="mt-2 grid gap-1 text-sm text-[#5f4941]">
                 {(["new", "follow_up", "quoted", "closed", "cancelled"] as const).map((status) => (
-                  <div key={status} className="flex items-center justify-between rounded-2xl border border-[#231717]/10 bg-[#faf6f0] px-3 py-2.5">
+                  <div key={status} className="flex items-center justify-between rounded-xl bg-[#faf6f0] px-3 py-2">
                     <span>{formatAdminInquiryStatus(status)}</span>
                     <span className="font-black">{snapshot.statusBreakdown[status]}</span>
                   </div>

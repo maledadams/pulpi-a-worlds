@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Info } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
@@ -255,12 +255,24 @@ export function AdminPagination({
   );
 }
 
-export function AdminToast({ message }: { message: string }) {
+export type AdminToastTone = "success" | "error" | "info";
+
+export function AdminToast({ message, tone = "info" }: { message: string; tone?: AdminToastTone }) {
   if (!message) return null;
+
+  const Icon = tone === "success" ? CheckCircle2 : tone === "error" ? AlertCircle : Info;
 
   return (
     <div className="pointer-events-none fixed bottom-4 left-4 z-50 animate-in slide-in-from-bottom-3 fade-in duration-200">
-      <div className="rounded-xl border border-[#231717] bg-white px-4 py-3 text-sm font-semibold text-[#231717] shadow-[0_18px_40px_-18px_rgba(35,23,23,0.45)]">
+      <div
+        className={cn(
+          "flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-semibold shadow-[0_18px_40px_-18px_rgba(35,23,23,0.45)]",
+          tone === "success" && "border-emerald-600 text-emerald-800",
+          tone === "error" && "border-[#9a3423] text-[#7d291b]",
+          tone === "info" && "border-[#231717] text-[#231717]",
+        )}
+      >
+        <Icon className="h-4 w-4 shrink-0" />
         {message}
       </div>
     </div>

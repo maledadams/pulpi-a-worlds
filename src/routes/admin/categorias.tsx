@@ -10,6 +10,8 @@ import {
   AdminPagination,
   AdminSectionLabel,
   AdminSelect,
+  AdminToast,
+  type AdminToastTone,
   confirmAdminDestructiveAction,
   getAdminVibeButtonClassName,
 } from "@/components/admin/AdminControls";
@@ -78,11 +80,15 @@ function AdminCategoriesPage() {
   const [selectedId, setSelectedId] = useState(categories[0]?.id ?? "");
   const [page, setPage] = useState(0);
   const [draft, setDraft] = useState<AdminCategoryRecord | null>(categories[0] ? cloneCategory(categories[0]) : null);
-  const [saveMessage, setSaveMessage] = useState("");
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastTone, setToastTone] = useState<AdminToastTone>("info");
+  const showToast = (text: string, tone: AdminToastTone = "info") => {
+    setToastMessage(text);
+    setToastTone(tone);
+  };
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteReplacementId, setDeleteReplacementId] = useState("");
   const [selectedFormatId, setSelectedFormatId] = useState<AdminSizeFormatRecord["id"]>(initialSizeFormats[0]?.id ?? "standard");
-  const [formatMessage, setFormatMessage] = useState("");
   const [newSize, setNewSize] = useState("");
   const [selectedCategoryFiles, setSelectedCategoryFiles] = useState<
     Partial<Record<SubstoreVibe, File | null>>
@@ -141,6 +147,12 @@ function AdminCategoriesPage() {
     setSelectedCategoryFiles({});
   }, [selected]);
 
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timeout = window.setTimeout(() => setToastMessage(""), 2600);
+    return () => window.clearTimeout(timeout);
+  }, [toastMessage]);
+
   const toggleVibe = (vibe: SubstoreVibe) => {
     setDraft((current) => {
       if (!current) return current;
@@ -167,7 +179,7 @@ function AdminCategoriesPage() {
   const handleUploadCategoryImage = (vibe: SubstoreVibe) => {
     if (!draft || draft.id.startsWith("draft-category-") || !selectedCategoryFiles[vibe]) return;
     setUploadingVibe(vibe);
-    setSaveMessage("");
+    setToastMessage("");
     const formData = new FormData();
     formData.set("categoryId", draft.id);
     formData.set("vibe", vibe);
@@ -177,10 +189,10 @@ function AdminCategoriesPage() {
       .then((saved) => {
         updateSavedCategory(saved);
         setSelectedCategoryFiles((current) => ({ ...current, [vibe]: null }));
-        setSaveMessage(`Imagen de ${getVibeLabel(vibe)} guardada.`);
+        showToast(`Imagen de ${getVibeLabel(vibe)} guardada.`, "success");
       })
       .catch((error) => {
-        setSaveMessage(error instanceof Error ? error.message : "No se pudo subir la imagen.");
+        showToast(error instanceof Error ? error.message : "No se pudo subir la imagen.", "error");
       })
       .finally(() => setUploadingVibe(null));
   };
@@ -191,14 +203,14 @@ function AdminCategoriesPage() {
       return;
     }
     setUploadingVibe(vibe);
-    setSaveMessage("");
+    setToastMessage("");
     void deleteAdminCategoryImage({ data: { categoryId: draft.id, vibe } })
       .then((saved) => {
         updateSavedCategory(saved);
-        setSaveMessage(`Imagen de ${getVibeLabel(vibe)} eliminada.`);
+        showToast(`Imagen de ${getVibeLabel(vibe)} eliminada.`, "success");
       })
       .catch((error) => {
-        setSaveMessage(error instanceof Error ? error.message : "No se pudo quitar la imagen.");
+        showToast(error instanceof Error ? error.message : "No se pudo quitar la imagen.", "error");
       })
       .finally(() => setUploadingVibe(null));
   };
@@ -208,7 +220,7 @@ function AdminCategoriesPage() {
     setRows((current) => [blank, ...current]);
     setSelectedId(blank.id);
     setDraft(blank);
-    setSaveMessage("Nueva categoria draft creada.");
+    showToast("Nueva categoria draft creada.", "success");
   };
 
   const handleSave = () => {
@@ -232,10 +244,10 @@ function AdminCategoriesPage() {
         });
         setSelectedId(saved.id);
         setDraft(cloneCategory(saved));
-        setSaveMessage("Categoria guardada.");
+        showToast("Categoria guardada.", "success");
       })
       .catch(() => {
-        setSaveMessage("No se pudo guardar la categoria ahora mismo.");
+        showToast("No se pudo guardar la categoria ahora mismo.", "error");
       });
   };
 
@@ -251,19 +263,19 @@ function AdminCategoriesPage() {
 
     if (draft.id.startsWith("draft-category-")) {
       setRows((current) => current.filter((category) => category.id !== draft.id));
-      setSaveMessage("Categoria draft eliminada.");
+      showToast("Categoria draft eliminada.", "success");
       return;
     }
 
     setIsDeleting(true);
-    setSaveMessage("");
+    setToastMessage("");
     void deleteAdminCategory({ data: { id: draft.id, replacementCategoryId: deleteReplacementId || undefined } })
       .then(() => {
         setRows((current) => current.filter((category) => category.id !== draft.id));
-        setSaveMessage("Categoria eliminada.");
+        showToast("Categoria eliminada.", "success");
       })
       .catch((error) => {
-        setSaveMessage(error instanceof Error ? error.message : "No se pudo eliminar la categoria.");
+        showToast(error instanceof Error ? error.message : "No se pudo eliminar la categoria.", "error");
       })
       .finally(() => {
         setIsDeleting(false);
@@ -288,12 +300,11 @@ function AdminCategoriesPage() {
       };
     });
     setNewSize("");
-    setFormatMessage("");
   };
 
   const handleRemoveSize = (size: string) => {
     if (usedSizesForSelectedFormat.has(size)) {
-      setFormatMessage("No puedes quitar una talla que ya esta en uso en productos guardados.");
+      showToast("No puedes quitar una talla que ya esta en uso en productos guardados.", "error");
       return;
     }
     if (!confirmAdminDestructiveAction(`Vas a quitar la talla ${size} de este formato. ¿Quieres continuar?`)) {
@@ -307,7 +318,6 @@ function AdminCategoriesPage() {
         sizes: current.sizes.filter((entry) => entry !== size),
       };
     });
-    setFormatMessage("");
   };
 
   const handleSaveFormat = () => {
@@ -319,10 +329,10 @@ function AdminCategoriesPage() {
     void saveAdminSizeFormat({ data: payload })
       .then((saved) => {
         setSizeFormats((current) => current.map((format) => (format.id === saved.id ? cloneSizeFormat(saved) : format)));
-        setFormatMessage("Formato guardado.");
+        showToast("Formato guardado.", "success");
       })
       .catch(() => {
-        setFormatMessage("No se pudo guardar el formato de tallas.");
+        showToast("No se pudo guardar el formato de tallas.", "error");
       });
   };
 
@@ -419,12 +429,6 @@ function AdminCategoriesPage() {
           }
         >
           <div className="grid gap-4">
-            {formatMessage ? (
-              <div className="rounded-2xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2 text-xs font-semibold text-[#5f4941]">
-                {formatMessage}
-              </div>
-            ) : null}
-
             <div className="flex flex-wrap gap-2">
               {sizeFormats.map((format) => (
                 <AdminButton
@@ -432,7 +436,6 @@ function AdminCategoriesPage() {
                   tone={selectedFormatId === format.id ? "active" : "ghost"}
                   onClick={() => {
                     setSelectedFormatId(format.id);
-                    setFormatMessage("");
                     setNewSize("");
                   }}
                 >
@@ -506,12 +509,6 @@ function AdminCategoriesPage() {
           >
             {draft ? (
               <div className="grid content-start gap-4">
-                {saveMessage ? (
-                  <div className="rounded-2xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2 text-xs font-semibold text-[#5f4941]">
-                    {saveMessage}
-                  </div>
-                ) : null}
-
                 <AdminField label="Nombre visible">
                   <AdminInput value={draft.label} onChange={(event) => setDraft((current) => (current ? { ...current, label: event.target.value } : current))} />
                 </AdminField>
@@ -557,7 +554,7 @@ function AdminCategoriesPage() {
                         const isUploading = uploadingVibe === vibe;
                         const canUpload = !draft.id.startsWith("draft-category-");
                         return (
-                          <div key={vibe} className="border border-[#231717]/12 bg-[#faf6f0] p-3">
+                          <div key={vibe} className="rounded-xl bg-[#faf6f0] p-3">
                           <div className="grid gap-3 sm:grid-cols-[88px_minmax(0,1fr)]">
                             <div className="flex h-[88px] w-[88px] items-center justify-center overflow-hidden bg-[#f1e7dc]">
                               {image ? (
@@ -661,6 +658,7 @@ function AdminCategoriesPage() {
             )}
           </AdminPanel>
       </div>
+      <AdminToast message={toastMessage} tone={toastTone} />
     </AdminShell>
   );
 }

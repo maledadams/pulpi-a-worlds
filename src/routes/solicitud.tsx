@@ -206,16 +206,18 @@ function InquiryPage() {
     return (
       <div className="mx-auto max-w-4xl px-4 py-8 sm:py-12">
         <div className="rounded-3xl border border-foreground/15 bg-card p-6 sm:p-8">
-          <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-emerald-900">
-            <CheckCircle2 className="h-4 w-4" />
-            Pedido creado
+          <div className="flex flex-col items-center text-center">
+            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-emerald-900">
+              <CheckCircle2 className="h-4 w-4" />
+              Pedido creado
+            </div>
+            <h1 className="mt-4 font-display text-3xl sm:text-4xl">
+              Tu numero de orden es {createdOrder.order.requestNumber}
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+              Ya registramos tu pedido. Revisa tu correo: ahi tienes el detalle y el boton para confirmar por WhatsApp.
+            </p>
           </div>
-          <h1 className="mt-4 font-display text-3xl sm:text-4xl">
-            Tu numero de orden es {createdOrder.order.requestNumber}
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-            Ya registramos tu pedido. Revisa tu correo: ahi tienes el detalle y el boton para confirmar por WhatsApp.
-          </p>
 
           <div className="mt-6">
             <div className="rounded-2xl border border-foreground/10 bg-background p-4">
@@ -228,17 +230,17 @@ function InquiryPage() {
 
                   return (
                     <div key={`${line.variantId}-${line.quantity}`} className="rounded-2xl border border-foreground/10 bg-card p-3">
-                      <div className="flex items-stretch gap-6">
+                      <div className="flex items-start gap-4">
                         {image ? (
-                          <div className="w-20 shrink-0 self-stretch overflow-hidden border border-foreground/20">
+                          <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-foreground/20">
                             <img
                               src={image.url}
                               alt={image.altText ?? line.productName}
-                              className="h-full min-h-20 w-full object-cover"
+                              className="h-full w-full object-cover"
                             />
                           </div>
                         ) : (
-                          <div className="flex min-h-20 w-20 shrink-0 self-stretch items-center justify-center border border-foreground/20 bg-muted text-xl">
+                          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg border border-foreground/20 bg-muted text-xl">
                             <span className="font-display">{line.productName.slice(0, 2).toUpperCase()}</span>
                           </div>
                         )}
@@ -255,25 +257,26 @@ function InquiryPage() {
                   );
                 })}
               </div>
-              <div className="mt-4 grid gap-1 border-t border-foreground/10 pt-4 text-sm text-muted-foreground">
-                <div className="flex items-center justify-between">
-                  <span>Entrega</span>
-                  <span>{createdOrder.order.fulfillmentMethod === "delivery" ? "Delivery" : "Recoger"}</span>
+              <div className="mt-4 border-t border-foreground/10 pt-4">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-bold text-foreground">
+                    {createdOrder.order.fulfillmentMethod === "delivery" ? "Delivery" : "Recoger en tienda"}
+                  </span>
+                  {createdOrder.order.fulfillmentMethod === "delivery" ? (
+                    <span className="text-xs text-muted-foreground">Costo: se confirma luego</span>
+                  ) : null}
                 </div>
                 {createdOrder.order.fulfillmentMethod === "delivery" ? (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <span>Delivery</span>
-                      <span>Se confirma luego</span>
-                    </div>
-                    <div>{createdOrder.order.shippingAddress.line1}</div>
-                    <div>
-                      {createdOrder.order.shippingAddress.city}, {createdOrder.order.shippingAddress.province}
-                    </div>
-                  </>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    {createdOrder.order.shippingAddress.line1}, {createdOrder.order.shippingAddress.city},{" "}
+                    {createdOrder.order.shippingAddress.province}
+                  </p>
                 ) : null}
-                <div className="mt-2 flex items-center justify-between border-t border-foreground/10 pt-2">
-                  <span>Subtotal original</span>
+              </div>
+
+              <div className="mt-4 grid gap-1.5 border-t border-foreground/10 pt-4 text-sm text-muted-foreground">
+                <div className="flex items-center justify-between">
+                  <span>Subtotal</span>
                   <span>{formatPrice(createdOrder.order.subtotal)}</span>
                 </div>
                 {createdOrder.order.discount > 0 ? (
@@ -282,8 +285,8 @@ function InquiryPage() {
                     <span>-{formatPrice(createdOrder.order.discount)}</span>
                   </div>
                 ) : null}
-                <div className="flex items-center justify-between font-bold text-foreground">
-                  <span>Total final</span>
+                <div className="mt-1 flex items-center justify-between border-t border-foreground/10 pt-2 text-base font-bold text-foreground">
+                  <span>Total</span>
                   <span>{formatPrice(createdOrder.order.total)}</span>
                 </div>
               </div>

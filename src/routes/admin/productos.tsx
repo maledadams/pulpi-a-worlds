@@ -12,6 +12,7 @@ import {
   AdminSectionLabel,
   AdminSelect,
   AdminToast,
+  type AdminToastTone,
   AdminTextarea,
   confirmAdminDestructiveAction,
   getAdminChipClassName,
@@ -210,6 +211,11 @@ function AdminProductsPage() {
   const [selectedId, setSelectedId] = useState(products[0]?.id ?? "");
   const [draft, setDraft] = useState<AdminProductRecord | null>(products[0] ? cloneProduct(products[0]) : null);
   const [saveMessage, setSaveMessage] = useState("");
+  const [saveTone, setSaveTone] = useState<AdminToastTone>("info");
+  const showSaveMessage = (text: string, tone: AdminToastTone = "info") => {
+    setSaveMessage(text);
+    setSaveTone(tone);
+  };
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -409,9 +415,9 @@ function AdminProductsPage() {
         });
         setSelectedId(saved.id);
         setDraft(cloneProduct(saved));
-        setSaveMessage("Producto guardado.");
+        showSaveMessage("Producto guardado.", "success");
       })
-      .catch(() => setSaveMessage("No se pudo guardar el producto ahora mismo."))
+      .catch(() => showSaveMessage("No se pudo guardar el producto ahora mismo.", "error"))
       .finally(() => setIsSaving(false));
   };
 
@@ -420,7 +426,7 @@ function AdminProductsPage() {
     setRows((current) => [blank, ...current]);
     setSelectedId(blank.id);
     setDraft(cloneProduct(blank));
-    setSaveMessage("Nuevo producto draft creado.");
+    showSaveMessage("Nuevo producto draft creado.", "success");
   };
 
   const handleDelete = () => {
@@ -435,7 +441,7 @@ function AdminProductsPage() {
 
     if (draft.id.startsWith("draft-")) {
       setRows((current) => current.filter((product) => product.id !== draft.id));
-      setSaveMessage("Producto draft eliminado.");
+      showSaveMessage("Producto draft eliminado.", "success");
       return;
     }
 
@@ -444,10 +450,10 @@ function AdminProductsPage() {
     void deleteAdminCatalogProduct({ data: { id: draft.id } })
       .then(() => {
         setRows((current) => current.filter((product) => product.id !== draft.id));
-        setSaveMessage("Producto eliminado.");
+        showSaveMessage("Producto eliminado.", "success");
       })
       .catch((error) => {
-        setSaveMessage(error instanceof Error ? error.message : "No se pudo eliminar el producto.");
+        showSaveMessage(error instanceof Error ? error.message : "No se pudo eliminar el producto.", "error");
       })
       .finally(() => setIsDeleting(false));
   };
@@ -464,7 +470,7 @@ function AdminProductsPage() {
     setRows((current) => [duplicate, ...current]);
     setSelectedId(duplicate.id);
     setDraft(duplicate);
-    setSaveMessage("Producto duplicado.");
+    showSaveMessage("Producto duplicado.", "success");
   };
 
   const handleUploadImage = () => {
@@ -483,10 +489,10 @@ function AdminProductsPage() {
         setDraft(cloneProduct(saved));
         setSelectedImageFile(null);
         if (fileInputRef.current) fileInputRef.current.value = "";
-        setSaveMessage("Imagen subida.");
+        showSaveMessage("Imagen subida.", "success");
       })
       .catch((error) => {
-        setSaveMessage(error instanceof Error ? error.message : "No se pudo subir la imagen.");
+        showSaveMessage(error instanceof Error ? error.message : "No se pudo subir la imagen.", "error");
       })
       .finally(() => setIsUploadingImage(false));
   };
@@ -501,10 +507,10 @@ function AdminProductsPage() {
       .then((saved) => {
         setRows((current) => current.map((product) => (product.id === saved.id ? saved : product)));
         setDraft(cloneProduct(saved));
-        setSaveMessage("Imagen eliminada.");
+        showSaveMessage("Imagen eliminada.", "success");
       })
       .catch((error) => {
-        setSaveMessage(error instanceof Error ? error.message : "No se pudo eliminar la imagen.");
+        showSaveMessage(error instanceof Error ? error.message : "No se pudo eliminar la imagen.", "error");
       });
   };
 
@@ -709,7 +715,7 @@ function AdminProductsPage() {
                   {draft.images.length > 0 ? (
                     <div className="grid gap-3">
                       {draft.images.map((image, index) => (
-                        <div key={image.url} className="overflow-hidden rounded-2xl border border-[#231717]/10 bg-[#faf6f0]">
+                        <div key={image.url} className="overflow-hidden rounded-2xl bg-[#faf6f0]">
                           <div className="grid gap-3 p-3 sm:grid-cols-[92px_minmax(0,1fr)]">
                             <div className="h-24 w-24 overflow-hidden rounded-2xl bg-[#f7f2ec]">
                               <img src={image.url} alt={draft.name} className="h-full w-full object-cover" />
@@ -838,7 +844,7 @@ function AdminProductsPage() {
             />
           </AdminPanel>
         )}
-        <AdminToast message={saveMessage} />
+        <AdminToast message={saveMessage} tone={saveTone} />
       </div>
     </AdminShell>
   );

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AdminPanel, AdminShell, AdminTag } from "@/components/admin/AdminShell";
-import { AdminButton, AdminEmptyState } from "@/components/admin/AdminControls";
+import { AdminButton, AdminEmptyState, AdminToast, type AdminToastTone } from "@/components/admin/AdminControls";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { getAdminBirthdaySubscribers, triggerBirthdayEmailsNow } from "@/lib/public-forms";
 
@@ -27,23 +27,35 @@ function AdminBirthdaysPage() {
   const [rows, setRows] = useState(subscribers);
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState<AdminToastTone>("info");
+  const showMessage = (text: string, tone: AdminToastTone = "info") => {
+    setMessage(text);
+    setMessageTone(tone);
+  };
 
   const todayCount = rows.filter((row) => row.isBirthdayToday).length;
+
+  useEffect(() => {
+    if (!message) return;
+    const timeout = window.setTimeout(() => setMessage(""), 3200);
+    return () => window.clearTimeout(timeout);
+  }, [message]);
 
   const handleSendNow = () => {
     setSending(true);
     setMessage("");
     void triggerBirthdayEmailsNow({})
       .then((result) => {
-        setMessage(
+        showMessage(
           result.sent > 0
             ? `Se enviaron ${result.sent} correo(s) de cumpleaños.`
             : "No hay correos pendientes de enviar en este momento.",
+          "success",
         );
         return getAdminBirthdaySubscribers();
       })
       .then((fresh) => setRows(fresh))
-      .catch(() => setMessage("No se pudo procesar el envío ahora mismo."))
+      .catch(() => showMessage("No se pudo procesar el envío ahora mismo.", "error"))
       .finally(() => setSending(false));
   };
 
@@ -59,13 +71,7 @@ function AdminBirthdaysPage() {
       }
     >
       <AdminPanel title={`Suscriptores (${rows.length})`}>
-        {message ? (
-          <div className="mb-4 rounded-2xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2 text-xs font-semibold text-[#5f4941]">
-            {message}
-          </div>
-        ) : null}
-
-        <div className="mb-4 rounded-2xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2.5 text-sm font-semibold">
+        <div className="mb-4 rounded-xl bg-[#f7f2ec] px-3 py-2.5 text-sm font-semibold">
           {todayCount > 0
             ? `${todayCount} persona(s) cumplen años hoy.`
             : "Nadie cumple años hoy."}
@@ -81,7 +87,7 @@ function AdminBirthdaysPage() {
             {rows.map((row) => (
               <div
                 key={row.email}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[#231717]/10 bg-[#faf6f0] px-4 py-3"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#faf6f0] px-4 py-3"
               >
                 <div>
                   <div className="text-sm font-bold">{row.email}</div>
@@ -100,6 +106,7 @@ function AdminBirthdaysPage() {
           </div>
         )}
       </AdminPanel>
+      <AdminToast message={message} tone={messageTone} />
     </AdminShell>
   );
 }

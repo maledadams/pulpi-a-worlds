@@ -11,6 +11,7 @@ import {
   AdminSectionLabel,
   AdminSelect,
   AdminToast,
+  type AdminToastTone,
   AdminTextarea,
   confirmAdminDestructiveAction,
   getAdminVibeButtonClassName,
@@ -88,6 +89,11 @@ function AdminCollectionsPage() {
   const [selectedId, setSelectedId] = useState(collections[0]?.id ?? "");
   const [draft, setDraft] = useState<AdminCollectionRecord | null>(collections[0] ? cloneCollection(collections[0]) : null);
   const [saveMessage, setSaveMessage] = useState("");
+  const [saveTone, setSaveTone] = useState<AdminToastTone>("info");
+  const showSaveMessage = (text: string, tone: AdminToastTone = "info") => {
+    setSaveMessage(text);
+    setSaveTone(tone);
+  };
   const [isDeleting, setIsDeleting] = useState(false);
   const [productQuery, setProductQuery] = useState("");
 
@@ -177,7 +183,7 @@ function AdminCollectionsPage() {
     setRows((current) => [blank, ...current]);
     setSelectedId(blank.id);
     setDraft(blank);
-    setSaveMessage("Nueva coleccion draft creada.");
+    showSaveMessage("Nueva coleccion draft creada.", "success");
   };
 
   const handleSave = () => {
@@ -201,10 +207,10 @@ function AdminCollectionsPage() {
         });
         setSelectedId(saved.id);
         setDraft(cloneCollection(saved));
-        setSaveMessage("Coleccion guardada.");
+        showSaveMessage("Coleccion guardada.", "success");
       })
       .catch(() => {
-        setSaveMessage("No se pudo guardar la coleccion ahora mismo.");
+        showSaveMessage("No se pudo guardar la coleccion ahora mismo.", "error");
       });
   };
 
@@ -220,7 +226,7 @@ function AdminCollectionsPage() {
 
     if (draft.id.startsWith("draft-collection-")) {
       setRows((current) => current.filter((collection) => collection.id !== draft.id));
-      setSaveMessage("Coleccion draft eliminada.");
+      showSaveMessage("Coleccion draft eliminada.", "success");
       return;
     }
 
@@ -229,10 +235,10 @@ function AdminCollectionsPage() {
     void deleteAdminCollection({ data: { id: draft.id } })
       .then(() => {
         setRows((current) => current.filter((collection) => collection.id !== draft.id));
-        setSaveMessage("Coleccion eliminada.");
+        showSaveMessage("Coleccion eliminada.", "success");
       })
       .catch((error) => {
-        setSaveMessage(error instanceof Error ? error.message : "No se pudo eliminar la coleccion.");
+        showSaveMessage(error instanceof Error ? error.message : "No se pudo eliminar la coleccion.", "error");
       })
       .finally(() => {
         setIsDeleting(false);
@@ -475,7 +481,7 @@ function AdminCollectionsPage() {
           )}
         </AdminPanel>
       </div>
-      <AdminToast message={saveMessage} />
+      <AdminToast message={saveMessage} tone={saveTone} />
     </AdminShell>
   );
 }

@@ -10,6 +10,7 @@ import {
   AdminPagination,
   AdminSectionLabel,
   AdminToast,
+  type AdminToastTone,
   confirmAdminDestructiveAction,
 } from "@/components/admin/AdminControls";
 import { enforceAdminAccess } from "@/lib/admin-access";
@@ -71,6 +72,11 @@ function AdminStockPage() {
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState<AdminToastTone>("info");
+  const showMessage = (text: string, tone: AdminToastTone = "info") => {
+    setMessage(text);
+    setMessageTone(tone);
+  };
   const [movementPage, setMovementPage] = useState(1);
   const movementPages = Math.max(1, Math.ceil(movements.length / 8));
   const safeMovementPage = Math.min(movementPage, movementPages);
@@ -109,15 +115,15 @@ function AdminStockPage() {
       .then((saved) => {
         setProducts((current) => current.map((product) => (product.id === saved.id ? cloneProduct(saved) : product)));
         setDraft(cloneProduct(saved));
-        setMessage("Cambios guardados.");
+        showMessage("Cambios guardados.", "success");
       })
-      .catch((error) => setMessage(error instanceof Error ? error.message : "No se pudo guardar."))
+      .catch((error) => showMessage(error instanceof Error ? error.message : "No se pudo guardar.", "error"))
       .finally(() => setBusy(false));
   };
 
   const registerMovement = (variantId: string, direction: 1 | -1) => {
     if (!reason.trim() || quantity < 1) {
-      setMessage("Indica una cantidad y un motivo antes de registrar el movimiento.");
+      showMessage("Indica una cantidad y un motivo antes de registrar el movimiento.", "error");
       return;
     }
     setBusy(true);
@@ -129,9 +135,9 @@ function AdminStockPage() {
         setDraft(refreshed ? cloneProduct(refreshed) : null);
         setQuantity(1);
         setReason("");
-        setMessage(direction > 0 ? "Entrada registrada." : "Salida registrada.");
+        showMessage(direction > 0 ? "Entrada registrada." : "Salida registrada.", "success");
       })
-      .catch((error) => setMessage(error instanceof Error ? error.message : "No se pudo ajustar el stock."))
+      .catch((error) => showMessage(error instanceof Error ? error.message : "No se pudo ajustar el stock.", "error"))
       .finally(() => setBusy(false));
   };
 
@@ -140,11 +146,11 @@ function AdminStockPage() {
     const variant = draft.variants.find((entry) => entry.id === variantId);
     if (!variant) return;
     if (draft.variants.length <= 1) {
-      setMessage("El producto debe conservar al menos una variante.");
+      showMessage("El producto debe conservar al menos una variante.", "error");
       return;
     }
     if ((variant.quantityAvailable ?? 0) > 0) {
-      setMessage("Primero registra una salida para dejar esta variante en cero.");
+      showMessage("Primero registra una salida para dejar esta variante en cero.", "error");
       return;
     }
     if (!confirmAdminDestructiveAction(`Quitar la variante ${variant.title}? Su historial se conservara.`)) return;
@@ -248,7 +254,7 @@ function AdminStockPage() {
           </div>
         ) : <AdminPanel title="Stock"><AdminEmptyState title="Sin producto" body="Selecciona un producto para administrar su inventario." /></AdminPanel>}
       </div>
-      <AdminToast message={message} />
+      <AdminToast message={message} tone={messageTone} />
     </AdminShell>
   );
 }

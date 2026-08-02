@@ -8,6 +8,8 @@ import {
   AdminField,
   AdminInput,
   AdminSelect,
+  AdminToast,
+  type AdminToastTone,
   confirmAdminDestructiveAction,
 } from "@/components/admin/AdminControls";
 import { enforceAdminAccess } from "@/lib/admin-access";
@@ -55,6 +57,11 @@ function AdminDiscountsPage() {
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState<AdminDiscountRecord | null>(discounts[0] ? cloneDiscount(discounts[0]) : null);
   const [saveMessage, setSaveMessage] = useState("");
+  const [saveTone, setSaveTone] = useState<AdminToastTone>("info");
+  const showSaveMessage = (text: string, tone: AdminToastTone = "info") => {
+    setSaveMessage(text);
+    setSaveTone(tone);
+  };
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -85,12 +92,18 @@ function AdminDiscountsPage() {
     setDraft(cloneDiscount(selected));
   }, [selected]);
 
+  useEffect(() => {
+    if (!saveMessage) return;
+    const timeout = window.setTimeout(() => setSaveMessage(""), 2600);
+    return () => window.clearTimeout(timeout);
+  }, [saveMessage]);
+
   const handleCreate = () => {
     const blank = createBlankDiscount();
     setRows((current) => [blank, ...current]);
     setSelectedId(blank.id);
     setDraft(blank);
-    setSaveMessage("Nueva promoción draft creada.");
+    showSaveMessage("Nueva promoción draft creada.", "success");
   };
 
   const handleSave = () => {
@@ -105,10 +118,10 @@ function AdminDiscountsPage() {
         ]));
         setSelectedId(saved.id);
         setDraft(cloneDiscount(saved));
-        setSaveMessage("Promoción guardada.");
+        showSaveMessage("Promoción guardada.", "success");
       })
       .catch((error) => {
-        setSaveMessage(error instanceof Error ? error.message : "No se pudo guardar la promoción ahora mismo.");
+        showSaveMessage(error instanceof Error ? error.message : "No se pudo guardar la promoción ahora mismo.", "error");
       })
       .finally(() => {
         setIsSaving(false);
@@ -129,10 +142,10 @@ function AdminDiscountsPage() {
     void deleteAdminDiscount({ data: { id: draft.id } })
       .then(() => {
         setRows((current) => current.filter((discount) => discount.id !== draft.id));
-        setSaveMessage("Promoción eliminada.");
+        showSaveMessage("Promoción eliminada.", "success");
       })
       .catch((error) => {
-        setSaveMessage(error instanceof Error ? error.message : "No se pudo eliminar la promoción ahora mismo.");
+        showSaveMessage(error instanceof Error ? error.message : "No se pudo eliminar la promoción ahora mismo.", "error");
       })
       .finally(() => {
         setIsDeleting(false);
@@ -219,12 +232,6 @@ function AdminDiscountsPage() {
         >
           {draft ? (
             <div className="grid gap-4">
-              {saveMessage ? (
-                <div className="rounded-2xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2 text-xs font-semibold text-[#5f4941]">
-                  {saveMessage}
-                </div>
-              ) : null}
-
               <AdminField label="Codigo">
                 <AdminInput value={draft.code} onChange={(event) => setDraft((current) => (current ? { ...current, code: event.target.value } : current))} />
               </AdminField>
@@ -269,6 +276,7 @@ function AdminDiscountsPage() {
           )}
         </AdminPanel>
       </div>
+      <AdminToast message={saveMessage} tone={saveTone} />
     </AdminShell>
   );
 }

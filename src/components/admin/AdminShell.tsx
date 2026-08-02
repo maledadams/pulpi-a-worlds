@@ -23,24 +23,15 @@ const NAV_ITEMS: Array<{
 ];
 
 const SECTION_BACKGROUNDS: Record<AdminSection, string> = {
-  resumen:
-    "linear-gradient(135deg, rgba(255, 204, 222, 0.94) 0%, rgba(255, 236, 162, 0.9) 52%, rgba(255, 246, 239, 0.98) 100%)",
-  productos:
-    "linear-gradient(135deg, rgba(206, 244, 143, 0.94) 0%, rgba(255, 210, 178, 0.9) 55%, rgba(255, 246, 239, 0.98) 100%)",
-  stock:
-    "linear-gradient(135deg, rgba(199, 239, 224, 0.96) 0%, rgba(213, 240, 158, 0.9) 55%, rgba(255, 246, 239, 0.98) 100%)",
-  categorias:
-    "linear-gradient(135deg, rgba(255, 197, 219, 0.94) 0%, rgba(255, 223, 156, 0.9) 55%, rgba(255, 245, 236, 0.98) 100%)",
-  colecciones:
-    "linear-gradient(135deg, rgba(255, 210, 228, 0.96) 0%, rgba(255, 191, 214, 0.9) 55%, rgba(255, 245, 239, 0.98) 100%)",
-  pedidos:
-    "linear-gradient(135deg, rgba(255, 221, 176, 0.96) 0%, rgba(255, 201, 146, 0.92) 55%, rgba(255, 245, 236, 0.98) 100%)",
-  descuentos:
-    "linear-gradient(135deg, rgba(214, 245, 164, 0.96) 0%, rgba(191, 239, 119, 0.9) 55%, rgba(250, 255, 236, 0.98) 100%)",
-  cumpleanos:
-    "linear-gradient(135deg, rgba(255, 202, 212, 0.96) 0%, rgba(255, 231, 158, 0.9) 55%, rgba(255, 246, 239, 0.98) 100%)",
-  configuracion:
-    "linear-gradient(135deg, rgba(214, 245, 164, 0.9) 0%, rgba(255, 205, 221, 0.88) 55%, rgba(255, 246, 239, 0.98) 100%)",
+  resumen: "linear-gradient(160deg, rgba(255, 204, 222, 0.35) 0%, rgba(255, 236, 162, 0.28) 45%, rgba(253, 249, 244, 1) 100%)",
+  productos: "linear-gradient(160deg, rgba(206, 244, 143, 0.35) 0%, rgba(255, 210, 178, 0.28) 45%, rgba(253, 249, 244, 1) 100%)",
+  stock: "linear-gradient(160deg, rgba(199, 239, 224, 0.38) 0%, rgba(213, 240, 158, 0.28) 45%, rgba(253, 249, 244, 1) 100%)",
+  categorias: "linear-gradient(160deg, rgba(255, 197, 219, 0.35) 0%, rgba(255, 223, 156, 0.28) 45%, rgba(253, 249, 244, 1) 100%)",
+  colecciones: "linear-gradient(160deg, rgba(255, 210, 228, 0.35) 0%, rgba(255, 191, 214, 0.26) 45%, rgba(253, 249, 244, 1) 100%)",
+  pedidos: "linear-gradient(160deg, rgba(255, 221, 176, 0.38) 0%, rgba(255, 201, 146, 0.28) 45%, rgba(253, 249, 244, 1) 100%)",
+  descuentos: "linear-gradient(160deg, rgba(214, 245, 164, 0.38) 0%, rgba(191, 239, 119, 0.28) 45%, rgba(253, 249, 244, 1) 100%)",
+  cumpleanos: "linear-gradient(160deg, rgba(255, 202, 212, 0.38) 0%, rgba(255, 231, 158, 0.28) 45%, rgba(253, 249, 244, 1) 100%)",
+  configuracion: "linear-gradient(160deg, rgba(214, 245, 164, 0.32) 0%, rgba(255, 205, 221, 0.28) 45%, rgba(253, 249, 244, 1) 100%)",
 };
 
 export function AdminShell({
@@ -60,9 +51,9 @@ export function AdminShell({
 
   return (
     <div className="admin-shell min-h-screen text-[#231717]" style={{ background: SECTION_BACKGROUNDS[section] }}>
-      <div className="mx-auto grid max-w-[1880px] gap-5 px-4 py-4 xl:grid-cols-[260px_minmax(0,1fr)] 2xl:grid-cols-[280px_minmax(0,1fr)]">
-        <aside className="self-start rounded-[20px] border-2 border-[#231717] bg-white/85 p-4 shadow-[0_18px_40px_-32px_rgba(35,23,23,0.45)] xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto">
-          <div className="flex items-center gap-3 rounded-[16px] border border-[#231717]/10 bg-[#f7f2ec] px-3 py-3">
+      <div className="mx-auto grid max-w-[1880px] gap-4 px-4 py-4 xl:grid-cols-[250px_minmax(0,1fr)] 2xl:grid-cols-[270px_minmax(0,1fr)]">
+        <aside className="self-start rounded-[20px] border border-[#231717]/15 bg-white/90 p-4 shadow-[0_12px_28px_-24px_rgba(35,23,23,0.35)] xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto">
+          <div className="flex items-center gap-3 px-1">
             <div className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-[#231717] text-white">
               <Store className="h-5 w-5" />
             </div>
@@ -108,7 +99,7 @@ export function AdminShell({
         </aside>
 
         <div className="min-w-0">
-          <header className="rounded-[20px] border-2 border-[#231717] bg-white px-5 py-4 shadow-[0_18px_40px_-32px_rgba(35,23,23,0.45)]">
+          <header className="rounded-[20px] border border-[#231717]/15 bg-white px-5 py-4 shadow-[0_12px_28px_-24px_rgba(35,23,23,0.35)]">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
                 <h1 className="text-2xl font-black md:text-3xl">{title}</h1>
@@ -122,7 +113,7 @@ export function AdminShell({
             </div>
           </header>
 
-          <main className="mt-5">{children}</main>
+          <main className="mt-4">{children}</main>
         </div>
       </div>
     </div>
@@ -143,7 +134,7 @@ export function AdminStatCard({
   iconClassName?: string;
 }) {
   return (
-    <div className="rounded-[18px] border-2 border-[#231717] bg-white p-4 shadow-[0_16px_32px_-28px_rgba(35,23,23,0.45)]">
+    <div className="rounded-[18px] border border-[#231717]/15 bg-white p-4 shadow-[0_10px_22px_-20px_rgba(35,23,23,0.3)]">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[11px] font-black uppercase tracking-[0.2em] text-[#7c665f]">{label}</div>
@@ -176,7 +167,7 @@ export function AdminPanel({
   const showHeader = Boolean(title || eyebrow || actions);
 
   return (
-    <section className={cn("flex flex-col rounded-[18px] border-2 border-[#231717] bg-white shadow-[0_16px_32px_-28px_rgba(35,23,23,0.42)]", className)}>
+    <section className={cn("flex flex-col rounded-[18px] border border-[#231717]/15 bg-white shadow-[0_10px_22px_-20px_rgba(35,23,23,0.3)]", className)}>
       {showHeader ? (
         <div className="flex items-start justify-between gap-3 border-b border-[#231717]/10 px-4 py-3">
           {title || eyebrow ? (

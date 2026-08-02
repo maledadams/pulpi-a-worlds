@@ -8,6 +8,7 @@ import {
   AdminInput,
   AdminTabs,
   AdminToast,
+  type AdminToastTone,
   AdminTextarea,
   confirmAdminDestructiveAction,
 } from "@/components/admin/AdminControls";
@@ -33,6 +34,11 @@ function AdminSettingsPage() {
   const { settings } = Route.useLoaderData();
   const [form, setForm] = useState(settings);
   const [saveMessage, setSaveMessage] = useState("");
+  const [saveTone, setSaveTone] = useState<AdminToastTone>("info");
+  const showSaveMessage = (text: string, tone: AdminToastTone = "info") => {
+    setSaveMessage(text);
+    setSaveTone(tone);
+  };
   const [tab, setTab] = useState<SettingsTab>("contacto");
   const [expandedLegalId, setExpandedLegalId] = useState<string | null>(null);
 
@@ -46,10 +52,10 @@ function AdminSettingsPage() {
     void saveAdminSettingsRecord({ data: form })
       .then((saved) => {
         setForm(saved);
-        setSaveMessage("Configuracion guardada.");
+        showSaveMessage("Configuracion guardada.", "success");
       })
       .catch(() => {
-        setSaveMessage("No se pudo guardar la configuracion ahora mismo.");
+        showSaveMessage("No se pudo guardar la configuracion ahora mismo.", "error");
       });
   };
 
@@ -145,7 +151,7 @@ function AdminSettingsPage() {
         >
           <div className="grid gap-3">
             {form.contactFaqs.map((faq) => (
-              <div key={faq.id} className="rounded-[18px] border border-[#231717]/15 bg-[#faf6f0] p-4">
+              <div key={faq.id} className="rounded-[18px] bg-[#faf6f0] p-4">
                 <div className="grid gap-3">
                   <div className="flex justify-end">
                     <AdminButton
@@ -332,7 +338,7 @@ function AdminSettingsPage() {
         </AdminPanel>
         ) : null}
       </div>
-      <AdminToast message={saveMessage} />
+      <AdminToast message={saveMessage} tone={saveTone} />
     </AdminShell>
   );
 }

@@ -8,6 +8,8 @@ import {
   AdminInput,
   AdminPagination,
   AdminSelect,
+  AdminToast,
+  type AdminToastTone,
   AdminTextarea,
   confirmAdminDestructiveAction,
 } from "@/components/admin/AdminControls";
@@ -178,11 +180,15 @@ function AdminOrdersPage() {
   const [selectedId, setSelectedId] = useState(inquiries[0]?.id ?? "");
   const [draft, setDraft] = useState<AdminInquiryRecord | null>(inquiries[0] ? cloneInquiry(inquiries[0]) : null);
   const [draftLines, setDraftLines] = useState<DraftOrderLine[]>(() => inquiries[0] ? buildEditableLines(inquiries[0], products) : []);
-  const [saveMessage, setSaveMessage] = useState("");
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastTone, setToastTone] = useState<AdminToastTone>("info");
+  const showToast = (text: string, tone: AdminToastTone = "info") => {
+    setToastMessage(text);
+    setToastTone(tone);
+  };
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [createMessage, setCreateMessage] = useState("");
   const [creating, setCreating] = useState(false);
   const [newOrder, setNewOrder] = useState<OrderFormState>(() => buildCreateState(products));
 
@@ -229,6 +235,12 @@ function AdminOrdersPage() {
     setDraftLines(buildEditableLines(selected, products));
   }, [selected, products]);
 
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timeout = window.setTimeout(() => setToastMessage(""), 2600);
+    return () => window.clearTimeout(timeout);
+  }, [toastMessage]);
+
   const updateDraftLine = (key: string, updater: (line: DraftOrderLine) => DraftOrderLine) => {
     setDraftLines((current) => current.map((line) => (line.key === key ? updater(line) : line)));
   };
@@ -270,7 +282,7 @@ function AdminOrdersPage() {
   const handleSave = () => {
     if (!draft) return;
     setSaving(true);
-    setSaveMessage("");
+    setToastMessage("");
 
     void updateAdminOrder({
       data: {
@@ -296,15 +308,15 @@ function AdminOrdersPage() {
         setRows((current) => current.map((inquiry) => (inquiry.id === next.id ? next : inquiry)));
         setDraft(next);
         setDraftLines(buildEditableLines(next, products));
-        setSaveMessage("Pedido guardado.");
+        showToast("Pedido guardado.", "success");
       })
-      .catch(() => setSaveMessage("No se pudo guardar el pedido."))
+      .catch(() => showToast("No se pudo guardar el pedido.", "error"))
       .finally(() => setSaving(false));
   };
 
   const handleCreateOrder = () => {
     setCreating(true);
-    setCreateMessage("");
+    setToastMessage("");
 
     void createAdminManualOrder({
       data: {
@@ -332,11 +344,11 @@ function AdminOrdersPage() {
         setDraft(next);
         setDraftLines(buildEditableLines(next, products));
         setNewOrder(buildCreateState(products));
-        setCreateMessage("Pedido manual creado.");
+        showToast("Pedido manual creado.", "success");
         setIsCreating(false);
       })
       .catch((error) => {
-        setCreateMessage(error instanceof Error ? error.message : "No se pudo crear el pedido manual.");
+        showToast(error instanceof Error ? error.message : "No se pudo crear el pedido manual.", "error");
       })
       .finally(() => setCreating(false));
   };
@@ -352,14 +364,14 @@ function AdminOrdersPage() {
     }
 
     setDeleting(true);
-    setSaveMessage("");
+    setToastMessage("");
     void deleteAdminOrder({ data: { id: draft.id } })
       .then(() => {
         setRows((current) => current.filter((inquiry) => inquiry.id !== draft.id));
-        setSaveMessage("Pedido eliminado.");
+        showToast("Pedido eliminado.", "success");
       })
       .catch((error) => {
-        setSaveMessage(error instanceof Error ? error.message : "No se pudo eliminar el pedido.");
+        showToast(error instanceof Error ? error.message : "No se pudo eliminar el pedido.", "error");
       })
       .finally(() => setDeleting(false));
   };
@@ -376,7 +388,7 @@ function AdminOrdersPage() {
         const variants = getAvailableVariants(product);
 
         return (
-          <div key={line.key} className="rounded-2xl border border-[#231717]/10 bg-[#faf6f0] p-4">
+          <div key={line.key} className="rounded-2xl bg-[#faf6f0] p-4">
             <div className="grid gap-3">
               <ProductSearchField
                 line={line}
@@ -538,12 +550,6 @@ function AdminOrdersPage() {
               }
             >
               <div className="grid gap-4">
-                {createMessage ? (
-                  <div className="rounded-2xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2 text-xs font-semibold text-[#5f4941]">
-                    {createMessage}
-                  </div>
-                ) : null}
-
                 <div className="grid gap-3 md:grid-cols-2">
                   <AdminField label="Nombre">
                     <AdminInput value={newOrder.customerName} onChange={(event) => setNewOrder((current) => ({ ...current, customerName: event.target.value }))} />
@@ -684,12 +690,6 @@ function AdminOrdersPage() {
               }
             >
               <div className="grid gap-4">
-                {saveMessage ? (
-                  <div className="rounded-2xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2 text-xs font-semibold text-[#5f4941]">
-                    {saveMessage}
-                  </div>
-                ) : null}
-
                 <div className="grid gap-3 md:grid-cols-2">
                   <AdminField label="Nombre">
                     <AdminInput value={draft.customerName} onChange={(event) => setDraft((current) => (current ? { ...current, customerName: event.target.value } : current))} />
@@ -831,6 +831,7 @@ function AdminOrdersPage() {
           )}
         </div>
       </div>
+      <AdminToast message={toastMessage} tone={toastTone} />
     </AdminShell>
   );
 }
