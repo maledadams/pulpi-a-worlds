@@ -17,8 +17,6 @@ dist-ssr
 *.local
 output/
 docs/*
-!docs/superpowers/
-!docs/superpowers/**
 
 # Wrangler / Cloudflare
 .wrangler/
@@ -30,6 +28,10 @@ docs/*
 
 # Playwright MCP test artifacts
 .playwright-mcp/
+
+# AI/agent tooling - not part of the site
+.cursor/
+.mcp.json
 
 # Editor directories and files
 .vscode/*

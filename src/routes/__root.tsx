@@ -12,7 +12,6 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import type { Vibe } from "@/data/products";
 import appCss from "../styles.css?url";
 import { CartDrawer } from "@/components/cart/CartDrawer";
-import { AgentationToolbar } from "@/components/dev/AgentationToolbar";
 import { CheckoutSideWaves } from "@/components/layout/CheckoutSideWaves";
 import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
@@ -136,7 +135,6 @@ function RootComponent() {
           ) : (
             <AppChrome announcements={announcements} settings={settings} />
           )}
-          <AgentationToolbar />
         </CartProvider>
       </CatalogProvider>
     </QueryClientProvider>

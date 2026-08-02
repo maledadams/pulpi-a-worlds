@@ -11,8 +11,6 @@
     "preview": "vite preview",
     "deploy:production": "vite build --mode production && wrangler deploy",
     "deploy:dry-run": "vite build --mode production && wrangler deploy --dry-run",
-    "agentation:mcp": "node scripts/agentation-mcp-server.mjs --port 4747",
-    "agentation:doctor": "pnpm exec agentation-mcp doctor",
     "lint": "eslint .",
     "format": "prettier --write ."
   },
@@ -78,8 +76,6 @@
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.2.0",
-    "agentation": "^3.0.2",
-    "agentation-mcp": "1.2.0",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",

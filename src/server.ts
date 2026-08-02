@@ -2,7 +2,6 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
-import { maybeHandleAgentationWebhook } from "./lib/agentation-webhook";
 import { withSecurityHeaders } from "./lib/security-headers";
 import { maybeHandleBirthdayConfirmRequest, processBirthdayEmailsInternal } from "./lib/public-forms";
 import { maybeHandleOrderConfirmRequest } from "./lib/manual-orders";
@@ -95,11 +94,6 @@ export default {
       if (requestUrl.hostname === "www.pulpinastore.com") {
         requestUrl.hostname = "pulpinastore.com";
         return finalizeResponse(request, Response.redirect(requestUrl, 308));
-      }
-
-      const webhookResponse = await maybeHandleAgentationWebhook(request);
-      if (webhookResponse) {
-        return finalizeResponse(request, webhookResponse);
       }
 
       const orderConfirmResponse = await maybeHandleOrderConfirmRequest(request);
