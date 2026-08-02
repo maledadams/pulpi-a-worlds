@@ -10,16 +10,25 @@ import { validateBirthdayCoupon } from "@/lib/public-forms";
 import { createSeoHead } from "@/lib/seo";
 import { useScrollFollow } from "@/hooks/use-scroll-follow";
 
-function formatPhoneInput(raw: string) {
-  let digits = raw.replace(/\D/g, "");
-  if (digits.startsWith("1") && digits.length > 10) digits = digits.slice(1);
-  digits = digits.slice(0, 10);
+function formatPhoneInput(raw: string, previous: string) {
+  let digits = raw.replace(/\D/g, "").slice(0, 10);
+
+  // Backspacing right after a boundary (3rd/6th digit) only deletes the
+  // auto-inserted ")" or "-" rather than a digit, since the digit count
+  // is unchanged; drop the trailing digit ourselves so backspace always
+  // makes progress instead of getting stuck re-adding the same punctuation.
+  const previousDigits = previous.replace(/\D/g, "");
+  const isDeleting = raw.length < previous.length;
+  if (isDeleting && digits.length === previousDigits.length && digits.length > 0) {
+    digits = digits.slice(0, -1);
+  }
+
   const area = digits.slice(0, 3);
   const mid = digits.slice(3, 6);
   const last = digits.slice(6, 10);
 
-  let formatted = "+1";
-  if (area) formatted += ` (${area}`;
+  let formatted = "";
+  if (area) formatted += `(${area}`;
   if (area.length === 3) formatted += ")";
   if (mid) formatted += ` ${mid}`;
   if (last) formatted += `-${last}`;
@@ -392,15 +401,20 @@ function InquiryPage() {
               />
             </div>
 
-            <input
-              required
-              type="tel"
-              inputMode="numeric"
-              value={customerPhone}
-              placeholder="+1 (809) 000-0000"
-              className="w-full rounded-2xl border border-[#231717]/15 bg-[#fbf4e8] px-4 py-3 text-[#231717] caret-[#231717] placeholder:text-[#7c665f]"
-              onChange={(event) => setCustomerPhone(formatPhoneInput(event.target.value))}
-            />
+            <div className="flex w-full items-center rounded-2xl border border-[#231717]/15 bg-[#fbf4e8] px-4 py-3 text-[#231717]">
+              <span className="mr-2 shrink-0 text-[#7c665f]">+1</span>
+              <input
+                required
+                type="tel"
+                inputMode="numeric"
+                value={customerPhone}
+                placeholder="(809) 000-0000"
+                className="w-full bg-transparent text-[#231717] caret-[#231717] placeholder:text-[#7c665f] focus:outline-none"
+                onChange={(event) =>
+                  setCustomerPhone((previous) => formatPhoneInput(event.target.value, previous))
+                }
+              />
+            </div>
 
             <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
               <input
