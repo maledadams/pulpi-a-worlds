@@ -9,6 +9,7 @@ export type AdminSection =
   | "colecciones"
   | "pedidos"
   | "descuentos"
+  | "cumpleanos"
   | "configuracion";
 
 export type AdminInquiryChannel = "formulario" | "whatsapp" | "instagram" | "email";

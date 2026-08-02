@@ -29,6 +29,7 @@ import { Route as AdminStockRouteImport } from './routes/admin/stock'
 import { Route as AdminProductosRouteImport } from './routes/admin/productos'
 import { Route as AdminPedidosRouteImport } from './routes/admin/pedidos'
 import { Route as AdminDescuentosRouteImport } from './routes/admin/descuentos'
+import { Route as AdminCumpleanosRouteImport } from './routes/admin/cumpleanos'
 import { Route as AdminConfiguracionRouteImport } from './routes/admin/configuracion'
 import { Route as AdminColeccionesRouteImport } from './routes/admin/colecciones'
 import { Route as AdminCategoriasRouteImport } from './routes/admin/categorias'
@@ -133,6 +134,11 @@ const AdminDescuentosRoute = AdminDescuentosRouteImport.update({
   path: '/admin/descuentos',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminCumpleanosRoute = AdminCumpleanosRouteImport.update({
+  id: '/admin/cumpleanos',
+  path: '/admin/cumpleanos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminConfiguracionRoute = AdminConfiguracionRouteImport.update({
   id: '/admin/configuracion',
   path: '/admin/configuracion',
@@ -166,6 +172,7 @@ export interface FileRoutesByFullPath {
   '/admin/categorias': typeof AdminCategoriasRoute
   '/admin/colecciones': typeof AdminColeccionesRoute
   '/admin/configuracion': typeof AdminConfiguracionRoute
+  '/admin/cumpleanos': typeof AdminCumpleanosRoute
   '/admin/descuentos': typeof AdminDescuentosRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/productos': typeof AdminProductosRoute
@@ -191,6 +198,7 @@ export interface FileRoutesByTo {
   '/admin/categorias': typeof AdminCategoriasRoute
   '/admin/colecciones': typeof AdminColeccionesRoute
   '/admin/configuracion': typeof AdminConfiguracionRoute
+  '/admin/cumpleanos': typeof AdminCumpleanosRoute
   '/admin/descuentos': typeof AdminDescuentosRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/productos': typeof AdminProductosRoute
@@ -217,6 +225,7 @@ export interface FileRoutesById {
   '/admin/categorias': typeof AdminCategoriasRoute
   '/admin/colecciones': typeof AdminColeccionesRoute
   '/admin/configuracion': typeof AdminConfiguracionRoute
+  '/admin/cumpleanos': typeof AdminCumpleanosRoute
   '/admin/descuentos': typeof AdminDescuentosRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/productos': typeof AdminProductosRoute
@@ -244,6 +253,7 @@ export interface FileRouteTypes {
     | '/admin/categorias'
     | '/admin/colecciones'
     | '/admin/configuracion'
+    | '/admin/cumpleanos'
     | '/admin/descuentos'
     | '/admin/pedidos'
     | '/admin/productos'
@@ -269,6 +279,7 @@ export interface FileRouteTypes {
     | '/admin/categorias'
     | '/admin/colecciones'
     | '/admin/configuracion'
+    | '/admin/cumpleanos'
     | '/admin/descuentos'
     | '/admin/pedidos'
     | '/admin/productos'
@@ -294,6 +305,7 @@ export interface FileRouteTypes {
     | '/admin/categorias'
     | '/admin/colecciones'
     | '/admin/configuracion'
+    | '/admin/cumpleanos'
     | '/admin/descuentos'
     | '/admin/pedidos'
     | '/admin/productos'
@@ -320,6 +332,7 @@ export interface RootRouteChildren {
   AdminCategoriasRoute: typeof AdminCategoriasRoute
   AdminColeccionesRoute: typeof AdminColeccionesRoute
   AdminConfiguracionRoute: typeof AdminConfiguracionRoute
+  AdminCumpleanosRoute: typeof AdminCumpleanosRoute
   AdminDescuentosRoute: typeof AdminDescuentosRoute
   AdminPedidosRoute: typeof AdminPedidosRoute
   AdminProductosRoute: typeof AdminProductosRoute
@@ -471,6 +484,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminDescuentosRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/cumpleanos': {
+      id: '/admin/cumpleanos'
+      path: '/admin/cumpleanos'
+      fullPath: '/admin/cumpleanos'
+      preLoaderRoute: typeof AdminCumpleanosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/configuracion': {
       id: '/admin/configuracion'
       path: '/admin/configuracion'
@@ -512,6 +532,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminCategoriasRoute: AdminCategoriasRoute,
   AdminColeccionesRoute: AdminColeccionesRoute,
   AdminConfiguracionRoute: AdminConfiguracionRoute,
+  AdminCumpleanosRoute: AdminCumpleanosRoute,
   AdminDescuentosRoute: AdminDescuentosRoute,
   AdminPedidosRoute: AdminPedidosRoute,
   AdminProductosRoute: AdminProductosRoute,

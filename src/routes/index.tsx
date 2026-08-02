@@ -303,6 +303,12 @@ function Home() {
                     "pulpina_birthday_subscription",
                     JSON.stringify({ birthDate: birthdayDate, email: newsletterEmail.trim().toLowerCase() }),
                   );
+                  if (result.token) {
+                    localStorage.setItem(
+                      "pulpina_birthday_token",
+                      JSON.stringify({ email: newsletterEmail.trim().toLowerCase(), token: result.token }),
+                    );
+                  }
                   setBirthdaySaved(true);
                   setNewsletterTurnstileToken("");
                 }

@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { BarChart3, Boxes, FolderKanban, LayoutGrid, Package2, Percent, Settings2, ShoppingBag, Store, Warehouse } from "lucide-react";
+import { BarChart3, Boxes, Cake, FolderKanban, LayoutGrid, Package2, Percent, Settings2, ShoppingBag, Store, Warehouse } from "lucide-react";
 import type { ReactNode } from "react";
 import { shouldShowAdminAccessNotice } from "@/lib/admin-access";
 import type { AdminSection } from "@/lib/admin-types";
@@ -18,6 +18,7 @@ const NAV_ITEMS: Array<{
   { section: "colecciones", label: "Colecciones", to: "/admin/colecciones", icon: FolderKanban },
   { section: "pedidos", label: "Pedidos", to: "/admin/pedidos", icon: ShoppingBag },
   { section: "descuentos", label: "Promociones", to: "/admin/descuentos", icon: Percent },
+  { section: "cumpleanos", label: "Cumpleaños", to: "/admin/cumpleanos", icon: Cake },
   { section: "configuracion", label: "Configuracion", to: "/admin/configuracion", icon: Settings2 },
 ];
 
@@ -36,6 +37,8 @@ const SECTION_BACKGROUNDS: Record<AdminSection, string> = {
     "linear-gradient(135deg, rgba(255, 221, 176, 0.96) 0%, rgba(255, 201, 146, 0.92) 55%, rgba(255, 245, 236, 0.98) 100%)",
   descuentos:
     "linear-gradient(135deg, rgba(214, 245, 164, 0.96) 0%, rgba(191, 239, 119, 0.9) 55%, rgba(250, 255, 236, 0.98) 100%)",
+  cumpleanos:
+    "linear-gradient(135deg, rgba(255, 202, 212, 0.96) 0%, rgba(255, 231, 158, 0.9) 55%, rgba(255, 246, 239, 0.98) 100%)",
   configuracion:
     "linear-gradient(135deg, rgba(214, 245, 164, 0.9) 0%, rgba(255, 205, 221, 0.88) 55%, rgba(255, 246, 239, 0.98) 100%)",
 };

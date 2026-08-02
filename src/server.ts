@@ -4,7 +4,7 @@ import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { maybeHandleAgentationWebhook } from "./lib/agentation-webhook";
 import { withSecurityHeaders } from "./lib/security-headers";
-import { processBirthdayEmailsInternal } from "./lib/public-forms";
+import { maybeHandleBirthdayConfirmRequest, processBirthdayEmailsInternal } from "./lib/public-forms";
 import { maybeHandleOrderConfirmRequest } from "./lib/manual-orders";
 
 type ServerEntry = {
@@ -105,6 +105,11 @@ export default {
       const orderConfirmResponse = await maybeHandleOrderConfirmRequest(request);
       if (orderConfirmResponse) {
         return finalizeResponse(request, orderConfirmResponse);
+      }
+
+      const birthdayConfirmResponse = await maybeHandleBirthdayConfirmRequest(request);
+      if (birthdayConfirmResponse) {
+        return finalizeResponse(request, birthdayConfirmResponse);
       }
 
       const handler = await getServerEntry();
