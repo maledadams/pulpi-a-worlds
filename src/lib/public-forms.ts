@@ -514,6 +514,29 @@ export const getAdminBirthdaySubscribers = createServerFn({ method: "GET" }).han
   return listBirthdaySubscribersInternal();
 });
 
+export async function deleteBirthdaySubscriberInternal(email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const db = await getDatabase();
+
+  if (!db) {
+    memorySubscribers.delete(normalizedEmail);
+    return { success: true };
+  }
+
+  await ensurePublicFormsReady(db);
+  await db.prepare("DELETE FROM birthday_subscribers WHERE email = ?").bind(normalizedEmail).run();
+  return { success: true };
+}
+
+export const deleteAdminBirthdaySubscriber = createServerFn({ method: "POST" })
+  .inputValidator((data: { email: string }) => z.object({ email: z.string().trim().email() }).parse(data))
+  .handler(async ({ data }) => {
+    const { setResponseHeader } = await import("@tanstack/react-start/server");
+    await enforceAdminAccess();
+    setResponseHeader("Cache-Control", "private, no-store");
+    return deleteBirthdaySubscriberInternal(data.email);
+  });
+
 export const triggerBirthdayEmailsNow = createServerFn({ method: "POST" }).handler(async () => {
   const { setResponseHeader } = await import("@tanstack/react-start/server");
   await enforceAdminAccess();

@@ -362,9 +362,45 @@ async function ensureCatalogStorageReady(db: D1Database) {
         }
       }
 
-      const countRow = await db.prepare("SELECT COUNT(*) AS count FROM products").first<{ count: number }>();
+      await db.exec(
+        `
+        CREATE TABLE IF NOT EXISTS app_settings (
+          key TEXT PRIMARY KEY,
+          value_json TEXT NOT NULL,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      `.replace(/\n/g, " "),
+      );
+
       await db.prepare("DELETE FROM products WHERE department = ?").bind("pulpina").run();
+
+      // Seed the mock catalog exactly once, ever. Re-checking COUNT(*) here
+      // would re-insert every mock product the moment an admin deletes all
+      // of them (count back to 0), undoing real deletions on the next cold
+      // isolate. A persisted marker means "seeded" is a one-way door.
+      const seededRow = await db
+        .prepare("SELECT value_json FROM app_settings WHERE key = ?")
+        .bind("catalog_seeded")
+        .first<{ value_json: string }>();
+      if (seededRow) {
+        return;
+      }
+
+      const markSeeded = () =>
+        db
+          .prepare(
+            "INSERT INTO app_settings (key, value_json) VALUES (?, ?) ON CONFLICT(key) DO NOTHING",
+          )
+          .bind("catalog_seeded", JSON.stringify({ seededAt: new Date().toISOString() }))
+          .run();
+
+      // A database that already has products but no marker predates this
+      // marker: it was already seeded (or has real data) before this code
+      // existed. Record the marker without re-inserting, since re-running
+      // the batch would collide on the existing primary keys.
+      const countRow = await db.prepare("SELECT COUNT(*) AS count FROM products").first<{ count: number }>();
       if ((countRow?.count ?? 0) > 0) {
+        await markSeeded();
         return;
       }
 
@@ -420,6 +456,7 @@ async function ensureCatalogStorageReady(db: D1Database) {
       });
 
       await db.batch(batch);
+      await markSeeded();
     })().catch((error) => {
       catalogStorageReadyPromise = null;
       throw error;
@@ -1111,21 +1148,41 @@ export const saveAdminCatalogProduct = createServerFn({ method: "POST" })
   .inputValidator((data: z.input<typeof adminProductSchema>) => adminProductSchema.parse(data))
   .handler(async ({ data }) => {
     const { setResponseHeader } = await import("@tanstack/react-start/server");
-    await enforceAdminAccess();
+    try {
+      await enforceAdminAccess();
+    } catch (error) {
+      console.error("[saveAdminCatalogProduct] enforceAdminAccess failed", error);
+      throw error;
+    }
 
     setResponseHeader("Cache-Control", "private, no-store");
 
-    const savedProduct = await saveCatalogProductInternal(data);
-    return toAdminProductRecord(savedProduct);
+    try {
+      const savedProduct = await saveCatalogProductInternal(data);
+      return toAdminProductRecord(savedProduct);
+    } catch (error) {
+      console.error("[saveAdminCatalogProduct] save failed", data.id, error);
+      throw error;
+    }
   });
 
 export const deleteAdminCatalogProduct = createServerFn({ method: "POST" })
   .inputValidator((data: z.input<typeof deleteProductSchema>) => deleteProductSchema.parse(data))
   .handler(async ({ data }) => {
     const { setResponseHeader } = await import("@tanstack/react-start/server");
-    await enforceAdminAccess();
+    try {
+      await enforceAdminAccess();
+    } catch (error) {
+      console.error("[deleteAdminCatalogProduct] enforceAdminAccess failed", error);
+      throw error;
+    }
 
     setResponseHeader("Cache-Control", "private, no-store");
 
-    return deleteCatalogProductInternal(data.id);
+    try {
+      return await deleteCatalogProductInternal(data.id);
+    } catch (error) {
+      console.error("[deleteAdminCatalogProduct] delete failed", data.id, error);
+      throw error;
+    }
   });

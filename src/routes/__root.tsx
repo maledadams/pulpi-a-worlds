@@ -77,6 +77,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "stylesheet", href: appCss },
+      // Unconditional default: crawlers (Google Search, link unfurlers, etc.)
+      // don't evaluate the prefers-color-scheme media queries below, so
+      // without this they have nothing dependable to pick up as the icon.
+      { rel: "icon", type: "image/svg+xml", href: generalPineapple },
       { rel: "icon", type: "image/svg+xml", href: generalPineapple, media: "(prefers-color-scheme: light)" },
       { rel: "icon", type: "image/svg+xml", href: moonPineapple, media: "(prefers-color-scheme: dark)" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },

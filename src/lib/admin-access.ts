@@ -166,6 +166,7 @@ const assertAdminAccess = createServerFn({ method: "GET" }).handler(async () => 
 
   const allowedHosts = new Set(parseServerAllowedHosts());
   if (allowedHosts.size > 0 && !allowedHosts.has(host)) {
+    console.error("[assertAdminAccess] rejected: host not in ADMIN_ALLOWED_HOSTS", host);
     throw notFound();
   }
 
@@ -182,15 +183,28 @@ const assertAdminAccess = createServerFn({ method: "GET" }).handler(async () => 
   const jwtFromCookie = getCookieValue(getRequestHeader("cookie"), "CF_Authorization");
   const accessJwt = jwtFromHeader || jwtFromCookie;
   if (!accessJwt) {
+    console.error(
+      "[assertAdminAccess] rejected: no JWT in header or cookie",
+      "hasEmailHeader:", Boolean(emailHeader),
+      "cookieHeaderPresent:", Boolean(getRequestHeader("cookie")),
+    );
     throw notFound();
   }
 
   const verifiedEmail = await verifyAccessJwtAndGetEmail(accessJwt);
   if (!verifiedEmail) {
+    const { aud, teamDomain } = getAccessVerificationConfig();
+    console.error(
+      "[assertAdminAccess] rejected: JWT verification failed",
+      "source:", jwtFromHeader ? "header" : "cookie",
+      "hasAud:", Boolean(aud),
+      "hasTeamDomain:", Boolean(teamDomain),
+    );
     throw notFound();
   }
 
   if (emailHeader && emailHeader !== verifiedEmail) {
+    console.error("[assertAdminAccess] rejected: header/JWT email mismatch", emailHeader, verifiedEmail);
     throw notFound();
   }
 
@@ -201,6 +215,7 @@ const assertAdminAccess = createServerFn({ method: "GET" }).handler(async () => 
   const allowedDomains = parseServerAllowedEmailDomains();
   const hasAppAllowlist = allowedEmails.size > 0 || allowedDomains.length > 0;
   if (hasAppAllowlist && !emailMatchesAllowlist(email, allowedEmails, allowedDomains)) {
+    console.error("[assertAdminAccess] rejected: email not in allowlist", email);
     throw notFound();
   }
 });

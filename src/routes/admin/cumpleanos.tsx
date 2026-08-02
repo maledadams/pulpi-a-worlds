@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AdminPanel, AdminShell, AdminTag } from "@/components/admin/AdminShell";
-import { AdminEmptyState } from "@/components/admin/AdminControls";
+import { AdminButton, AdminEmptyState, AdminToast, type AdminToastTone, confirmAdminDestructiveAction } from "@/components/admin/AdminControls";
 import { enforceAdminAccess } from "@/lib/admin-access";
-import { getAdminBirthdaySubscribers } from "@/lib/public-forms";
+import { deleteAdminBirthdaySubscriber, getAdminBirthdaySubscribers } from "@/lib/public-forms";
 
 function formatBirthDate(value: string) {
   const [, month, day] = value.split("-");
@@ -24,9 +24,36 @@ export const Route = createFileRoute("/admin/cumpleanos")({
 
 function AdminBirthdaysPage() {
   const { subscribers } = Route.useLoaderData();
-  const [rows] = useState(subscribers);
+  const [rows, setRows] = useState(subscribers);
+  const [removingEmail, setRemovingEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState<AdminToastTone>("info");
+  const showMessage = (text: string, tone: AdminToastTone = "info") => {
+    setMessage(text);
+    setMessageTone(tone);
+  };
 
   const todayCount = rows.filter((row) => row.isBirthdayToday).length;
+
+  useEffect(() => {
+    if (!message) return;
+    const timeout = window.setTimeout(() => setMessage(""), 3200);
+    return () => window.clearTimeout(timeout);
+  }, [message]);
+
+  const handleRemove = (email: string) => {
+    if (!confirmAdminDestructiveAction(`Vas a quitar a ${email} de la lista de cumpleaños. ¿Quieres continuar?`)) {
+      return;
+    }
+    setRemovingEmail(email);
+    void deleteAdminBirthdaySubscriber({ data: { email } })
+      .then(() => {
+        setRows((current) => current.filter((row) => row.email !== email));
+        showMessage("Suscriptor eliminado.", "success");
+      })
+      .catch(() => showMessage("No se pudo eliminar el suscriptor ahora mismo.", "error"))
+      .finally(() => setRemovingEmail(""));
+  };
 
   return (
     <AdminShell section="cumpleanos" title="Cumpleaños">
@@ -60,12 +87,20 @@ function AdminBirthdaysPage() {
                   ) : (
                     <AdminTag tone="soft">Sin enviar</AdminTag>
                   )}
+                  <AdminButton
+                    tone="danger"
+                    disabled={removingEmail === row.email}
+                    onClick={() => handleRemove(row.email)}
+                  >
+                    {removingEmail === row.email ? "Quitando..." : "Quitar"}
+                  </AdminButton>
                 </div>
               </div>
             ))}
           </div>
         )}
       </AdminPanel>
+      <AdminToast message={message} tone={messageTone} />
     </AdminShell>
   );
 }
