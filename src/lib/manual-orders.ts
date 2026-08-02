@@ -1482,7 +1482,14 @@ export const submitManualOrder = createServerFn({ method: "POST" })
         await redeemBirthdayCouponInternal(discountCode, data.customerEmail);
       }
       const config = await getEmailConfig();
-      const customerSent = config.apiKey && config.from ? await sendCustomerInvoiceEmail(record) : false;
+      let customerSent = false;
+      if (config.apiKey && config.from) {
+        try {
+          customerSent = await sendCustomerInvoiceEmail(record);
+        } catch (error) {
+          console.error("sendCustomerInvoiceEmail failed", error);
+        }
+      }
       const emailState: OrderEmailState = {
         configured: Boolean(config.apiKey && config.from),
         customerSent,
@@ -1509,7 +1516,8 @@ export const submitManualOrder = createServerFn({ method: "POST" })
           total: record.total,
         },
       };
-    } catch {
+    } catch (error) {
+      console.error("submitManualOrder failed", error);
       return {
         message: "No se pudo crear el pedido ahora mismo.",
         ok: false as const,
