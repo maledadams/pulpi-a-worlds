@@ -951,7 +951,17 @@ async function listCollectionsInternal() {
     `)
     .all<CollectionRow>();
 
-  return (rows.results ?? []).map(parseCollectionRow);
+  const collections = (rows.results ?? []).map(parseCollectionRow);
+
+  // product_ids_json is a plain JSON array, not a real foreign key, so a
+  // deleted product's id can linger here even after cleanup elsewhere.
+  // Filter it out at read time too, so the admin UI never shows a ghost
+  // product regardless of how it got into storage.
+  const liveProductIds = new Set((await listCatalogProductsInternal()).map((product) => product.id));
+  return collections.map((collection) => ({
+    ...collection,
+    productIds: collection.productIds.filter((productId) => liveProductIds.has(productId)),
+  }));
 }
 
 async function saveCollectionInternal(input: AdminCollectionRecord) {

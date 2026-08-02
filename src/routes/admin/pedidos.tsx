@@ -17,7 +17,13 @@ import { enforceAdminAccess } from "@/lib/admin-access";
 import { getAdminCatalogProducts } from "@/lib/catalog";
 import { formatPrice } from "@/data/products";
 import { formatAdminInquiryChannel, formatAdminInquiryStatus } from "@/lib/admin-service";
-import { createAdminManualOrder, deleteAdminOrder, getAdminOrders, updateAdminOrder } from "@/lib/manual-orders";
+import {
+  createAdminManualOrder,
+  deleteAdminOrder,
+  getAdminOrders,
+  resendAdminOrderConfirmation,
+  updateAdminOrder,
+} from "@/lib/manual-orders";
 import type { AdminInquiryChannel, AdminInquiryRecord, AdminInquiryStatus, AdminProductRecord } from "@/lib/admin-types";
 
 const PAGE_SIZE = 12;
@@ -188,6 +194,7 @@ function AdminOrdersPage() {
   };
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [resending, setResending] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newOrder, setNewOrder] = useState<OrderFormState>(() => buildCreateState(products));
@@ -374,6 +381,16 @@ function AdminOrdersPage() {
         showToast(error instanceof Error ? error.message : "No se pudo eliminar el pedido.", "error");
       })
       .finally(() => setDeleting(false));
+  };
+
+  const handleResendConfirmation = () => {
+    if (!draft) return;
+    setResending(true);
+    setToastMessage("");
+    void resendAdminOrderConfirmation({ data: { id: draft.id } })
+      .then((result) => showToast(result.message, result.ok ? "success" : "error"))
+      .catch(() => showToast("No se pudo reenviar el correo ahora mismo.", "error"))
+      .finally(() => setResending(false));
   };
 
   const renderLinesEditor = (
@@ -682,6 +699,9 @@ function AdminOrdersPage() {
               title={draft.requestNumber}
               actions={
                 <div className="flex items-center gap-2">
+                  <AdminButton tone="ghost" onClick={handleResendConfirmation} disabled={resending || saving || deleting}>
+                    {resending ? "Enviando..." : "Reenviar confirmacion"}
+                  </AdminButton>
                   <AdminButton tone="danger" onClick={handleDeleteOrder} disabled={saving || deleting}>
                     {deleting ? "Eliminando..." : "Eliminar"}
                   </AdminButton>

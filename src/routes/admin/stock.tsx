@@ -37,6 +37,12 @@ function cloneProduct(product: AdminProductRecord): AdminProductRecord {
   };
 }
 
+const LOW_STOCK_THRESHOLD = 4;
+
+function hasLowStock(product: AdminProductRecord) {
+  return product.variants.some((variant) => Math.max(0, variant.quantityAvailable ?? 0) <= LOW_STOCK_THRESHOLD);
+}
+
 function categoryLabel(categories: AdminCategoryRecord[], categoryId: string) {
   return categories.find((entry) => entry.id === categoryId)?.label ?? categoryId;
 }
@@ -68,6 +74,7 @@ function AdminStockPage() {
   const [selectedId, setSelectedId] = useState(initial.products[0]?.id ?? "");
   const [draft, setDraft] = useState<AdminProductRecord | null>(initial.products[0] ? cloneProduct(initial.products[0]) : null);
   const [query, setQuery] = useState("");
+  const [lowStockOnly, setLowStockOnly] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -84,8 +91,10 @@ function AdminStockPage() {
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return products.filter((product) => `${product.name} ${product.slug} ${product.id}`.toLowerCase().includes(needle));
-  }, [products, query]);
+    return products
+      .filter((product) => `${product.name} ${product.slug} ${product.id}`.toLowerCase().includes(needle))
+      .filter((product) => !lowStockOnly || hasLowStock(product));
+  }, [products, query, lowStockOnly]);
   const selected = products.find((product) => product.id === selectedId) ?? null;
 
   useEffect(() => {
@@ -167,19 +176,34 @@ function AdminStockPage() {
       <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
         <AdminPanel title="Productos" className="self-start xl:sticky xl:top-4">
           <AdminInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar producto" />
+          <button
+            type="button"
+            onClick={() => setLowStockOnly((current) => !current)}
+            className={`mt-2 w-full rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-[0.1em] transition ${
+              lowStockOnly ? "border-[#231717] bg-[#231717] text-white" : "border-[#231717]/15 bg-[#faf6f0] text-[#5f4941] hover:bg-[#f3eadf]"
+            }`}
+          >
+            {lowStockOnly ? "Mostrando solo stock bajo" : "Filtrar solo stock bajo"}
+          </button>
           <div className="mt-3 grid max-h-[70vh] gap-2 overflow-y-auto pr-1">
-            {filtered.map((product) => (
-              <button
-                key={product.id}
-                onClick={() => setSelectedId(product.id)}
-                className={`rounded-xl border p-3 text-left transition ${selectedId === product.id ? "border-[#231717] bg-[#231717] text-white" : "border-[#231717]/10 bg-[#faf6f0] hover:bg-[#f3eadf]"}`}
-              >
-                <div className="font-bold">{product.name}</div>
-                <div className="mt-1 flex items-center justify-between text-xs opacity-75">
-                  <span>{getVibeLabel(product.vibe)}</span><span>{product.stock ?? 0} unidades</span>
-                </div>
-              </button>
-            ))}
+            {filtered.map((product) => {
+              const lowStock = hasLowStock(product);
+              return (
+                <button
+                  key={product.id}
+                  onClick={() => setSelectedId(product.id)}
+                  className={`rounded-xl border p-3 text-left transition ${selectedId === product.id ? "border-[#231717] bg-[#231717] text-white" : "border-[#231717]/10 bg-[#faf6f0] hover:bg-[#f3eadf]"}`}
+                >
+                  <div className="font-bold">{product.name}</div>
+                  <div className="mt-1 flex items-center justify-between text-xs opacity-75">
+                    <span>{getVibeLabel(product.vibe)}</span>
+                    <span className={lowStock && selectedId !== product.id ? "font-bold text-[#9a3423] opacity-100" : undefined}>
+                      {product.stock ?? 0} unidades
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </AdminPanel>
 

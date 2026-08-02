@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { MessageSquareMore, PackageSearch, ShieldCheck, TriangleAlert } from "lucide-react";
 import { useMemo, useState } from "react";
 import { AdminPanel, AdminShell, AdminStatCard, AdminTag } from "@/components/admin/AdminShell";
-import { AdminButton, getAdminButtonClassName } from "@/components/admin/AdminControls";
+import { AdminButton, AdminEmptyState, getAdminButtonClassName } from "@/components/admin/AdminControls";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { formatPrice } from "@/data/products";
 import { getAdminCatalogProducts } from "@/lib/catalog";
@@ -11,6 +11,8 @@ import { getAdminOrders } from "@/lib/manual-orders";
 import type { AdminInquiryRecord } from "@/lib/admin-types";
 
 type SalesWindow = "all" | "year" | "month" | "week" | "day";
+
+const LOW_STOCK_THRESHOLD = 4;
 
 const SALES_WINDOWS: Array<{ id: SalesWindow; label: string }> = [
   { id: "all", label: "Todo" },
@@ -77,6 +79,19 @@ function AdminDashboardPage() {
       0,
     );
 
+    const stockAlerts = products
+      .filter((product) => !product.hidden)
+      .flatMap((product) =>
+        product.variants.map((variant) => ({
+          productId: product.id,
+          productName: product.name,
+          variantLabel: variant.title,
+          quantity: Math.max(0, variant.quantityAvailable ?? 0),
+        })),
+      )
+      .filter((entry) => entry.quantity <= LOW_STOCK_THRESHOLD)
+      .sort((a, b) => a.quantity - b.quantity);
+
     const periodOrders = orders.filter((order) => isInWindow(order, salesWindow) && order.status !== "pending_contact");
     const gains = periodOrders
       .filter((order) => order.status === "closed")
@@ -99,6 +114,7 @@ function AdminDashboardPage() {
       productCount: products.length,
       recentInquiries,
       statusBreakdown,
+      stockAlerts,
     };
   }, [orders, products, salesWindow]);
 
@@ -232,6 +248,48 @@ function AdminDashboardPage() {
               </div>
             </div>
           </div>
+        </AdminPanel>
+      </div>
+
+      <div className="mt-4">
+        <AdminPanel
+          title="Stock bajo"
+          actions={
+            <Link to="/admin/stock" className={getAdminButtonClassName("secondary")}>
+              Ir a Stock
+            </Link>
+          }
+        >
+          {snapshot.stockAlerts.length === 0 ? (
+            <AdminEmptyState
+              title="Todo en niveles saludables"
+              body={`Ninguna variante tiene ${LOW_STOCK_THRESHOLD} unidades o menos ahora mismo.`}
+            />
+          ) : (
+            <>
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                {snapshot.stockAlerts.slice(0, 12).map((alert) => (
+                  <div
+                    key={`${alert.productId}-${alert.variantLabel}`}
+                    className="flex items-center justify-between gap-3 rounded-xl bg-[#faf6f0] px-3 py-2.5 text-sm"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate font-semibold">{alert.productName}</div>
+                      <div className="text-xs text-[#6b5a55]">{alert.variantLabel}</div>
+                    </div>
+                    <AdminTag tone={alert.quantity === 0 ? "danger" : "warn"}>
+                      {alert.quantity === 0 ? "Agotado" : `${alert.quantity} und.`}
+                    </AdminTag>
+                  </div>
+                ))}
+              </div>
+              {snapshot.stockAlerts.length > 12 ? (
+                <p className="mt-3 text-xs text-[#6b5a55]">
+                  +{snapshot.stockAlerts.length - 12} variante(s) mas con stock bajo.
+                </p>
+              ) : null}
+            </>
+          )}
         </AdminPanel>
       </div>
     </AdminShell>

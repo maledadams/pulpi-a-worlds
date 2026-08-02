@@ -1686,6 +1686,31 @@ export const deleteAdminOrder = createServerFn({ method: "POST" })
     return deleteOrderInternal(data.id);
   });
 
+export const resendAdminOrderConfirmation = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string }) => z.object({ id: z.string().trim().min(1) }).parse(data))
+  .handler(async ({ data }) => {
+    const { setResponseHeader } = await import("@tanstack/react-start/server");
+    await enforceAdminAccess();
+
+    setResponseHeader("Cache-Control", "private, no-store");
+
+    const orders = await listOrdersInternal();
+    const record = orders.find((order) => order.id === data.id);
+    if (!record) {
+      return { ok: false as const, message: "El pedido ya no existe." };
+    }
+
+    try {
+      const sent = await sendCustomerInvoiceEmail(record);
+      return sent
+        ? { ok: true as const, message: `Correo reenviado a ${record.customerEmail}.` }
+        : { ok: false as const, message: "El envio de correos no esta configurado ahora mismo." };
+    } catch (error) {
+      console.error("[resendAdminOrderConfirmation] send failed", data.id, error);
+      return { ok: false as const, message: "No se pudo reenviar el correo ahora mismo." };
+    }
+  });
+
 function buildWhatsappRedirectUrl(whatsappNumber: string, requestNumber?: string) {
   const base = `https://wa.me/${whatsappNumber}`;
   if (!requestNumber) return base;

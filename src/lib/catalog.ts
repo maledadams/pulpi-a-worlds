@@ -874,6 +874,40 @@ export async function saveCatalogProductInternal(record: AdminProductRecord) {
   return normalized;
 }
 
+async function pruneDeletedProductReferences(db: D1Database, productId: string) {
+  // Collections store their product list as a JSON array (product_ids_json),
+  // not a real foreign key, so deleting a product never cascades there on
+  // its own - the id just lingers forever as a ghost entry. Clean it out of
+  // every collection that references it.
+  try {
+    const rows = await db
+      .prepare("SELECT id, product_ids_json FROM collections")
+      .all<{ id: string; product_ids_json: string | null }>();
+
+    for (const row of rows.results ?? []) {
+      if (!row.product_ids_json) continue;
+
+      let ids: unknown;
+      try {
+        ids = JSON.parse(row.product_ids_json);
+      } catch {
+        continue;
+      }
+
+      if (!Array.isArray(ids) || !ids.includes(productId)) continue;
+
+      const nextIds = ids.filter((entry) => entry !== productId);
+      await db
+        .prepare("UPDATE collections SET product_ids_json = ? WHERE id = ?")
+        .bind(JSON.stringify(nextIds), row.id)
+        .run();
+    }
+  } catch (error) {
+    // The collections table may not exist yet on a brand-new database; that's fine.
+    console.error("[deleteCatalogProductInternal] failed to prune collection references", productId, error);
+  }
+}
+
 export async function deleteCatalogProductInternal(id: string) {
   const normalizedId = id.trim();
   const db = await getDatabase();
@@ -886,6 +920,7 @@ export async function deleteCatalogProductInternal(id: string) {
   await ensureCatalogStorageReady(db);
   await db.prepare("DELETE FROM products WHERE id = ?").bind(normalizedId).run();
   invalidateProductsCache();
+  await pruneDeletedProductReferences(db, normalizedId);
   return { success: true };
 }
 
