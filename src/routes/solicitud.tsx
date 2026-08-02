@@ -144,7 +144,7 @@ function InquiryPage() {
             Ya registramos tu pedido. Revisa tu correo: ahi tienes el detalle y el boton para confirmar por WhatsApp.
           </p>
 
-          <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_264px]">
+          <div className="mt-6">
             <div className="rounded-2xl border border-foreground/10 bg-background p-4">
               <p className="text-sm font-bold">Resumen del pedido</p>
               <div className="mt-4 grid gap-3">
@@ -215,34 +215,14 @@ function InquiryPage() {
                 </div>
               </div>
             </div>
-
-            <div className="rounded-2xl border border-foreground/10 bg-muted/30 p-4">
-              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                Siguiente paso
-              </p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Te enviamos un correo con tu pedido <strong>{createdOrder.order.requestNumber}</strong>. Abrelo y
-                confirma por WhatsApp desde ahi para completar tu compra.
-              </p>
-              <div className="mt-4 flex flex-col gap-3">
-                <Link
-                  to="/tienda"
-                  className="inline-flex items-center justify-center rounded-full border border-foreground/20 px-5 py-3 text-sm font-bold uppercase tracking-wider"
-                >
-                  Volver a la tienda
-                </Link>
-              </div>
-            </div>
           </div>
 
-          <div className="mt-5 rounded-2xl border border-foreground/10 bg-muted/30 p-4 text-sm leading-6 text-muted-foreground">
-            <p>{createdOrder.message}</p>
-            {!createdOrder.emailState.configured ? (
-              <p className="mt-2">
-                El pedido ya quedo guardado igual. Los correos automaticos se activan cuando conectes el proveedor de email.
-              </p>
-            ) : null}
-          </div>
+          <Link
+            to="/tienda"
+            className="mt-5 flex w-full items-center justify-center rounded-full bg-foreground px-5 py-4 text-sm font-bold uppercase tracking-wider text-background"
+          >
+            Volver a la tienda
+          </Link>
         </div>
       </div>
     );

@@ -153,7 +153,7 @@ export function Footer({
           </div>
         </div>
 
-        <div className="min-[1440px]:translate-x-[7.25rem]" data-footer-store>
+        <div data-footer-store>
           <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Store</div>
           <ul className="space-y-1.5 text-sm">
             {resolvedSettings.footerShopLinks.map((link) => (
