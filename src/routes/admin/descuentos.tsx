@@ -162,7 +162,7 @@ function AdminDiscountsPage() {
         </AdminButton>
       }
     >
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
         <AdminPanel title="Promociones">
           <div className="mb-4 flex flex-col gap-3 md:flex-row">
             <AdminInput

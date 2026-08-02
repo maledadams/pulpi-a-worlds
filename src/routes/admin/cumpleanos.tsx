@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AdminPanel, AdminShell, AdminTag } from "@/components/admin/AdminShell";
-import { AdminButton, AdminEmptyState, AdminToast, type AdminToastTone } from "@/components/admin/AdminControls";
+import { AdminEmptyState } from "@/components/admin/AdminControls";
 import { enforceAdminAccess } from "@/lib/admin-access";
-import { getAdminBirthdaySubscribers, triggerBirthdayEmailsNow } from "@/lib/public-forms";
+import { getAdminBirthdaySubscribers } from "@/lib/public-forms";
 
 function formatBirthDate(value: string) {
   const [, month, day] = value.split("-");
@@ -24,52 +24,12 @@ export const Route = createFileRoute("/admin/cumpleanos")({
 
 function AdminBirthdaysPage() {
   const { subscribers } = Route.useLoaderData();
-  const [rows, setRows] = useState(subscribers);
-  const [sending, setSending] = useState(false);
-  const [message, setMessage] = useState("");
-  const [messageTone, setMessageTone] = useState<AdminToastTone>("info");
-  const showMessage = (text: string, tone: AdminToastTone = "info") => {
-    setMessage(text);
-    setMessageTone(tone);
-  };
+  const [rows] = useState(subscribers);
 
   const todayCount = rows.filter((row) => row.isBirthdayToday).length;
 
-  useEffect(() => {
-    if (!message) return;
-    const timeout = window.setTimeout(() => setMessage(""), 3200);
-    return () => window.clearTimeout(timeout);
-  }, [message]);
-
-  const handleSendNow = () => {
-    setSending(true);
-    setMessage("");
-    void triggerBirthdayEmailsNow({})
-      .then((result) => {
-        showMessage(
-          result.sent > 0
-            ? `Se enviaron ${result.sent} correo(s) de cumpleaños.`
-            : "No hay correos pendientes de enviar en este momento.",
-          "success",
-        );
-        return getAdminBirthdaySubscribers();
-      })
-      .then((fresh) => setRows(fresh))
-      .catch(() => showMessage("No se pudo procesar el envío ahora mismo.", "error"))
-      .finally(() => setSending(false));
-  };
-
   return (
-    <AdminShell
-      section="cumpleanos"
-      title="Cumpleaños"
-      subtitle="Suscriptores del descuento de cumpleaños y el estado de sus correos."
-      actions={
-        <AdminButton tone="primary" onClick={handleSendNow} disabled={sending}>
-          {sending ? "Enviando..." : "Enviar correos de hoy"}
-        </AdminButton>
-      }
-    >
+    <AdminShell section="cumpleanos" title="Cumpleaños">
       <AdminPanel title={`Suscriptores (${rows.length})`}>
         <div className="mb-4 rounded-xl bg-[#f7f2ec] px-3 py-2.5 text-sm font-semibold">
           {todayCount > 0
@@ -106,7 +66,6 @@ function AdminBirthdaysPage() {
           </div>
         )}
       </AdminPanel>
-      <AdminToast message={message} tone={messageTone} />
     </AdminShell>
   );
 }

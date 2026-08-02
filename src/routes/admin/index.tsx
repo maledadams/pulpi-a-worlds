@@ -13,7 +13,7 @@ import type { AdminInquiryRecord } from "@/lib/admin-types";
 type SalesWindow = "all" | "year" | "month" | "week" | "day";
 
 const SALES_WINDOWS: Array<{ id: SalesWindow; label: string }> = [
-  { id: "all", label: "Todo el tiempo" },
+  { id: "all", label: "Todo" },
   { id: "year", label: "Anual" },
   { id: "month", label: "Mensual" },
   { id: "week", label: "Semanal" },
@@ -118,14 +118,14 @@ function AdminDashboardPage() {
         </Link>
       }
     >
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <AdminStatCard label="Productos" value={String(snapshot.productCount)} icon={PackageSearch} iconClassName="bg-[#f5dce8] text-[#7b3551]" />
         <AdminStatCard label="Pedidos" value={String(snapshot.inquiryCount)} icon={MessageSquareMore} iconClassName="bg-[#dff3c7] text-[#45651f]" />
         <AdminStatCard label="Abiertas" value={String(snapshot.openInquiryCount)} icon={TriangleAlert} iconClassName="bg-[#ffe1c8] text-[#9a4a1d]" />
         <AdminStatCard label="Inventario" value={formatPrice(snapshot.inventoryBaseValue)} icon={ShieldCheck} iconClassName="bg-[#fde2bf] text-[#8a531b]" />
       </div>
 
-      <div className="mt-5 grid items-start gap-4 xl:grid-cols-[1.2fr_1fr]">
+      <div className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_1fr]">
         <AdminPanel title="Pedidos recientes">
           {snapshot.recentInquiries.length > 0 ? (
             <div className="grid gap-2.5">
@@ -187,17 +187,21 @@ function AdminDashboardPage() {
         </AdminPanel>
 
         <AdminPanel
-          className="self-start"
           actions={
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-nowrap gap-1.5">
               {SALES_WINDOWS.map((entry) => (
-                <AdminButton
+                <button
                   key={entry.id}
-                  tone={salesWindow === entry.id ? "active" : "ghost"}
+                  type="button"
                   onClick={() => setSalesWindow(entry.id)}
+                  className={`whitespace-nowrap rounded-lg border px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.08em] transition ${
+                    salesWindow === entry.id
+                      ? "border-[#231717] bg-[#231717] text-white"
+                      : "border-[#231717]/15 bg-[#f2ede7] text-[#5f4941] hover:bg-[#ece4db]"
+                  }`}
                 >
                   {entry.label}
-                </AdminButton>
+                </button>
               ))}
             </div>
           }

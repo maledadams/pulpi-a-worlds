@@ -644,7 +644,7 @@ function AdminProductsPage() {
 
         {draft ? (
           <>
-            <div className="grid items-start gap-4 2xl:grid-cols-[minmax(0,1.1fr)_minmax(420px,0.9fr)]">
+            <div className="grid grid-cols-1 items-start gap-4 2xl:grid-cols-[minmax(0,1.1fr)_minmax(420px,0.9fr)]">
               <AdminPanel
                 title={draft.name || "Producto nuevo"}
                 titleClassName="font-body text-sm font-normal"

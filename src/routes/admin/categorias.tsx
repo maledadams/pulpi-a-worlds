@@ -346,7 +346,7 @@ function AdminCategoriesPage() {
         </AdminButton>
       }
     >
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.1fr)_430px]">
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.1fr)_430px]">
         <div className="grid gap-4">
         <AdminPanel>
           <div className="mb-4 flex flex-col gap-3 md:flex-row">

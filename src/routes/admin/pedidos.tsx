@@ -20,7 +20,7 @@ import { formatAdminInquiryChannel, formatAdminInquiryStatus } from "@/lib/admin
 import { createAdminManualOrder, deleteAdminOrder, getAdminOrders, updateAdminOrder } from "@/lib/manual-orders";
 import type { AdminInquiryChannel, AdminInquiryRecord, AdminInquiryStatus, AdminProductRecord } from "@/lib/admin-types";
 
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 12;
 
 type DraftOrderLine = {
   key: string;
@@ -463,7 +463,7 @@ function AdminOrdersPage() {
         </AdminButton>
       }
     >
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.2fr)_460px]">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.2fr)_460px]">
         <AdminPanel
           title="Ordenes"
           actions={
@@ -476,6 +476,7 @@ function AdminOrdersPage() {
             </div>
           }
         >
+          <div className="flex h-full flex-col">
           <div className="mb-4 flex flex-col gap-3 md:flex-row">
             <AdminInput
               value={query}
@@ -494,7 +495,7 @@ function AdminOrdersPage() {
             />
           ) : (
             <>
-              <div className="overflow-x-auto">
+              <div className="flex-1 overflow-x-auto">
                 <table className="min-w-full text-left text-sm">
                   <thead className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">
                     <tr>
@@ -537,6 +538,7 @@ function AdminOrdersPage() {
               </div>
             </>
           )}
+          </div>
         </AdminPanel>
 
         <div className="grid gap-4">
@@ -591,7 +593,7 @@ function AdminOrdersPage() {
                   </AdminField>
                   <AdminField label="Estado">
                     <AdminSelect value={newOrder.status} onChange={(event) => setNewOrder((current) => ({ ...current, status: event.target.value as AdminInquiryStatus }))}>
-                      <option value="new">Nueva</option>
+                      <option value="new">Nuevo</option>
                       <option value="follow_up">Seguimiento</option>
                       <option value="quoted">Cotizada</option>
                       <option value="closed">Cerrada</option>
@@ -735,7 +737,7 @@ function AdminOrdersPage() {
                   </AdminField>
                   <AdminField label="Estado">
                     <AdminSelect value={draft.status} onChange={(event) => setDraft((current) => (current ? { ...current, status: event.target.value as AdminInquiryStatus } : current))}>
-                      <option value="new">Nueva</option>
+                      <option value="new">Nuevo</option>
                       <option value="follow_up">Seguimiento</option>
                       <option value="quoted">Cotizada</option>
                       <option value="closed">Cerrada</option>

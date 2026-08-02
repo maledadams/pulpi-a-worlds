@@ -103,10 +103,10 @@ export function AdminTabs<T extends string>({
           type="button"
           onClick={() => onChange(tab.id)}
           className={cn(
-            "rounded-xl border px-4 py-2 text-xs font-black uppercase tracking-[0.16em] transition",
+            "rounded-xl border border-[#231717] px-4 py-2 text-xs font-black uppercase tracking-[0.16em] transition",
             active === tab.id
-              ? "border-[#231717] bg-[#231717] text-white"
-              : "border-[#231717]/15 bg-[#f2ede7] text-[#5f4941] hover:border-[#231717]/30 hover:bg-[#ece4db]",
+              ? "bg-white text-[#231717]"
+              : "bg-[#231717] text-white hover:bg-[#3a2924]",
           )}
         >
           {tab.label}

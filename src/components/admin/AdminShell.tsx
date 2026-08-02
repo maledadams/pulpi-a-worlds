@@ -51,21 +51,21 @@ export function AdminShell({
 
   return (
     <div className="admin-shell min-h-screen text-[#231717]" style={{ background: SECTION_BACKGROUNDS[section] }}>
-      <div className="mx-auto grid max-w-[1880px] gap-4 px-4 py-4 xl:grid-cols-[250px_minmax(0,1fr)] 2xl:grid-cols-[270px_minmax(0,1fr)]">
-        <aside className="self-start rounded-[20px] border border-[#231717]/15 bg-white/90 p-4 shadow-[0_12px_28px_-24px_rgba(35,23,23,0.35)] xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto">
+      <div className="mx-auto grid max-w-[1880px] grid-cols-1 gap-3 px-3 py-3 sm:gap-4 sm:px-4 sm:py-4 xl:grid-cols-[250px_minmax(0,1fr)] 2xl:grid-cols-[270px_minmax(0,1fr)]">
+        <aside className="self-start rounded-[20px] border border-[#231717]/15 bg-white/90 p-3 shadow-[0_12px_28px_-24px_rgba(35,23,23,0.35)] xl:p-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto">
           <div className="flex items-center gap-3 px-1">
-            <div className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-[#231717] text-white">
-              <Store className="h-5 w-5" />
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] bg-[#231717] text-white xl:h-10 xl:w-10">
+              <Store className="h-4 w-4 xl:h-5 xl:w-5" />
             </div>
             <div className="min-w-0">
-              <div className="text-[11px] font-black uppercase tracking-[0.24em] text-[#7c665f]">
+              <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#7c665f] xl:text-[11px]">
                 Admin
               </div>
               <div className="truncate text-sm font-bold">Pulpiña Store</div>
             </div>
           </div>
 
-          <nav className="mt-4 grid gap-1">
+          <nav className="mt-3 flex gap-1 overflow-x-auto pb-1 xl:mt-4 xl:grid xl:overflow-visible xl:pb-0">
             {NAV_ITEMS.map((item) => {
               const Icon = item.icon;
               return (
@@ -73,7 +73,7 @@ export function AdminShell({
                   key={item.to}
                   to={item.to}
                   className={cn(
-                    "flex items-center gap-3 rounded-[14px] px-3 py-2.5 text-sm font-semibold transition-colors",
+                    "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-[14px] px-3 py-2 text-xs font-semibold transition-colors xl:shrink xl:gap-3 xl:px-3 xl:py-2.5 xl:text-sm",
                     item.section === section
                       ? "bg-[#231717] text-white"
                       : "text-[#3a2924] hover:bg-[#f3eadf]",
@@ -87,7 +87,7 @@ export function AdminShell({
           </nav>
 
           {showAccessNotice ? (
-            <div className="mt-5 rounded-[16px] border border-[#231717]/10 bg-[#f7f2ec] p-3 text-xs leading-5 text-[#624d47]">
+            <div className="mt-5 hidden rounded-[16px] border border-[#231717]/10 bg-[#f7f2ec] p-3 text-xs leading-5 text-[#624d47] xl:block">
               Protege esta ruta con Cloudflare Access y login Google.
               <div className="mt-2">
                 <Link to="/tienda" className="font-black uppercase tracking-[0.16em] text-[#231717] underline underline-offset-4">
@@ -99,14 +99,14 @@ export function AdminShell({
         </aside>
 
         <div className="min-w-0">
-          <header className="rounded-[20px] border border-[#231717]/15 bg-white px-5 py-4 shadow-[0_12px_28px_-24px_rgba(35,23,23,0.35)]">
-            <div className="flex items-start justify-between gap-4">
+          <header className="rounded-[20px] border border-[#231717]/15 bg-white px-4 py-3 shadow-[0_12px_28px_-24px_rgba(35,23,23,0.35)] sm:px-5 sm:py-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
               <div className="min-w-0 flex-1">
-                <h1 className="text-2xl font-black md:text-3xl">{title}</h1>
+                <h1 className="text-xl font-black sm:text-2xl md:text-3xl">{title}</h1>
                 {subtitle ? <p className="mt-1 max-w-3xl text-sm text-[#6b5a55]">{subtitle}</p> : null}
               </div>
               {actions ? (
-                <div className="flex shrink-0 items-center justify-end gap-2 overflow-x-auto whitespace-nowrap pb-1 pr-1">
+                <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1 sm:shrink-0 sm:justify-end sm:pr-1">
                   {actions}
                 </div>
               ) : null}
@@ -169,7 +169,7 @@ export function AdminPanel({
   return (
     <section className={cn("flex flex-col rounded-[18px] border border-[#231717]/15 bg-white shadow-[0_10px_22px_-20px_rgba(35,23,23,0.3)]", className)}>
       {showHeader ? (
-        <div className="flex items-start justify-between gap-3 border-b border-[#231717]/10 px-4 py-3">
+        <div className="flex flex-col gap-2 border-b border-[#231717]/10 px-3 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-3 sm:px-4">
           {title || eyebrow ? (
             <div>
               {eyebrow ? (
@@ -180,10 +180,10 @@ export function AdminPanel({
           ) : (
             <div />
           )}
-          {actions}
+          {actions ? <div className="overflow-x-auto whitespace-nowrap pb-1 sm:pb-0">{actions}</div> : null}
         </div>
       ) : null}
-      <div className="flex-1 p-4">{children}</div>
+      <div className="flex-1 p-3 sm:p-4">{children}</div>
     </section>
   );
 }

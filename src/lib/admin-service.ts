@@ -587,7 +587,7 @@ export function getAdminDashboardSnapshot(): AdminDashboardSnapshot {
 export function formatAdminInquiryStatus(status: AdminInquiryStatus) {
   return {
     pending_contact: "Pendiente de contacto",
-    new: "Nueva",
+    new: "Nuevo",
     follow_up: "Seguimiento",
     quoted: "Cotizada",
     closed: "Cerrada",
