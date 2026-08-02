@@ -28,6 +28,7 @@ import {
   listStorefrontCatalogProductsInternal,
   saveCatalogProductInternal,
 } from "@/lib/catalog";
+import { invalidateDiscountsCache } from "@/lib/store-discounts";
 
 type WorkerEnv = {
   DB?: D1Database;
@@ -224,6 +225,9 @@ const memorySizeFormats = new Map<AdminSizeFormat, AdminSizeFormatRecord>();
 let memorySettings: AdminSettingsRecord = cloneSettings(ADMIN_SETTINGS);
 let adminContentReadyPromise: Promise<void> | null = null;
 let memoryContentSeeded = false;
+
+const SETTINGS_CACHE_TTL_MS = 60_000;
+let settingsCache: { value: AdminSettingsRecord; expiresAt: number } | null = null;
 
 function parseCsv(raw: string | null | undefined) {
   return (raw ?? "")
@@ -1130,6 +1134,7 @@ async function saveDiscountInternal(input: AdminDiscountRecord) {
     )
     .run();
 
+  invalidateDiscountsCache();
   return cloneDiscount(normalized);
 }
 
@@ -1144,6 +1149,7 @@ async function deleteDiscountInternal(id: string) {
 
   await ensureAdminContentReady(db);
   await db.prepare("DELETE FROM discounts WHERE id = ?").bind(normalizedId).run();
+  invalidateDiscountsCache();
   return { success: true };
 }
 
@@ -1154,6 +1160,10 @@ async function getSettingsInternal() {
     return cloneSettings(memorySettings);
   }
 
+  if (settingsCache && settingsCache.expiresAt > Date.now()) {
+    return cloneSettings(settingsCache.value);
+  }
+
   await ensureAdminContentReady(db);
   const row = await db
     .prepare("SELECT value_json FROM app_settings WHERE key = ? LIMIT 1")
@@ -1161,11 +1171,14 @@ async function getSettingsInternal() {
     .first<{ value_json: string }>();
 
   if (!row?.value_json) {
+    settingsCache = { value: cloneSettings(ADMIN_SETTINGS), expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS };
     return cloneSettings(ADMIN_SETTINGS);
   }
 
   try {
-    return cloneSettings(coerceSettingsRecord(JSON.parse(row.value_json)));
+    const parsed = cloneSettings(coerceSettingsRecord(JSON.parse(row.value_json)));
+    settingsCache = { value: parsed, expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS };
+    return cloneSettings(parsed);
   } catch {
     return cloneSettings(ADMIN_SETTINGS);
   }
@@ -1221,6 +1234,7 @@ async function saveSettingsInternal(input: AdminSettingsRecord) {
     .bind(SETTINGS_KEY, JSON.stringify(normalized))
     .run();
 
+  settingsCache = { value: cloneSettings(normalized), expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS };
   return cloneSettings(normalized);
 }
 

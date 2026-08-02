@@ -18,6 +18,13 @@ type DiscountRow = {
 
 let discountStorageReadyPromise: Promise<void> | null = null;
 
+const DISCOUNTS_CACHE_TTL_MS = 60_000;
+let discountsCache: { value: AdminDiscountRecord[]; expiresAt: number } | null = null;
+
+export function invalidateDiscountsCache() {
+  discountsCache = null;
+}
+
 async function getWorkerEnv() {
   try {
     const workerSpecifier = "cloudflare:workers";
@@ -113,6 +120,10 @@ export async function listActiveDiscountsInternal() {
     return ADMIN_DISCOUNTS.filter((discount) => discount.active);
   }
 
+  if (discountsCache && discountsCache.expiresAt > Date.now()) {
+    return discountsCache.value.map((discount) => ({ ...discount }));
+  }
+
   await ensureDiscountStorageReady(db);
   const rows = await db
     .prepare(`
@@ -123,7 +134,9 @@ export async function listActiveDiscountsInternal() {
     `)
     .all<DiscountRow>();
 
-  return (rows.results ?? []).map(parseDiscountRow).filter((discount) => discount.active);
+  const discounts = (rows.results ?? []).map(parseDiscountRow).filter((discount) => discount.active);
+  discountsCache = { value: discounts, expiresAt: Date.now() + DISCOUNTS_CACHE_TTL_MS };
+  return discounts.map((discount) => ({ ...discount }));
 }
 
 export function applyDiscountsToProduct(product: Product, discounts: AdminDiscountRecord[]) {

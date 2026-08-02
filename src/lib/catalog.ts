@@ -136,6 +136,13 @@ const memoryCatalog = catalogMemoryState.catalog;
 const memoryStockMovements = catalogMemoryState.movements;
 let catalogStorageReadyPromise: Promise<void> | null = null;
 
+const PRODUCTS_CACHE_TTL_MS = 60_000;
+let productsCache: { value: Product[]; expiresAt: number } | null = null;
+
+function invalidateProductsCache() {
+  productsCache = null;
+}
+
 function cloneImage(image: ProductImage): ProductImage {
   return {
     url: image.url,
@@ -677,6 +684,10 @@ export async function listCatalogProductsInternal() {
     return listMemoryProducts();
   }
 
+  if (productsCache && productsCache.expiresAt > Date.now()) {
+    return cloneProducts(productsCache.value);
+  }
+
   await ensureCatalogStorageReady(db);
   const rows = await db
     .prepare(`
@@ -705,7 +716,9 @@ export async function listCatalogProductsInternal() {
     `)
     .all<ProductRow>();
 
-  return (rows.results ?? []).map(productFromRow).filter((product) => product.vibe !== "pulpina");
+  const products = (rows.results ?? []).map(productFromRow).filter((product) => product.vibe !== "pulpina");
+  productsCache = { value: products, expiresAt: Date.now() + PRODUCTS_CACHE_TTL_MS };
+  return cloneProducts(products);
 }
 
 export async function listStorefrontCatalogProductsInternal() {
@@ -820,6 +833,7 @@ export async function saveCatalogProductInternal(record: AdminProductRecord) {
     )
     .run();
 
+  invalidateProductsCache();
   return normalized;
 }
 
@@ -834,6 +848,7 @@ export async function deleteCatalogProductInternal(id: string) {
 
   await ensureCatalogStorageReady(db);
   await db.prepare("DELETE FROM products WHERE id = ?").bind(normalizedId).run();
+  invalidateProductsCache();
   return { success: true };
 }
 
