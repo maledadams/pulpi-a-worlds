@@ -135,6 +135,8 @@ export type AdminDiscountRecord = {
   value: number;
   active: boolean;
   scope: "store" | Vibe;
+  maxRedemptions: number | null;
+  onePerCustomer: boolean;
 };
 
 export type AdminAnnouncementRecord = {

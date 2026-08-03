@@ -69,6 +69,8 @@ type DiscountRow = {
   amount: number;
   active: number;
   scope: string;
+  max_redemptions: number | null;
+  one_per_customer: number | null;
 };
 
 type SizeFormatRow = {
@@ -128,6 +130,8 @@ const discountSchema = z.object({
   value: z.number().nonnegative(),
   active: z.boolean(),
   scope: z.enum(["store", "pulpina", "men", "moon", "sunshine"]),
+  maxRedemptions: z.number().int().positive().nullable(),
+  onePerCustomer: z.boolean(),
 });
 
 const announcementSchema = z.object({
@@ -451,6 +455,8 @@ async function ensureAdminContentReady(db: D1Database) {
         "ALTER TABLE collections ADD COLUMN show_on_home INTEGER NOT NULL DEFAULT 0;",
         "ALTER TABLE collections ADD COLUMN home_order INTEGER NOT NULL DEFAULT 0;",
         "ALTER TABLE size_formats ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;",
+        "ALTER TABLE discounts ADD COLUMN max_redemptions INTEGER;",
+        "ALTER TABLE discounts ADD COLUMN one_per_customer INTEGER NOT NULL DEFAULT 0;",
       ];
 
       for (const statement of migrations) {
@@ -545,8 +551,8 @@ async function ensureAdminContentReady(db: D1Database) {
       const discountCount = await db.prepare("SELECT COUNT(*) AS count FROM discounts").first<{ count: number }>();
       if ((discountCount?.count ?? 0) === 0) {
         const insertDiscount = db.prepare(`
-          INSERT INTO discounts (id, code, label, discount_type, amount, active, scope)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO discounts (id, code, label, discount_type, amount, active, scope, max_redemptions, one_per_customer)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         await db.batch(
           ADMIN_DISCOUNTS.map((discount) =>
@@ -558,6 +564,8 @@ async function ensureAdminContentReady(db: D1Database) {
               discount.value,
               discount.active ? 1 : 0,
               discount.scope,
+              discount.maxRedemptions,
+              discount.onePerCustomer ? 1 : 0,
             ),
           ),
         );
@@ -662,6 +670,8 @@ function parseDiscountRow(row: DiscountRow): AdminDiscountRecord {
     value: row.amount,
     active: row.active === 1,
     scope: ((row.scope?.trim() === "pulpina" ? "store" : row.scope?.trim()) || "store") as AdminDiscountRecord["scope"],
+    maxRedemptions: row.max_redemptions ?? null,
+    onePerCustomer: row.one_per_customer === 1,
   };
 }
 
@@ -1093,7 +1103,7 @@ async function listDiscountsInternal() {
   await ensureAdminContentReady(db);
   const rows = await db
     .prepare(`
-      SELECT id, code, label, discount_type, amount, active, scope
+      SELECT id, code, label, discount_type, amount, active, scope, max_redemptions, one_per_customer
       FROM discounts
       ORDER BY active DESC, code ASC
     `)
@@ -1123,15 +1133,17 @@ async function saveDiscountInternal(input: AdminDiscountRecord) {
   await ensureAdminContentReady(db);
   await db
     .prepare(`
-      INSERT INTO discounts (id, code, label, discount_type, amount, active, scope)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO discounts (id, code, label, discount_type, amount, active, scope, max_redemptions, one_per_customer)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         code = excluded.code,
         label = excluded.label,
         discount_type = excluded.discount_type,
         amount = excluded.amount,
         active = excluded.active,
-        scope = excluded.scope
+        scope = excluded.scope,
+        max_redemptions = excluded.max_redemptions,
+        one_per_customer = excluded.one_per_customer
     `)
     .bind(
       normalized.id,
@@ -1141,6 +1153,8 @@ async function saveDiscountInternal(input: AdminDiscountRecord) {
       normalized.value,
       normalized.active ? 1 : 0,
       normalized.scope,
+      normalized.maxRedemptions,
+      normalized.onePerCustomer ? 1 : 0,
     )
     .run();
 

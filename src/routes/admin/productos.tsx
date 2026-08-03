@@ -15,6 +15,7 @@ import {
   type AdminToastTone,
   AdminTextarea,
   confirmAdminDestructiveAction,
+  downloadAdminCsv,
   getAdminChipClassName,
   getAdminVibeButtonClassName,
 } from "@/components/admin/AdminControls";
@@ -514,12 +515,33 @@ function AdminProductsPage() {
       });
   };
 
+  const handleExportCsv = () => {
+    downloadAdminCsv(
+      `productos-${new Date().toISOString().slice(0, 10)}.csv`,
+      ["ID", "Nombre", "Subtienda", "Categorias", "Precio", "Stock", "Visible", "Destacado", "Nuevo"],
+      filtered.map((product) => [
+        product.id,
+        product.name,
+        getVibeLabel(product.vibe),
+        product.categories.map((category) => getCategoryLabel(category)).join(" / "),
+        product.price,
+        product.stock ?? 0,
+        product.hidden ? "No" : "Si",
+        product.featured ? "Si" : "No",
+        product.newArrival ? "Si" : "No",
+      ]),
+    );
+  };
+
   return (
     <AdminShell
       section="productos"
       title="Productos"
       actions={
         <>
+          <AdminButton tone="ghost" onClick={handleExportCsv} disabled={filtered.length === 0}>
+            Exportar CSV
+          </AdminButton>
           <AdminButton tone="secondary" onClick={handleDuplicate} disabled={!draft}>
             Duplicar
           </AdminButton>

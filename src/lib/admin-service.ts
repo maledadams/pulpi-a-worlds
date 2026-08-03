@@ -369,6 +369,8 @@ export const ADMIN_DISCOUNTS: AdminDiscountRecord[] = [
     value: 10,
     active: true,
     scope: "store",
+    maxRedemptions: null,
+    onePerCustomer: true,
   },
   {
     id: "discount-moon500",
@@ -378,6 +380,8 @@ export const ADMIN_DISCOUNTS: AdminDiscountRecord[] = [
     value: 500,
     active: false,
     scope: "moon",
+    maxRedemptions: null,
+    onePerCustomer: false,
   },
 ];
 

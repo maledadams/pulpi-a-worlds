@@ -4,7 +4,11 @@ import { getStorefrontSettingsInternal } from "@/lib/admin-content";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { signOrderConfirmToken, verifyOrderConfirmToken } from "@/lib/order-confirm-token";
-import { computeCheckoutDiscountAmount, findActiveCheckoutDiscount } from "@/lib/store-discounts";
+import {
+  computeCheckoutDiscountAmount,
+  findActiveCheckoutDiscount,
+  getDiscountRedemptionStatus,
+} from "@/lib/store-discounts";
 
 type WorkerEnv = {
   DB?: D1Database;
@@ -364,7 +368,7 @@ export async function validateDiscountCodeInternal(input: z.infer<typeof couponV
     }
 
     const discount = Math.round(input.subtotal * BIRTHDAY_DISCOUNT_RATE * 100) / 100;
-    return { code, discount, message: "Descuento aplicado.", ok: true as const };
+    return { code, discount, message: "Descuento aplicado.", ok: true as const, kind: "birthday" as const };
   }
 
   const generalDiscount = await findActiveCheckoutDiscount(code);
@@ -372,8 +376,25 @@ export async function validateDiscountCodeInternal(input: z.infer<typeof couponV
     return invalidResult;
   }
 
+  const redemptionStatus = await getDiscountRedemptionStatus(generalDiscount, email);
+  if (!redemptionStatus.allowed) {
+    return {
+      ...invalidResult,
+      message:
+        redemptionStatus.reason === "already_used"
+          ? "Ya usaste este código antes."
+          : "Este código llegó a su límite de usos.",
+    };
+  }
+
   const discount = computeCheckoutDiscountAmount(generalDiscount, input.subtotal);
-  return { code: generalDiscount.code, discount, message: "Descuento aplicado.", ok: true as const };
+  return {
+    code: generalDiscount.code,
+    discount,
+    message: "Descuento aplicado.",
+    ok: true as const,
+    kind: "general" as const,
+  };
 }
 
 export const submitContactForm = createServerFn({ method: "POST" })

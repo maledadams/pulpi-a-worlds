@@ -218,9 +218,17 @@ function AdminCollectionsPage() {
 
   const handleDelete = () => {
     if (!draft) return;
+
+    const productCount = getResolvedCollectionCount(draft, products);
+    const warnings = [
+      productCount > 0 ? `tiene ${productCount} producto(s) asignado(s)` : null,
+      draft.showOnHome ? "se muestra actualmente en el inicio" : null,
+    ].filter((entry): entry is string => Boolean(entry));
+    const warningText = warnings.length > 0 ? ` Esta coleccion ${warnings.join(" y ")}.` : "";
+
     if (
       !confirmAdminDestructiveAction(
-        `Vas a eliminar la coleccion ${draft.name || draft.id}. Esta accion no se puede deshacer. ¿Quieres continuar?`,
+        `Vas a eliminar la coleccion ${draft.name || draft.id}.${warningText} Esta accion no se puede deshacer. ¿Quieres continuar?`,
       )
     ) {
       return;

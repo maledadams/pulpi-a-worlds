@@ -40,6 +40,8 @@ function createBlankDiscount(): AdminDiscountRecord {
     value: 10,
     active: false,
     scope: "store",
+    maxRedemptions: null,
+    onePerCustomer: false,
   };
 }
 
@@ -208,8 +210,12 @@ function AdminDiscountsPage() {
                   <div className="mt-4 text-2xl font-black">
                     {discount.type === "percentage" ? `${discount.value}%` : `RD$${discount.value}`}
                   </div>
-                  <div className="mt-2 text-xs uppercase tracking-[0.16em] text-[#7c665f]">
-                    {getVibeLabel(discount.scope)}
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.16em] text-[#7c665f]">
+                    <span>{getVibeLabel(discount.scope)}</span>
+                    {discount.onePerCustomer ? <AdminTag tone="info">1 x cliente</AdminTag> : null}
+                    {discount.maxRedemptions !== null ? (
+                      <AdminTag tone="info">Limite {discount.maxRedemptions}</AdminTag>
+                    ) : null}
                   </div>
                 </button>
               ))}
@@ -257,6 +263,29 @@ function AdminDiscountsPage() {
                   <option value="men">Men</option>
                 </AdminSelect>
               </AdminField>
+              <AdminField
+                label="Limite de usos totales"
+                hint="Dejar en blanco para uso ilimitado. Solo aplica a codigos escritos en el checkout (Aplica a: General)."
+              >
+                <AdminInput
+                  type="number"
+                  min={1}
+                  value={draft.maxRedemptions ?? ""}
+                  onChange={(event) =>
+                    setDraft((current) => {
+                      if (!current) return current;
+                      const raw = event.target.value.trim();
+                      return { ...current, maxRedemptions: raw ? Math.max(1, Number(raw)) : null };
+                    })
+                  }
+                />
+              </AdminField>
+              <AdminCheckbox
+                label="Solo un uso por cliente"
+                hint="Impide que el mismo correo vuelva a usar este codigo en otro pedido."
+                checked={draft.onePerCustomer}
+                onCheckedChange={(checked) => setDraft((current) => (current ? { ...current, onePerCustomer: checked } : current))}
+              />
               <AdminCheckbox
                 label="Descuento activo"
                 checked={draft.active}

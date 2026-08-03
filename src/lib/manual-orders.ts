@@ -11,6 +11,7 @@ import {
 } from "@/lib/catalog";
 import { verifyTurnstileToken } from "@/lib/turnstile";
 import { validateDiscountCodeInternal } from "@/lib/public-forms";
+import { recordDiscountRedemption } from "@/lib/store-discounts";
 import { signOrderConfirmToken, verifyOrderConfirmToken } from "@/lib/order-confirm-token";
 import type { AdminInquiryChannel, AdminInquiryRecord, AdminInquiryStatus } from "@/lib/admin-types";
 
@@ -1541,6 +1542,7 @@ export const submitManualOrder = createServerFn({ method: "POST" })
     );
     let discount = 0;
     let discountCode = "";
+    let discountKind: "birthday" | "general" | null = null;
     if (data.discountCode.trim()) {
       const validation = await validateDiscountCodeInternal({
         code: data.discountCode,
@@ -1553,6 +1555,7 @@ export const submitManualOrder = createServerFn({ method: "POST" })
       }
       discount = validation.discount;
       discountCode = validation.code;
+      discountKind = validation.kind;
     }
 
     const db = await getDatabase();
@@ -1575,6 +1578,14 @@ export const submitManualOrder = createServerFn({ method: "POST" })
       const record = db
         ? (await createOrderInDatabase(orderInput, canonicalLines)) ?? (await createOrderInMemory(orderInput, canonicalLines))
         : await createOrderInMemory(orderInput, canonicalLines);
+
+      if (discountCode && discountKind === "general") {
+        try {
+          await recordDiscountRedemption(discountCode, data.customerEmail, record.id);
+        } catch (error) {
+          console.error("[submitManualOrder] failed to record discount redemption", discountCode, error);
+        }
+      }
       const config = await getEmailConfig();
       let customerSent = false;
       if (config.apiKey && config.from) {

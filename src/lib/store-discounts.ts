@@ -14,6 +14,8 @@ type DiscountRow = {
   amount: number;
   active: number;
   scope: string;
+  max_redemptions: number | null;
+  one_per_customer: number | null;
 };
 
 let discountStorageReadyPromise: Promise<void> | null = null;
@@ -55,8 +57,30 @@ async function ensureDiscountStorageReady(db: D1Database) {
           scope TEXT NOT NULL DEFAULT 'store',
           created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS discount_redemptions (
+          id TEXT PRIMARY KEY,
+          code TEXT NOT NULL,
+          email TEXT NOT NULL,
+          order_id TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE INDEX IF NOT EXISTS discount_redemptions_code ON discount_redemptions (code);
       `.replace(/\n/g, " "),
       );
+
+      const discountMigrations = [
+        "ALTER TABLE discounts ADD COLUMN max_redemptions INTEGER;",
+        "ALTER TABLE discounts ADD COLUMN one_per_customer INTEGER NOT NULL DEFAULT 0;",
+      ];
+      for (const statement of discountMigrations) {
+        try {
+          await db.exec(statement);
+        } catch {
+          // Existing databases already have this column.
+        }
+      }
 
       const discountCount = await db.prepare("SELECT COUNT(*) AS count FROM discounts").first<{ count: number }>();
       if ((discountCount?.count ?? 0) > 0) {
@@ -64,8 +88,8 @@ async function ensureDiscountStorageReady(db: D1Database) {
       }
 
       const insertDiscount = db.prepare(`
-        INSERT INTO discounts (id, code, label, discount_type, amount, active, scope)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO discounts (id, code, label, discount_type, amount, active, scope, max_redemptions, one_per_customer)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       await db.batch(
@@ -78,6 +102,8 @@ async function ensureDiscountStorageReady(db: D1Database) {
             discount.value,
             discount.active ? 1 : 0,
             discount.scope,
+            discount.maxRedemptions,
+            discount.onePerCustomer ? 1 : 0,
           ),
         ),
       );
@@ -99,6 +125,8 @@ function parseDiscountRow(row: DiscountRow): AdminDiscountRecord {
     value: row.amount,
     active: row.active === 1,
     scope: (row.scope?.trim() || "store") as AdminDiscountRecord["scope"],
+    maxRedemptions: row.max_redemptions ?? null,
+    onePerCustomer: row.one_per_customer === 1,
   };
 }
 
@@ -127,7 +155,7 @@ export async function listActiveDiscountsInternal() {
   await ensureDiscountStorageReady(db);
   const rows = await db
     .prepare(`
-      SELECT id, code, label, discount_type, amount, active, scope
+      SELECT id, code, label, discount_type, amount, active, scope, max_redemptions, one_per_customer
       FROM discounts
       WHERE active = 1
       ORDER BY code ASC
@@ -145,6 +173,52 @@ export async function findActiveCheckoutDiscount(code: string) {
 
   const discounts = await listActiveDiscountsInternal();
   return discounts.find((discount) => discount.scope === "store" && discount.code.toUpperCase() === normalized) ?? null;
+}
+
+export async function getDiscountRedemptionStatus(discount: AdminDiscountRecord, email: string) {
+  if (discount.maxRedemptions === null && !discount.onePerCustomer) {
+    return { allowed: true as const };
+  }
+
+  const db = await getDatabase();
+  if (!db) return { allowed: true as const };
+
+  await ensureDiscountStorageReady(db);
+  const normalizedCode = discount.code.trim().toUpperCase();
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (discount.onePerCustomer) {
+    const existing = await db
+      .prepare("SELECT 1 FROM discount_redemptions WHERE code = ? AND email = ? LIMIT 1")
+      .bind(normalizedCode, normalizedEmail)
+      .first();
+    if (existing) {
+      return { allowed: false as const, reason: "already_used" as const };
+    }
+  }
+
+  if (discount.maxRedemptions !== null) {
+    const countRow = await db
+      .prepare("SELECT COUNT(*) AS count FROM discount_redemptions WHERE code = ?")
+      .bind(normalizedCode)
+      .first<{ count: number }>();
+    if ((countRow?.count ?? 0) >= discount.maxRedemptions) {
+      return { allowed: false as const, reason: "exhausted" as const };
+    }
+  }
+
+  return { allowed: true as const };
+}
+
+export async function recordDiscountRedemption(code: string, email: string, orderId: string) {
+  const db = await getDatabase();
+  if (!db) return;
+
+  await ensureDiscountStorageReady(db);
+  await db
+    .prepare("INSERT INTO discount_redemptions (id, code, email, order_id, created_at) VALUES (?, ?, ?, ?, ?)")
+    .bind(crypto.randomUUID(), code.trim().toUpperCase(), email.trim().toLowerCase(), orderId, new Date().toISOString())
+    .run();
 }
 
 export function computeCheckoutDiscountAmount(discount: AdminDiscountRecord, subtotal: number) {

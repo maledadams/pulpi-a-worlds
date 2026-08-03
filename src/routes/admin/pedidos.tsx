@@ -12,6 +12,7 @@ import {
   type AdminToastTone,
   AdminTextarea,
   confirmAdminDestructiveAction,
+  downloadAdminCsv,
 } from "@/components/admin/AdminControls";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { getAdminCatalogProducts } from "@/lib/catalog";
@@ -470,14 +471,44 @@ function AdminOrdersPage() {
     </div>
   );
 
+  const handleExportCsv = () => {
+    downloadAdminCsv(
+      `pedidos-${new Date().toISOString().slice(0, 10)}.csv`,
+      ["Numero", "Fecha", "Cliente", "Correo", "Telefono", "Canal", "Entrega", "Provincia", "Ciudad", "Estado", "Pago", "Subtotal", "Descuento", "Envio", "Total", "Notas"],
+      filtered.map((inquiry) => [
+        inquiry.requestNumber,
+        new Date(inquiry.createdAt).toLocaleDateString("es-DO"),
+        inquiry.customerName,
+        inquiry.customerEmail,
+        inquiry.customerPhone,
+        formatAdminInquiryChannel(inquiry.channel),
+        inquiry.fulfillmentMethod === "delivery" ? "Delivery" : "Recoger",
+        inquiry.shippingAddress.province,
+        inquiry.shippingAddress.city,
+        formatAdminInquiryStatus(inquiry.status),
+        inquiry.paymentStatus,
+        inquiry.subtotal,
+        inquiry.discount,
+        inquiry.shipping,
+        inquiry.total,
+        inquiry.notes,
+      ]),
+    );
+  };
+
   return (
     <AdminShell
       section="pedidos"
       title="Pedidos"
       actions={
-        <AdminButton tone={isCreating ? "active" : "secondary"} onClick={() => setIsCreating((current) => !current)}>
-          {isCreating ? "Cerrar manual" : "Nuevo pedido manual"}
-        </AdminButton>
+        <>
+          <AdminButton tone="ghost" onClick={handleExportCsv} disabled={filtered.length === 0}>
+            Exportar CSV
+          </AdminButton>
+          <AdminButton tone={isCreating ? "active" : "secondary"} onClick={() => setIsCreating((current) => !current)}>
+            {isCreating ? "Cerrar manual" : "Nuevo pedido manual"}
+          </AdminButton>
+        </>
       }
     >
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.2fr)_460px]">
@@ -700,7 +731,7 @@ function AdminOrdersPage() {
               actions={
                 <div className="flex items-center gap-2">
                   <AdminButton tone="ghost" onClick={handleResendConfirmation} disabled={resending || saving || deleting}>
-                    {resending ? "Enviando..." : "Reenviar confirmacion"}
+                    {resending ? "Enviando..." : "Reenviar"}
                   </AdminButton>
                   <AdminButton tone="danger" onClick={handleDeleteOrder} disabled={saving || deleting}>
                     {deleting ? "Eliminando..." : "Eliminar"}
