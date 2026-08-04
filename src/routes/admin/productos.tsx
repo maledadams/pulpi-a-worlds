@@ -240,7 +240,6 @@ function AdminProductsPage() {
     () => new Set((draft?.colors ?? []).map((color) => normalizeProductColorName(color.name).toLowerCase())),
     [draft],
   );
-  const canUploadImages = Boolean(draft && persistedIds.has(draft.id) && draft.images.length < 5);
 
   useEffect(() => {
     setPage(0);
@@ -479,12 +478,33 @@ function AdminProductsPage() {
     setIsUploadingImage(true);
     setSaveMessage("");
 
-    const formData = new FormData();
-    formData.set("productId", draft.id);
-    formData.set("label", draft.name.trim() || "Producto");
-    formData.set("file", selectedImageFile);
+    const ensureSaved = persistedIds.has(draft.id)
+      ? Promise.resolve(draft)
+      : saveAdminCatalogProduct({ data: normalizeDraftForSave(draft) })
+          .then((saved) => {
+            setRows((current) => {
+              const exists = current.some((product) => product.id === saved.id);
+              return exists
+                ? current.map((product) => (product.id === saved.id ? saved : product))
+                : [saved, ...current];
+            });
+            setPersistedIds((current) => new Set(current).add(saved.id));
+            setSelectedId(saved.id);
+            setDraft(cloneProduct(saved));
+            return saved;
+          })
+          .catch(() => {
+            throw new Error("Completa los campos obligatorios (nombre, descripcion, categoria, talla, color) antes de subir imagenes.");
+          });
 
-    void uploadAdminProductImage({ data: formData })
+    void ensureSaved
+      .then((persistedProduct) => {
+        const formData = new FormData();
+        formData.set("productId", persistedProduct.id);
+        formData.set("label", persistedProduct.name.trim() || "Producto");
+        formData.set("file", selectedImageFile);
+        return uploadAdminProductImage({ data: formData });
+      })
       .then((saved) => {
         setRows((current) => current.map((product) => (product.id === saved.id ? saved : product)));
         setDraft(cloneProduct(saved));
@@ -791,15 +811,15 @@ function AdminProductsPage() {
                       type="file"
                       accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
                       onChange={(event) => setSelectedImageFile(event.target.files?.[0] ?? null)}
-                      disabled={!canUploadImages}
+                      disabled={draft.images.length >= 5}
                       className="block w-full rounded-xl border border-dashed border-[#231717]/20 bg-[#faf6f0] px-4 py-3 text-sm file:mr-3 file:rounded-xl file:border-0 file:bg-[#231717] file:px-3 file:py-2 file:text-xs file:font-black file:uppercase file:tracking-[0.14em] file:text-white"
                     />
-                    {!canUploadImages && !persistedIds.has(draft.id) ? (
+                    {!persistedIds.has(draft.id) ? (
                       <div className="rounded-2xl border border-dashed border-[#231717]/20 px-3 py-3 text-xs leading-5 text-[#6b5a55]">
-                        Guarda el producto primero para habilitar uploads reales a R2.
+                        El producto se guardara automaticamente al subir la primera imagen.
                       </div>
                     ) : null}
-                    <AdminButton tone="primary" onClick={handleUploadImage} disabled={!selectedImageFile || !canUploadImages || isUploadingImage}>
+                    <AdminButton tone="primary" onClick={handleUploadImage} disabled={!selectedImageFile || isUploadingImage || draft.images.length >= 5}>
                       {isUploadingImage ? "Subiendo imagen..." : draft.images.length >= 5 ? "Limite de 5 imagenes" : "Subir imagen"}
                     </AdminButton>
                   </div>
