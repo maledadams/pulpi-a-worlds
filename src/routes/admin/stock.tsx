@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type RefObject } from "react";
 import { AdminPanel, AdminShell, AdminTag } from "@/components/admin/AdminShell";
 import {
+  AdminAutosaveIndicator,
   AdminButton,
   AdminCheckbox,
   AdminEmptyState,
@@ -20,6 +21,7 @@ import { formatPrice } from "@/data/products";
 import { getVibeLabel } from "@/lib/admin-service";
 import type { AdminCategoryRecord, AdminProductRecord } from "@/lib/admin-types";
 import { useScrollFollow } from "@/hooks/use-scroll-follow";
+import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 
 function cloneProduct(product: AdminProductRecord): AdminProductRecord {
   return {
@@ -119,15 +121,22 @@ function AdminStockPage() {
     setDraft((current) => (current ? updater(current) : current));
   };
 
+  const performSave = (value: AdminProductRecord, options: { silent?: boolean } = {}) => {
+    return saveAdminCatalogProduct({ data: value }).then((saved) => {
+      setProducts((current) => current.map((product) => (product.id === saved.id ? cloneProduct(saved) : product)));
+      setDraft((current) => (current && current.id === value.id ? cloneProduct(saved) : current));
+      if (!options.silent) showMessage("Cambios guardados.", "success");
+    });
+  };
+
+  const autosave = useAdminAutosave(draft, (value) => performSave(value, { silent: true }), {
+    resetKey: selectedId,
+  });
+
   const saveChanges = () => {
     if (!draft) return;
     setBusy(true);
-    void saveAdminCatalogProduct({ data: draft })
-      .then((saved) => {
-        setProducts((current) => current.map((product) => (product.id === saved.id ? cloneProduct(saved) : product)));
-        setDraft(cloneProduct(saved));
-        showMessage("Cambios guardados.", "success");
-      })
+    void performSave(draft)
       .catch((error) => showMessage(error instanceof Error ? error.message : "No se pudo guardar.", "error"))
       .finally(() => setBusy(false));
   };
@@ -172,7 +181,12 @@ function AdminStockPage() {
     <AdminShell
       section="stock"
       title="Stock"
-      actions={<AdminButton tone="primary" onClick={saveChanges} disabled={!draft || busy}>Guardar cambios</AdminButton>}
+      actions={
+        <>
+          <AdminButton tone="primary" onClick={saveChanges} disabled={!draft || busy}>Guardar cambios</AdminButton>
+          <AdminAutosaveIndicator status={autosave.status} errorMessage={autosave.errorMessage} />
+        </>
+      }
     >
       <div ref={listFollower.containerRef} className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
         <div

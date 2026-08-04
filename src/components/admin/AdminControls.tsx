@@ -1,6 +1,7 @@
-import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Info } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Info, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import type { AdminAutosaveStatus } from "@/hooks/use-admin-autosave";
 
 function escapeCsvCell(value: string) {
   if (/[",\n]/.test(value)) {
@@ -297,6 +298,41 @@ export function AdminToast({ message, tone = "info" }: { message: string; tone?:
         {message}
       </div>
     </div>
+  );
+}
+
+export function AdminAutosaveIndicator({
+  status,
+  errorMessage,
+}: {
+  status: AdminAutosaveStatus;
+  errorMessage?: string;
+}) {
+  if (status === "idle") return null;
+
+  if (status === "saving") {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#6b5a55]">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        Guardando...
+      </span>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#9a3423]" title={errorMessage}>
+        <AlertCircle className="h-3.5 w-3.5" />
+        {errorMessage || "No se pudo guardar"}
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
+      <CheckCircle2 className="h-3.5 w-3.5" />
+      Guardado
+    </span>
   );
 }
 

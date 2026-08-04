@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AdminPanel, AdminShell, AdminTag } from "@/components/admin/AdminShell";
 import {
+  AdminAutosaveIndicator,
   AdminButton,
   AdminEmptyState,
   AdminField,
@@ -14,6 +15,7 @@ import {
   confirmAdminDestructiveAction,
   downloadAdminCsv,
 } from "@/components/admin/AdminControls";
+import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { getAdminCatalogProducts } from "@/lib/catalog";
 import { formatPrice } from "@/data/products";
@@ -185,6 +187,8 @@ function AdminOrdersPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | AdminInquiryStatus>("all");
   const [page, setPage] = useState(0);
   const [selectedId, setSelectedId] = useState(inquiries[0]?.id ?? "");
+  const activeOrderIdRef = useRef(selectedId);
+  activeOrderIdRef.current = selectedId;
   const [draft, setDraft] = useState<AdminInquiryRecord | null>(inquiries[0] ? cloneInquiry(inquiries[0]) : null);
   const [draftLines, setDraftLines] = useState<DraftOrderLine[]>(() => inquiries[0] ? buildEditableLines(inquiries[0], products) : []);
   const [toastMessage, setToastMessage] = useState("");
@@ -287,37 +291,50 @@ function AdminOrdersPage() {
     [newOrder.lines, newOrder.shipping, products],
   );
 
+  const performSave = (
+    value: { draft: AdminInquiryRecord; draftLines: DraftOrderLine[] },
+    options: { silent?: boolean } = {},
+  ) => {
+    return updateAdminOrder({
+      data: {
+        channel: value.draft.channel,
+        customerEmail: value.draft.customerEmail,
+        customerName: value.draft.customerName,
+        customerPhone: value.draft.customerPhone,
+        fulfillmentMethod: value.draft.fulfillmentMethod,
+        id: value.draft.id,
+        lines: value.draftLines.map((line) => ({
+          quantity: line.quantity,
+          variantId: line.variantId,
+        })),
+        notes: value.draft.notes,
+        paymentStatus: value.draft.paymentStatus,
+        shipping: value.draft.shipping,
+        shippingAddress: value.draft.shippingAddress,
+        status: value.draft.status,
+      },
+    }).then((updated) => {
+      const next = cloneInquiry(updated);
+      setRows((current) => current.map((inquiry) => (inquiry.id === next.id ? next : inquiry)));
+      setDraft((current) => (current && current.id === value.draft.id ? next : current));
+      if (activeOrderIdRef.current === value.draft.id) {
+        setDraftLines(buildEditableLines(next, products));
+      }
+      if (!options.silent) showToast("Pedido guardado.", "success");
+    });
+  };
+
+  const autosave = useAdminAutosave(
+    draft ? { draft, draftLines } : null,
+    (value) => performSave(value, { silent: true }),
+    { resetKey: selectedId },
+  );
+
   const handleSave = () => {
     if (!draft) return;
     setSaving(true);
     setToastMessage("");
-
-    void updateAdminOrder({
-      data: {
-        channel: draft.channel,
-        customerEmail: draft.customerEmail,
-        customerName: draft.customerName,
-        customerPhone: draft.customerPhone,
-        fulfillmentMethod: draft.fulfillmentMethod,
-        id: draft.id,
-        lines: draftLines.map((line) => ({
-          quantity: line.quantity,
-          variantId: line.variantId,
-        })),
-        notes: draft.notes,
-        paymentStatus: draft.paymentStatus,
-        shipping: draft.shipping,
-        shippingAddress: draft.shippingAddress,
-        status: draft.status,
-      },
-    })
-      .then((updated) => {
-        const next = cloneInquiry(updated);
-        setRows((current) => current.map((inquiry) => (inquiry.id === next.id ? next : inquiry)));
-        setDraft(next);
-        setDraftLines(buildEditableLines(next, products));
-        showToast("Pedido guardado.", "success");
-      })
+    void performSave({ draft, draftLines })
       .catch(() => showToast("No se pudo guardar el pedido.", "error"))
       .finally(() => setSaving(false));
   };
@@ -739,6 +756,7 @@ function AdminOrdersPage() {
                   <AdminButton tone="primary" onClick={handleSave} disabled={saving || deleting}>
                     {saving ? "Guardando..." : "Guardar"}
                   </AdminButton>
+                  <AdminAutosaveIndicator status={autosave.status} errorMessage={autosave.errorMessage} />
                 </div>
               }
             >

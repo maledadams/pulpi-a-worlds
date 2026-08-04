@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { AdminPanel, AdminShell, AdminTag } from "@/components/admin/AdminShell";
 import {
+  AdminAutosaveIndicator,
   AdminButton,
   AdminCheckbox,
   AdminEmptyState,
@@ -15,6 +16,7 @@ import {
   confirmAdminDestructiveAction,
   getAdminVibeButtonClassName,
 } from "@/components/admin/AdminControls";
+import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import {
   deleteAdminCategoryImage,
@@ -223,32 +225,37 @@ function AdminCategoriesPage() {
     showToast("Nueva categoria draft creada.", "success");
   };
 
-  const handleSave = () => {
-    if (!draft) return;
-
+  const performSave = (value: AdminCategoryRecord, options: { silent?: boolean } = {}) => {
     const normalized = {
-      ...draft,
-      previousId: draft.id.startsWith("draft-category-") ? undefined : selected?.id ?? draft.previousId,
-      label: draft.label.trim(),
-      id: draft.id.startsWith("draft-category-")
-        ? draft.label.trim().toLowerCase().replace(/\s+/g, "-") || draft.id
-        : draft.id,
+      ...value,
+      previousId: value.id.startsWith("draft-category-") ? undefined : selected?.id ?? value.previousId,
+      label: value.label.trim(),
+      id: value.id.startsWith("draft-category-")
+        ? value.label.trim().toLowerCase().replace(/\s+/g, "-") || value.id
+        : value.id,
     };
 
-    void saveAdminCategory({ data: normalized })
-      .then((saved) => {
-        setRows((current) => {
-          const exists = current.some((category) => category.id === draft.id || category.id === saved.id);
-          if (!exists) return [saved, ...current];
-          return current.map((category) => (category.id === draft.id || category.id === saved.id ? saved : category));
-        });
-        setSelectedId(saved.id);
-        setDraft(cloneCategory(saved));
-        showToast("Categoria guardada.", "success");
-      })
-      .catch(() => {
-        showToast("No se pudo guardar la categoria ahora mismo.", "error");
+    return saveAdminCategory({ data: normalized }).then((saved) => {
+      setRows((current) => {
+        const exists = current.some((category) => category.id === value.id || category.id === saved.id);
+        if (!exists) return [saved, ...current];
+        return current.map((category) => (category.id === value.id || category.id === saved.id ? saved : category));
       });
+      if (saved.id !== value.id) setSelectedId(saved.id);
+      setDraft((current) => (current && current.id === value.id ? cloneCategory(saved) : current));
+      if (!options.silent) showToast("Categoria guardada.", "success");
+    });
+  };
+
+  const autosave = useAdminAutosave(draft, (value) => performSave(value, { silent: true }), {
+    resetKey: selectedId,
+  });
+
+  const handleSave = () => {
+    if (!draft) return;
+    void performSave(draft).catch(() => {
+      showToast("No se pudo guardar la categoria ahora mismo.", "error");
+    });
   };
 
   const handleDelete = () => {
@@ -320,20 +327,21 @@ function AdminCategoriesPage() {
     });
   };
 
-  const handleSaveFormat = () => {
-    const payload = {
-      ...selectedFormat,
-      sizes: selectedFormat.sizes,
-    };
+  const performSaveFormat = (value: AdminSizeFormatRecord, options: { silent?: boolean } = {}) => {
+    return saveAdminSizeFormat({ data: { ...value, sizes: value.sizes } }).then((saved) => {
+      setSizeFormats((current) => current.map((format) => (format.id === saved.id ? cloneSizeFormat(saved) : format)));
+      if (!options.silent) showToast("Formato guardado.", "success");
+    });
+  };
 
-    void saveAdminSizeFormat({ data: payload })
-      .then((saved) => {
-        setSizeFormats((current) => current.map((format) => (format.id === saved.id ? cloneSizeFormat(saved) : format)));
-        showToast("Formato guardado.", "success");
-      })
-      .catch(() => {
-        showToast("No se pudo guardar el formato de tallas.", "error");
-      });
+  const formatAutosave = useAdminAutosave(selectedFormat, (value) => performSaveFormat(value, { silent: true }), {
+    resetKey: selectedFormatId,
+  });
+
+  const handleSaveFormat = () => {
+    void performSaveFormat(selectedFormat).catch(() => {
+      showToast("No se pudo guardar el formato de tallas.", "error");
+    });
   };
 
   return (
@@ -423,9 +431,12 @@ function AdminCategoriesPage() {
         <AdminPanel
           title="Formatos de talla"
           actions={
-            <AdminButton tone="primary" onClick={handleSaveFormat}>
-              Guardar formato
-            </AdminButton>
+            <div className="flex flex-wrap items-center gap-2">
+              <AdminButton tone="primary" onClick={handleSaveFormat}>
+                Guardar formato
+              </AdminButton>
+              <AdminAutosaveIndicator status={formatAutosave.status} errorMessage={formatAutosave.errorMessage} />
+            </div>
           }
         >
           <div className="grid gap-4">
@@ -504,6 +515,7 @@ function AdminCategoriesPage() {
                 <AdminButton tone="primary" onClick={handleSave} disabled={!draft || isDeleting}>
                   Guardar
                 </AdminButton>
+                <AdminAutosaveIndicator status={autosave.status} errorMessage={autosave.errorMessage} />
               </div>
             }
           >

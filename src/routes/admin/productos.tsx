@@ -3,6 +3,7 @@ import { Check, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AdminPanel, AdminShell, AdminTag } from "@/components/admin/AdminShell";
 import {
+  AdminAutosaveIndicator,
   AdminButton,
   AdminCheckbox,
   AdminEmptyState,
@@ -19,6 +20,7 @@ import {
   getAdminChipClassName,
   getAdminVibeButtonClassName,
 } from "@/components/admin/AdminControls";
+import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import {
   deleteAdminProductImage,
@@ -62,6 +64,7 @@ function variantKey(size: string, color: string) {
 
 function buildVariantId(slug: string, size: string, color: string) {
   return `${slug.trim().toLowerCase().replace(/\s+/g, "-") || "product"}-${size}-${color}`
+    .toLowerCase()
     .replace(/[^a-z0-9-]+/g, "-")
     .replace(/-+/g, "-");
 }
@@ -402,21 +405,28 @@ function AdminProductsPage() {
     });
   };
 
+  const performSave = (value: AdminProductRecord, options: { silent?: boolean } = {}) => {
+    return saveAdminCatalogProduct({ data: normalizeDraftForSave(value) }).then((saved) => {
+      setRows((current) => {
+        const exists = current.some((product) => product.id === saved.id);
+        return exists ? current.map((product) => (product.id === saved.id ? saved : product)) : [saved, ...current];
+      });
+      setPersistedIds((current) => new Set(current).add(saved.id));
+      if (saved.id !== value.id) setSelectedId(saved.id);
+      setDraft((current) => (current && current.id === value.id ? cloneProduct(saved) : current));
+      if (!options.silent) showSaveMessage("Producto guardado.", "success");
+    });
+  };
+
+  const autosave = useAdminAutosave(draft, (value) => performSave(value, { silent: true }), {
+    resetKey: selectedId,
+  });
+
   const handleSave = () => {
     if (!draft) return;
     setIsSaving(true);
     setSaveMessage("");
-    void saveAdminCatalogProduct({ data: normalizeDraftForSave(draft) })
-      .then((saved) => {
-        setRows((current) => {
-          const exists = current.some((product) => product.id === saved.id);
-          return exists ? current.map((product) => (product.id === saved.id ? saved : product)) : [saved, ...current];
-        });
-        setSelectedId(saved.id);
-        setDraft(cloneProduct(saved));
-        setPersistedIds((current) => new Set(current).add(saved.id));
-        showSaveMessage("Producto guardado.", "success");
-      })
+    void performSave(draft)
       .catch(() => showSaveMessage("No se pudo guardar el producto ahora mismo.", "error"))
       .finally(() => setIsSaving(false));
   };
@@ -574,6 +584,7 @@ function AdminProductsPage() {
           <AdminButton tone="primary" onClick={handleSave} disabled={!draft || isSaving || isDeleting || isUploadingImage}>
             {isSaving ? "Guardando..." : "Guardar"}
           </AdminButton>
+          <AdminAutosaveIndicator status={autosave.status} errorMessage={autosave.errorMessage} />
         </>
       }
     >

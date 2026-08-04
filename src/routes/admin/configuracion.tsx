@@ -3,6 +3,7 @@ import { ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AdminPanel, AdminShell } from "@/components/admin/AdminShell";
 import {
+  AdminAutosaveIndicator,
   AdminButton,
   AdminField,
   AdminInput,
@@ -12,6 +13,7 @@ import {
   AdminTextarea,
   confirmAdminDestructiveAction,
 } from "@/components/admin/AdminControls";
+import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { getAdminSettingsRecord, saveAdminSettingsRecord } from "@/lib/admin-content";
 
@@ -48,15 +50,19 @@ function AdminSettingsPage() {
     return () => window.clearTimeout(timeout);
   }, [saveMessage]);
 
+  const performSave = (value: typeof form, options: { silent?: boolean } = {}) => {
+    return saveAdminSettingsRecord({ data: value }).then((saved) => {
+      setForm(saved);
+      if (!options.silent) showSaveMessage("Configuracion guardada.", "success");
+    });
+  };
+
+  const autosave = useAdminAutosave(form, (value) => performSave(value, { silent: true }));
+
   const handleSave = () => {
-    void saveAdminSettingsRecord({ data: form })
-      .then((saved) => {
-        setForm(saved);
-        showSaveMessage("Configuracion guardada.", "success");
-      })
-      .catch(() => {
-        showSaveMessage("No se pudo guardar la configuracion ahora mismo.", "error");
-      });
+    void performSave(form).catch(() => {
+      showSaveMessage("No se pudo guardar la configuracion ahora mismo.", "error");
+    });
   };
 
   return (
@@ -64,9 +70,12 @@ function AdminSettingsPage() {
       section="configuracion"
       title="Configuracion"
       actions={
-        <AdminButton tone="primary" onClick={handleSave}>
-          Guardar cambios
-        </AdminButton>
+        <>
+          <AdminButton tone="primary" onClick={handleSave}>
+            Guardar cambios
+          </AdminButton>
+          <AdminAutosaveIndicator status={autosave.status} errorMessage={autosave.errorMessage} />
+        </>
       }
     >
       <div className="grid gap-4">

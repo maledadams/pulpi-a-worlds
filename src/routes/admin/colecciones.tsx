@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { AdminPanel, AdminShell, AdminTag } from "@/components/admin/AdminShell";
 import {
+  AdminAutosaveIndicator,
   AdminButton,
   AdminCheckbox,
   AdminEmptyState,
@@ -16,6 +17,7 @@ import {
   confirmAdminDestructiveAction,
   getAdminVibeButtonClassName,
 } from "@/components/admin/AdminControls";
+import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import {
   deleteAdminCollection,
@@ -186,32 +188,37 @@ function AdminCollectionsPage() {
     showSaveMessage("Nueva coleccion draft creada.", "success");
   };
 
-  const handleSave = () => {
-    if (!draft) return;
-
+  const performSave = (value: AdminCollectionRecord, options: { silent?: boolean } = {}) => {
     const normalized = {
-      ...draft,
-      slug: draft.name.trim().toLowerCase().replace(/\s+/g, "-"),
-      name: draft.name.trim(),
-      description: draft.description.trim(),
+      ...value,
+      slug: value.name.trim().toLowerCase().replace(/\s+/g, "-"),
+      name: value.name.trim(),
+      description: value.description.trim(),
     };
 
-    void saveAdminCollection({ data: normalized })
-      .then((saved) => {
-        setRows((current) => {
-          const exists = current.some((collection) => collection.id === draft.id || collection.id === saved.id);
-          if (!exists) return [saved, ...current];
-          return current.map((collection) =>
-            collection.id === draft.id || collection.id === saved.id ? saved : collection,
-          );
-        });
-        setSelectedId(saved.id);
-        setDraft(cloneCollection(saved));
-        showSaveMessage("Coleccion guardada.", "success");
-      })
-      .catch(() => {
-        showSaveMessage("No se pudo guardar la coleccion ahora mismo.", "error");
+    return saveAdminCollection({ data: normalized }).then((saved) => {
+      setRows((current) => {
+        const exists = current.some((collection) => collection.id === value.id || collection.id === saved.id);
+        if (!exists) return [saved, ...current];
+        return current.map((collection) =>
+          collection.id === value.id || collection.id === saved.id ? saved : collection,
+        );
       });
+      if (saved.id !== value.id) setSelectedId(saved.id);
+      setDraft((current) => (current && current.id === value.id ? cloneCollection(saved) : current));
+      if (!options.silent) showSaveMessage("Coleccion guardada.", "success");
+    });
+  };
+
+  const autosave = useAdminAutosave(draft, (value) => performSave(value, { silent: true }), {
+    resetKey: selectedId,
+  });
+
+  const handleSave = () => {
+    if (!draft) return;
+    void performSave(draft).catch(() => {
+      showSaveMessage("No se pudo guardar la coleccion ahora mismo.", "error");
+    });
   };
 
   const handleDelete = () => {
@@ -354,6 +361,7 @@ function AdminCollectionsPage() {
               <AdminButton tone="primary" onClick={handleSave} disabled={!draft || isDeleting}>
                 Guardar
               </AdminButton>
+              <AdminAutosaveIndicator status={autosave.status} errorMessage={autosave.errorMessage} />
             </div>
           }
         >

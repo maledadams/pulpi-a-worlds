@@ -617,6 +617,7 @@ function normalizeVariants(record: AdminProductRecord, swatch: [string, string],
 
       return {
         id: `${record.slug.trim().toLowerCase().replace(/\s+/g, "-") || "product"}-${size}-${colorName}`
+          .toLowerCase()
           .replace(/[^a-z0-9-]+/g, "-")
           .replace(/-+/g, "-"),
         title: colorNames.length > 1 ? `${size} / ${colorName}` : size,

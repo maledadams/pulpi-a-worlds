@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { AdminPanel, AdminShell, AdminTag } from "@/components/admin/AdminShell";
 import {
+  AdminAutosaveIndicator,
   AdminButton,
   AdminCheckbox,
   AdminEmptyState,
@@ -12,6 +13,7 @@ import {
   type AdminToastTone,
   confirmAdminDestructiveAction,
 } from "@/components/admin/AdminControls";
+import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { deleteAdminDiscount, getAdminDiscounts, saveAdminDiscount } from "@/lib/admin-content";
 import { getVibeLabel } from "@/lib/admin-service";
@@ -108,20 +110,27 @@ function AdminDiscountsPage() {
     showSaveMessage("Nueva promoción draft creada.", "success");
   };
 
+  const performSave = (value: AdminDiscountRecord, options: { silent?: boolean } = {}) => {
+    return saveAdminDiscount({ data: value }).then((saved) => {
+      setRows((current) => sortDiscounts([
+        saved,
+        ...current.filter((discount) => discount.id !== value.id && discount.id !== saved.id),
+      ]));
+      if (saved.id !== value.id) setSelectedId(saved.id);
+      setDraft((current) => (current && current.id === value.id ? cloneDiscount(saved) : current));
+      if (!options.silent) showSaveMessage("Promoción guardada.", "success");
+    });
+  };
+
+  const autosave = useAdminAutosave(draft, (value) => performSave(value, { silent: true }), {
+    resetKey: selectedId,
+  });
+
   const handleSave = () => {
     if (!draft) return;
     setIsSaving(true);
     setSaveMessage("");
-    void saveAdminDiscount({ data: draft })
-      .then((saved) => {
-        setRows((current) => sortDiscounts([
-          saved,
-          ...current.filter((discount) => discount.id !== draft.id && discount.id !== saved.id),
-        ]));
-        setSelectedId(saved.id);
-        setDraft(cloneDiscount(saved));
-        showSaveMessage("Promoción guardada.", "success");
-      })
+    void performSave(draft)
       .catch((error) => {
         showSaveMessage(error instanceof Error ? error.message : "No se pudo guardar la promoción ahora mismo.", "error");
       })
@@ -233,6 +242,7 @@ function AdminDiscountsPage() {
               <AdminButton tone="primary" onClick={handleSave} disabled={!draft || isSaving || isDeleting}>
                 {isSaving ? "Guardando..." : "Guardar"}
               </AdminButton>
+              <AdminAutosaveIndicator status={autosave.status} errorMessage={autosave.errorMessage} />
             </div>
           }
         >
