@@ -217,6 +217,8 @@ function CategoryCircle({
           <img
             src={image.url}
             alt={image.altText ?? item.label}
+            loading="lazy"
+            decoding="async"
             className="ui-circle h-full w-full object-cover"
           />
         ) : (
@@ -296,20 +298,20 @@ function AnnouncementBar({ announcements, theme }: { announcements: StoreAnnounc
     return null;
   }
 
+  // Only the active announcement is ever in the DOM - stacking every
+  // announcement in the same grid cell (even hidden ones) made the bar's
+  // height match whichever announcement was tallest, so a one-line message
+  // still reserved two lines of space whenever any other rotating message
+  // wrapped to two lines. Rendering just the active one lets the bar's
+  // height follow its own line count instead.
+  const active = announcements[activeIndex] ?? announcements[0]!;
+
   return (
     <div className={`px-4 py-2 ${theme.background} ${theme.border} ${theme.text}`}>
-      <div className="mx-auto grid max-w-7xl text-center">
-        {announcements.map((announcement, index) => (
-          <div
-            key={announcement.id}
-            aria-hidden={index !== activeIndex}
-            className={`col-start-1 row-start-1 font-body text-sm leading-5 transition-opacity duration-300 sm:text-[0.95rem] ${
-              index === activeIndex ? "opacity-100" : "pointer-events-none opacity-0"
-            }`}
-          >
-            {announcement.text}
-          </div>
-        ))}
+      <div className="mx-auto max-w-7xl text-center">
+        <div key={active.id} className="announcement-fade font-body text-sm leading-5 sm:text-[0.95rem]">
+          {active.text}
+        </div>
       </div>
     </div>
   );
@@ -637,6 +639,8 @@ export function Header({
                     <img
                       src={vs.logo}
                       alt={currentMega.label}
+                      loading="lazy"
+                      decoding="async"
                       className={`max-h-[180px] w-auto max-w-full object-contain drop-shadow-2xl ${vs.logoBlend}`}
                     />
                   </div>

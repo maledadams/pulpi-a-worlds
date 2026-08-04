@@ -22,6 +22,8 @@ import {
 } from "@/components/admin/AdminControls";
 import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
+import { getAdminErrorMessage } from "@/lib/admin-errors";
+import { compressImageForUpload } from "@/lib/image-resize";
 import {
   deleteAdminProductImage,
   getAdminCategories,
@@ -58,47 +60,44 @@ function cloneProduct(product: AdminProductRecord): AdminProductRecord {
   };
 }
 
-function variantKey(size: string, color: string) {
-  return `${size}::${color}`.toLowerCase();
-}
-
-function buildVariantId(slug: string, size: string, color: string) {
-  return `${slug.trim().toLowerCase().replace(/\s+/g, "-") || "product"}-${size}-${color}`
+function buildVariantId(slug: string, size: string) {
+  return `${slug.trim().toLowerCase().replace(/\s+/g, "-") || "product"}-${size}`
     .toLowerCase()
     .replace(/[^a-z0-9-]+/g, "-")
     .replace(/-+/g, "-");
 }
 
+// Variants are keyed by SIZE ONLY - color is a display attribute of the product,
+// not part of variant identity. This means changing a product's color never
+// touches stock: existing per-size variants (id, quantity, price) are matched
+// and preserved purely by their Talla value, regardless of what color they had.
 function syncDraftVariants(product: AdminProductRecord): AdminProductRecord {
   const slug = product.slug || product.name || product.id;
-  const colorNames = product.colors.map((color) => normalizeProductColorName(color.name));
-  const currentVariants = new Map(
+  const colorName = normalizeProductColorName(product.colors[0]?.name ?? "Unica");
+  const currentVariantsBySize = new Map(
     product.variants.map((variant) => {
       const size = variant.selectedOptions.find((option) => option.name === "Talla")?.value ?? "Unica";
-      const color = variant.selectedOptions.find((option) => option.name === "Color")?.value ?? colorNames[0] ?? "Unica";
-      return [variantKey(size, color), variant] as const;
+      return [size, variant] as const;
     }),
   );
 
-  const variants = product.sizes.flatMap((size) =>
-    colorNames.map((colorName) => {
-      const existing = currentVariants.get(variantKey(size, colorName));
-      return {
-        id: existing?.id ?? buildVariantId(slug, size, colorName),
-        title: colorNames.length > 1 ? `${size} / ${colorName}` : size,
-        available: existing?.available ?? product.available,
-        quantityAvailable: existing?.quantityAvailable ?? 0,
-        price: existing?.price ?? product.price,
-        compareAtPrice: existing?.compareAtPrice ?? product.compareAtPrice,
-        currencyCode: existing?.currencyCode ?? "DOP",
-        image: existing?.image ?? product.featuredImage ?? null,
-        selectedOptions: [
-          { name: "Talla", value: size },
-          { name: "Color", value: colorName },
-        ],
-      };
-    }),
-  );
+  const variants = product.sizes.map((size) => {
+    const existing = currentVariantsBySize.get(size);
+    return {
+      id: existing?.id ?? buildVariantId(slug, size),
+      title: size,
+      available: existing?.available ?? product.available,
+      quantityAvailable: existing?.quantityAvailable ?? 0,
+      price: existing?.price ?? product.price,
+      compareAtPrice: existing?.compareAtPrice ?? product.compareAtPrice,
+      currencyCode: existing?.currencyCode ?? "DOP",
+      image: existing?.image ?? product.featuredImage ?? null,
+      selectedOptions: [
+        { name: "Talla", value: size },
+        { name: "Color", value: colorName },
+      ],
+    };
+  });
 
   return {
     ...product,
@@ -165,7 +164,12 @@ function normalizeDraftForSave(draft: AdminProductRecord) {
 
   const normalizedVariants = syncDraftVariants({
     ...draft,
-    slug: (draft.slug.trim() || draft.name.trim()).toLowerCase().replace(/\s+/g, "-"),
+    slug: (draft.slug.trim() || draft.name.trim())
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, ""),
     name: draft.name.trim(),
     description: draft.description.trim(),
     sortOrder: Math.max(0, Number(draft.sortOrder ?? 0)),
@@ -195,11 +199,14 @@ function normalizeDraftForSave(draft: AdminProductRecord) {
 
 export const Route = createFileRoute("/admin/productos")({
   beforeLoad: () => enforceAdminAccess(),
-  loader: async () => ({
-    categories: await getAdminCategories(),
-    sizeFormats: await getAdminSizeFormats(),
-    products: await getAdminCatalogProducts(),
-  }),
+  loader: async () => {
+    const [categories, sizeFormats, products] = await Promise.all([
+      getAdminCategories(),
+      getAdminSizeFormats(),
+      getAdminCatalogProducts(),
+    ]);
+    return { categories, sizeFormats, products };
+  },
   head: () => ({ meta: [{ title: "Admin - Productos" }] }),
   component: AdminProductsPage,
 });
@@ -239,10 +246,7 @@ function AdminProductsPage() {
   const paged = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
   const selected = rows.find((product) => product.id === selectedId) ?? null;
   const sizeOptions = getAllowedSizes(categories, sizeFormats, draft?.primaryCategory ?? "tops");
-  const activeColorKeys = useMemo(
-    () => new Set((draft?.colors ?? []).map((color) => normalizeProductColorName(color.name).toLowerCase())),
-    [draft],
-  );
+  const activeColorName = normalizeProductColorName(draft?.colors[0]?.name ?? "").toLowerCase();
 
   useEffect(() => {
     setPage(0);
@@ -285,6 +289,21 @@ function AdminProductsPage() {
     setDraft((current) => {
       if (!current) return current;
       const allowedSizes = getAllowedSizes(categories, sizeFormats, nextCategoryId);
+      const droppedSizes = current.sizes.filter((size) => !allowedSizes.includes(size));
+
+      if (droppedSizes.length > 0) {
+        const droppedHasStock = current.variants.some((variant) => {
+          const size = variant.selectedOptions.find((option) => option.name === "Talla")?.value ?? "";
+          return droppedSizes.includes(size) && (variant.quantityAvailable ?? 0) > 0;
+        });
+        const warning = droppedHasStock
+          ? `Esta categoria usa otro formato de tallas: se van a quitar ${droppedSizes.join(", ")}, incluyendo variantes con stock. Esta accion no se puede deshacer facilmente. ¿Quieres continuar?`
+          : `Esta categoria usa otro formato de tallas: se van a quitar ${droppedSizes.join(", ")}. ¿Quieres continuar?`;
+        if (!confirmAdminDestructiveAction(warning)) {
+          return current;
+        }
+      }
+
       const nextSizes = current.sizes.filter((size) => allowedSizes.includes(size));
 
       return syncDraftVariants({
@@ -303,12 +322,15 @@ function AdminProductsPage() {
       const nextCategories = exists
         ? current.categories.filter((entry) => entry !== categoryId)
         : [...current.categories, categoryId];
-      const safeCategories = nextCategories.length > 0 ? nextCategories : [categoryId];
-      const nextPrimary = safeCategories.includes(current.primaryCategory) ? current.primaryCategory : safeCategories[0]!;
+      if (nextCategories.length === 0) {
+        showSaveMessage("El producto debe tener al menos una categoria.", "error");
+        return current;
+      }
+      const nextPrimary = nextCategories.includes(current.primaryCategory) ? current.primaryCategory : nextCategories[0]!;
 
       return syncDraftVariants({
         ...current,
-        categories: safeCategories,
+        categories: nextCategories,
         primaryCategory: nextPrimary,
       });
     });
@@ -320,50 +342,26 @@ function AdminProductsPage() {
       const nextSizes = current.sizes.includes(size)
         ? current.sizes.filter((entry) => entry !== size)
         : [...current.sizes, size];
+      if (nextSizes.length === 0) {
+        showSaveMessage("El producto debe tener al menos una talla.", "error");
+        return current;
+      }
       return syncDraftVariants({
         ...current,
-        sizes: nextSizes.length > 0 ? nextSizes : [size],
+        sizes: nextSizes,
       });
     });
   };
 
-  const toggleColor = (colorName: string) => {
+  // Single-select: picking a color card just relabels the product's one color.
+  // Existing variants (and their stock) are untouched - syncDraftVariants matches
+  // them by size only, so no stock is added, removed, or reset here.
+  const setColor = (colorName: string) => {
     setDraft((current) => {
       if (!current) return current;
-      const key = normalizeProductColorName(colorName).toLowerCase();
-      const exists = current.colors.some((color) => normalizeProductColorName(color.name).toLowerCase() === key);
-      if (exists && current.colors.length <= 1) {
-        return current;
-      }
-      if (exists) {
-        const affectedVariants = current.variants.filter((variant) => {
-          const variantColor = variant.selectedOptions.find((option) => option.name === "Color")?.value ?? "";
-          return normalizeProductColorName(variantColor).toLowerCase() === key;
-        });
-        if (
-          affectedVariants.length > 0 &&
-          !confirmAdminDestructiveAction(
-            `Vas a quitar el color ${normalizeProductColorName(colorName)} y se eliminaran ${affectedVariants.length} variante(s) relacionadas. Esta accion no se puede deshacer. ¿Quieres continuar?`,
-          )
-        ) {
-          return current;
-        }
-      }
-      const nextColors = exists
-        ? current.colors.filter((color) => normalizeProductColorName(color.name).toLowerCase() !== key)
-        : [...current.colors, buildProductColorRecord(colorName)];
-      const allowedColorKeys = new Set(
-        nextColors.map((color) => normalizeProductColorName(color.name).toLowerCase()),
-      );
-      const retainedVariants = current.variants.filter((variant) => {
-        const variantColor = variant.selectedOptions.find((option) => option.name === "Color")?.value ?? "";
-        return allowedColorKeys.has(normalizeProductColorName(variantColor).toLowerCase());
-      });
-
       return syncDraftVariants({
         ...current,
-        colors: nextColors.length > 0 ? nextColors : [buildProductColorRecord(colorName)],
-        variants: retainedVariants,
+        colors: [buildProductColorRecord(colorName)],
       });
     });
   };
@@ -406,7 +404,16 @@ function AdminProductsPage() {
   };
 
   const performSave = (value: AdminProductRecord, options: { silent?: boolean } = {}) => {
-    return saveAdminCatalogProduct({ data: normalizeDraftForSave(value) }).then((saved) => {
+    const normalized = normalizeDraftForSave(value);
+    const slugConflict = rows.find((product) => product.id !== value.id && product.slug === normalized.slug);
+    if (slugConflict) {
+      return Promise.reject(
+        new Error(
+          `Ya existe otro producto ("${slugConflict.name || slugConflict.id}") con ese mismo nombre. Cambia el nombre o el slug antes de guardar.`,
+        ),
+      );
+    }
+    return saveAdminCatalogProduct({ data: normalized }).then((saved) => {
       setRows((current) => {
         const exists = current.some((product) => product.id === saved.id);
         return exists ? current.map((product) => (product.id === saved.id ? saved : product)) : [saved, ...current];
@@ -427,7 +434,7 @@ function AdminProductsPage() {
     setIsSaving(true);
     setSaveMessage("");
     void performSave(draft)
-      .catch(() => showSaveMessage("No se pudo guardar el producto ahora mismo.", "error"))
+      .catch((error) => showSaveMessage(getAdminErrorMessage(error, "No se pudo guardar el producto ahora mismo."), "error"))
       .finally(() => setIsSaving(false));
   };
 
@@ -463,24 +470,38 @@ function AdminProductsPage() {
         showSaveMessage("Producto eliminado.", "success");
       })
       .catch((error) => {
-        showSaveMessage(error instanceof Error ? error.message : "No se pudo eliminar el producto.", "error");
+        showSaveMessage(getAdminErrorMessage(error, "No se pudo eliminar el producto."), "error");
       })
       .finally(() => setIsDeleting(false));
   };
 
   const handleDuplicate = () => {
     if (!draft) return;
-    const duplicate = {
+    // A plain field-copy would keep the original's variant ids, which
+    // silently aliases the copy's stock to the original's (any adjustment on
+    // one updates the other, since inventory lookups resolve by variant id
+    // across the whole catalog). syncDraftVariants regenerates fresh ids from
+    // the new slug and starts stock at 0 - the duplicate is a new catalog
+    // entry, it shouldn't appear to already have the original's inventory.
+    const duplicate = syncDraftVariants({
       ...cloneProduct(draft),
       id: `draft-${Date.now()}`,
-      slug: `${draft.slug || "producto"}-copy`,
+      slug: `${draft.slug || "producto"}-copy-${Date.now()}`,
       name: `${draft.name || "Producto"} Copy`,
+      variants: [],
       createdAt: new Date().toISOString(),
-    };
+    });
     setRows((current) => [duplicate, ...current]);
     setSelectedId(duplicate.id);
     setDraft(duplicate);
     showSaveMessage("Producto duplicado.", "success");
+    // Persist immediately rather than waiting on autosave: the duplicate is
+    // already fully valid data, and autosave's baseline-reset on selecting
+    // this new row would otherwise treat it as "already saved" and never
+    // schedule a save at all - navigating away would lose it silently.
+    void performSave(duplicate, { silent: true }).catch(() => {
+      showSaveMessage("El producto se duplico pero no se pudo guardar automaticamente. Revisa los campos y presiona Guardar.", "error");
+    });
   };
 
   const handleUploadImage = () => {
@@ -508,11 +529,12 @@ function AdminProductsPage() {
           });
 
     void ensureSaved
-      .then((persistedProduct) => {
+      .then((persistedProduct) => compressImageForUpload(selectedImageFile).then((file) => ({ persistedProduct, file })))
+      .then(({ persistedProduct, file }) => {
         const formData = new FormData();
         formData.set("productId", persistedProduct.id);
         formData.set("label", persistedProduct.name.trim() || "Producto");
-        formData.set("file", selectedImageFile);
+        formData.set("file", file);
         return uploadAdminProductImage({ data: formData });
       })
       .then((saved) => {
@@ -523,7 +545,7 @@ function AdminProductsPage() {
         showSaveMessage("Imagen subida.", "success");
       })
       .catch((error) => {
-        showSaveMessage(error instanceof Error ? error.message : "No se pudo subir la imagen.", "error");
+        showSaveMessage(getAdminErrorMessage(error, "No se pudo subir la imagen."), "error");
       })
       .finally(() => setIsUploadingImage(false));
   };
@@ -541,7 +563,7 @@ function AdminProductsPage() {
         showSaveMessage("Imagen eliminada.", "success");
       })
       .catch((error) => {
-        showSaveMessage(error instanceof Error ? error.message : "No se pudo eliminar la imagen.", "error");
+        showSaveMessage(getAdminErrorMessage(error, "No se pudo eliminar la imagen."), "error");
       });
   };
 
@@ -719,6 +741,22 @@ function AdminProductsPage() {
                     </AdminField>
                   )}
 
+                  <AdminField
+                    label="Slug"
+                    hint="Define la URL publica del producto (/producto/slug). Cambiarlo rompe enlaces ya compartidos a este producto."
+                  >
+                    <div className="flex gap-2">
+                      <AdminInput value={draft.slug} onChange={(event) => updateDraft("slug", event.target.value)} />
+                      <AdminButton
+                        tone="ghost"
+                        onClick={() => updateDraft("slug", draft.name.trim().toLowerCase().replace(/\s+/g, "-"))}
+                        disabled={!draft.name.trim()}
+                      >
+                        Regenerar desde nombre
+                      </AdminButton>
+                    </div>
+                  </AdminField>
+
                   <div className="grid gap-3 md:grid-cols-2">
                     <AdminField label="Subtienda">
                       <AdminSelect value={draft.vibe} onChange={(event) => updateDraft("vibe", event.target.value as AdminProductRecord["vibe"])}>
@@ -742,8 +780,16 @@ function AdminProductsPage() {
                   <AdminField label="Precio base">
                     <AdminInput
                       type="number"
+                      min={0}
+                      step="0.01"
                       value={draft.price === 0 ? "" : draft.price}
                       onChange={(event) => updateDraft("price", event.target.value === "" ? 0 : Number(event.target.value))}
+                      onBlur={() => {
+                        if (!(draft.price >= 0)) {
+                          updateDraft("price", 0);
+                          showSaveMessage("El precio no puede ser negativo - se ajusto a 0.", "error");
+                        }
+                      }}
                     />
                   </AdminField>
 
@@ -873,15 +919,18 @@ function AdminProductsPage() {
                 </div>
 
                 <div>
-                  <AdminSectionLabel>Colores del producto</AdminSectionLabel>
+                  <AdminSectionLabel>Color del producto</AdminSectionLabel>
+                  <p className="mt-1 text-xs text-[#8b756d]">
+                    Cada producto tiene un solo color. Cambiarlo solo actualiza como se muestra - no afecta el stock.
+                  </p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {PRODUCT_COLOR_PRESETS.map((preset) => {
-                      const active = activeColorKeys.has(preset.label.toLowerCase());
+                      const active = activeColorName === preset.label.toLowerCase();
                       return (
                         <button
                           key={preset.id}
                           type="button"
-                          onClick={() => toggleColor(preset.label)}
+                          onClick={() => setColor(preset.label)}
                           className={getAdminChipClassName(active, "inline-flex items-center gap-2")}
                         >
                           <span className="h-3 w-3 rounded-full border border-black/10" style={{ backgroundColor: preset.hex }} />

@@ -18,6 +18,8 @@ import {
 } from "@/components/admin/AdminControls";
 import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
+import { getAdminErrorMessage } from "@/lib/admin-errors";
+import { compressImageForUpload } from "@/lib/image-resize";
 import {
   deleteAdminCategoryImage,
   deleteAdminCategory,
@@ -65,11 +67,14 @@ function createBlankCategory(): AdminCategoryRecord {
 
 export const Route = createFileRoute("/admin/categorias")({
   beforeLoad: () => enforceAdminAccess(),
-  loader: async () => ({
-    categories: await getAdminCategories(),
-    products: await getAdminCatalogProducts(),
-    sizeFormats: await getAdminSizeFormats(),
-  }),
+  loader: async () => {
+    const [categories, products, sizeFormats] = await Promise.all([
+      getAdminCategories(),
+      getAdminCatalogProducts(),
+      getAdminSizeFormats(),
+    ]);
+    return { categories, products, sizeFormats };
+  },
   head: () => ({ meta: [{ title: "Admin - Categorias" }] }),
   component: AdminCategoriesPage,
 });
@@ -182,19 +187,22 @@ function AdminCategoriesPage() {
     if (!draft || draft.id.startsWith("draft-category-") || !selectedCategoryFiles[vibe]) return;
     setUploadingVibe(vibe);
     setToastMessage("");
-    const formData = new FormData();
-    formData.set("categoryId", draft.id);
-    formData.set("vibe", vibe);
-    formData.set("file", selectedCategoryFiles[vibe]!);
 
-    void uploadAdminCategoryImage({ data: formData })
+    void compressImageForUpload(selectedCategoryFiles[vibe]!)
+      .then((file) => {
+        const formData = new FormData();
+        formData.set("categoryId", draft.id);
+        formData.set("vibe", vibe);
+        formData.set("file", file);
+        return uploadAdminCategoryImage({ data: formData });
+      })
       .then((saved) => {
         updateSavedCategory(saved);
         setSelectedCategoryFiles((current) => ({ ...current, [vibe]: null }));
         showToast(`Imagen de ${getVibeLabel(vibe)} guardada.`, "success");
       })
       .catch((error) => {
-        showToast(error instanceof Error ? error.message : "No se pudo subir la imagen.", "error");
+        showToast(getAdminErrorMessage(error, "No se pudo subir la imagen."), "error");
       })
       .finally(() => setUploadingVibe(null));
   };
@@ -212,7 +220,7 @@ function AdminCategoriesPage() {
         showToast(`Imagen de ${getVibeLabel(vibe)} eliminada.`, "success");
       })
       .catch((error) => {
-        showToast(error instanceof Error ? error.message : "No se pudo quitar la imagen.", "error");
+        showToast(getAdminErrorMessage(error, "No se pudo quitar la imagen."), "error");
       })
       .finally(() => setUploadingVibe(null));
   };
@@ -253,8 +261,8 @@ function AdminCategoriesPage() {
 
   const handleSave = () => {
     if (!draft) return;
-    void performSave(draft).catch(() => {
-      showToast("No se pudo guardar la categoria ahora mismo.", "error");
+    void performSave(draft).catch((error) => {
+      showToast(getAdminErrorMessage(error, "No se pudo guardar la categoria ahora mismo."), "error");
     });
   };
 
@@ -282,7 +290,7 @@ function AdminCategoriesPage() {
         showToast("Categoria eliminada.", "success");
       })
       .catch((error) => {
-        showToast(error instanceof Error ? error.message : "No se pudo eliminar la categoria.", "error");
+        showToast(getAdminErrorMessage(error, "No se pudo eliminar la categoria."), "error");
       })
       .finally(() => {
         setIsDeleting(false);
@@ -339,8 +347,8 @@ function AdminCategoriesPage() {
   });
 
   const handleSaveFormat = () => {
-    void performSaveFormat(selectedFormat).catch(() => {
-      showToast("No se pudo guardar el formato de tallas.", "error");
+    void performSaveFormat(selectedFormat).catch((error) => {
+      showToast(getAdminErrorMessage(error, "No se pudo guardar el formato de tallas."), "error");
     });
   };
 

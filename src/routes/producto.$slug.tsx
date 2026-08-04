@@ -227,6 +227,8 @@ function ProductPage() {
               <img
                 src={currentImage.url}
                 alt={currentImage.altText ?? product.name}
+                fetchPriority="high"
+                decoding="async"
                 className="h-full w-full object-cover"
               />
             ) : (

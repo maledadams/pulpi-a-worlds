@@ -388,6 +388,16 @@ video {
     75%       { transform: rotate(3deg); }
   }
 
+  /* ---- Announcement bar crossfade (height follows the active line count) ---- */
+  .announcement-fade { animation: announcement-fade 300ms ease-out; }
+  @keyframes announcement-fade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .announcement-fade { animation: none; }
+  }
+
   /* ---- Product card hover lift ---- */
   .card-lift {
     transition: transform 0.2s ease, box-shadow 0.2s ease;

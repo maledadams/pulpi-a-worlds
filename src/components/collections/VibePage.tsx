@@ -47,6 +47,8 @@ export function VibePage({
           <img
             src={cfg.mood}
             alt=""
+            fetchPriority="high"
+            decoding="async"
             className="absolute inset-0 h-full w-full object-cover opacity-30 mix-blend-overlay"
           />
         )}

@@ -17,6 +17,7 @@ import {
 } from "@/components/admin/AdminControls";
 import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
+import { getAdminErrorMessage } from "@/lib/admin-errors";
 import { getAdminCatalogProducts } from "@/lib/catalog";
 import { formatPrice } from "@/data/products";
 import { formatAdminInquiryChannel, formatAdminInquiryStatus } from "@/lib/admin-service";
@@ -172,10 +173,10 @@ function ProductSearchField({
 
 export const Route = createFileRoute("/admin/pedidos")({
   beforeLoad: () => enforceAdminAccess(),
-  loader: async () => ({
-    inquiries: await getAdminOrders(),
-    products: await getAdminCatalogProducts(),
-  }),
+  loader: async () => {
+    const [inquiries, products] = await Promise.all([getAdminOrders(), getAdminCatalogProducts()]);
+    return { inquiries, products };
+  },
   head: () => ({ meta: [{ title: "Admin - Pedidos" }] }),
   component: AdminOrdersPage,
 });
@@ -373,7 +374,7 @@ function AdminOrdersPage() {
         setIsCreating(false);
       })
       .catch((error) => {
-        showToast(error instanceof Error ? error.message : "No se pudo crear el pedido manual.", "error");
+        showToast(getAdminErrorMessage(error, "No se pudo crear el pedido manual."), "error");
       })
       .finally(() => setCreating(false));
   };
@@ -396,7 +397,7 @@ function AdminOrdersPage() {
         showToast("Pedido eliminado.", "success");
       })
       .catch((error) => {
-        showToast(error instanceof Error ? error.message : "No se pudo eliminar el pedido.", "error");
+        showToast(getAdminErrorMessage(error, "No se pudo eliminar el pedido."), "error");
       })
       .finally(() => setDeleting(false));
   };

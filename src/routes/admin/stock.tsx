@@ -16,6 +16,7 @@ import {
 } from "@/components/admin/AdminControls";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { getAdminCategories } from "@/lib/admin-content";
+import { getAdminErrorMessage } from "@/lib/admin-errors";
 import { adjustAdminStock, getAdminStockData, saveAdminCatalogProduct } from "@/lib/catalog";
 import { formatPrice } from "@/data/products";
 import { getVibeLabel } from "@/lib/admin-service";
@@ -137,7 +138,7 @@ function AdminStockPage() {
     if (!draft) return;
     setBusy(true);
     void performSave(draft)
-      .catch((error) => showMessage(error instanceof Error ? error.message : "No se pudo guardar.", "error"))
+      .catch((error) => showMessage(getAdminErrorMessage(error, "No se pudo guardar."), "error"))
       .finally(() => setBusy(false));
   };
 
@@ -147,7 +148,16 @@ function AdminStockPage() {
       return;
     }
     setBusy(true);
-    void adjustAdminStock({ data: { variantId, delta: direction * quantity, reason } })
+    // Flush any pending/in-flight edit on this product first (e.g. a price
+    // change still inside its debounce window) - otherwise the stock
+    // adjustment below returns the server's current copy of the product and
+    // that response replaces the whole local draft, silently reverting
+    // whatever hadn't been saved yet.
+    void autosave
+      .flush()
+      .then(() =>
+        adjustAdminStock({ data: { variantId, delta: direction * quantity, reason } }),
+      )
       .then((result) => {
         setProducts(result.products.map(cloneProduct));
         setMovements(result.movements);
@@ -157,7 +167,7 @@ function AdminStockPage() {
         setReason("");
         showMessage(direction > 0 ? "Entrada registrada." : "Salida registrada.", "success");
       })
-      .catch((error) => showMessage(error instanceof Error ? error.message : "No se pudo ajustar el stock.", "error"))
+      .catch((error) => showMessage(getAdminErrorMessage(error, "No se pudo ajustar el stock."), "error"))
       .finally(() => setBusy(false));
   };
 

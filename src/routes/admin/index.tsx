@@ -24,10 +24,10 @@ const SALES_WINDOWS: Array<{ id: SalesWindow; label: string }> = [
 
 export const Route = createFileRoute("/admin/")({
   beforeLoad: () => enforceAdminAccess(),
-  loader: async () => ({
-    orders: await getAdminOrders(),
-    products: await getAdminCatalogProducts(),
-  }),
+  loader: async () => {
+    const [orders, products] = await Promise.all([getAdminOrders(), getAdminCatalogProducts()]);
+    return { orders, products };
+  },
   head: () => ({ meta: [{ title: "Admin - Resumen" }] }),
   component: AdminDashboardPage,
 });

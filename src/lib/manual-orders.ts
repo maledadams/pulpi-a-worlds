@@ -17,6 +17,32 @@ import type { AdminInquiryChannel, AdminInquiryRecord, AdminInquiryStatus } from
 
 const ORDER_SEQUENCE_KEY = "manual_orders";
 const ORDER_PREFIX = "PUL-";
+
+function isTransientD1Error(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /D1_ERROR|exceeded timeout|storage operation/i.test(message);
+}
+
+// D1's underlying Durable Object occasionally pays a multi-second "cold
+// start" tax after a period of low traffic - most requests are ~100ms, but
+// periodically one stalls for several seconds and, rarely, actually times
+// out ("D1 DB storage operation exceeded timeout"). That's the exact failure
+// a real checkout hit inside getNextOrderNumber. Retrying a couple of times
+// with a short backoff gives the object time to wake up rather than hard
+// failing the customer's order on what's usually a transient stall.
+async function withD1Retry<T>(fn: () => Promise<T>, attempts = 3, baseDelayMs = 300): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      if (!isTransientD1Error(error) || attempt === attempts - 1) throw error;
+      await new Promise((resolve) => setTimeout(resolve, baseDelayMs * (attempt + 1)));
+    }
+  }
+  throw lastError;
+}
 const CONTACT_CHANNELS = ["formulario", "whatsapp", "instagram", "email"] as const;
 const ORDER_STATUSES = ["pending_contact", "new", "follow_up", "quoted", "closed", "cancelled"] as const;
 const FULFILLMENT_METHODS = ["pickup", "delivery"] as const;
@@ -633,6 +659,14 @@ async function createOrderInDatabase(input: OrderWriteInput, lines: CanonicalMan
     return null;
   }
 
+  return withD1Retry(() => createOrderInDatabaseAttempt(db, input, lines));
+}
+
+async function createOrderInDatabaseAttempt(
+  db: D1Database,
+  input: OrderWriteInput,
+  lines: CanonicalManualOrderLine[],
+) {
   await ensureOrderStorageReady(db);
   const id = crypto.randomUUID();
   const requestNumber = await getNextOrderNumber(db);
@@ -1556,6 +1590,11 @@ export const submitManualOrder = createServerFn({ method: "POST" })
     });
 
     if (!verification.success) {
+      console.error("[submitManualOrder] turnstile verification failed", {
+        errors: verification.errors,
+        skipped: verification.skipped,
+        tokenLength: data.turnstileToken?.length ?? 0,
+      });
       return {
         message: "La verificacion anti-spam fallo. Intentalo otra vez.",
         ok: false as const,

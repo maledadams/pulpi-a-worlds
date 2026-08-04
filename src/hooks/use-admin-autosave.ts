@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import { getAdminErrorMessage } from "@/lib/admin-errors";
 
 export type AdminAutosaveStatus = "idle" | "saving" | "saved" | "error";
+
+const UNSET = Symbol("admin-autosave-unset");
 
 /**
  * Debounced auto-save for admin editors. Saves `value` automatically a short
@@ -23,35 +26,43 @@ export function useAdminAutosave<T>(
   const savingRef = useRef(false);
   const queuedRef = useRef<{ value: T; snapshot: string } | null>(null);
   const baselineRef = useRef<string | null>(null);
-  const lastResetKeyRef = useRef(resetKey);
+  // A sentinel (never equal to any real resetKey) so the resync effect below
+  // always runs on the very first render too - otherwise the initial render's
+  // ref starts out equal to the initial resetKey, the "did it change" check is
+  // trivially false, the baseline never gets seeded, and every fresh page
+  // load/row selection schedules a save of data nobody touched.
+  const lastResetKeyRef = useRef<string | number | null | typeof UNSET>(UNSET);
   const latestValueRef = useRef(value);
+  const inFlightRef = useRef<Promise<void>>(Promise.resolve());
   latestValueRef.current = value;
 
-  const run = (nextValue: T, snapshot: string) => {
+  const run = (nextValue: T, snapshot: string): Promise<void> => {
     if (savingRef.current) {
       queuedRef.current = { value: nextValue, snapshot };
-      return;
+      return inFlightRef.current;
     }
     savingRef.current = true;
     setStatus("saving");
     setErrorMessage("");
-    void save(nextValue)
+    const promise = save(nextValue)
       .then(() => {
         baselineRef.current = snapshot;
         setStatus("saved");
       })
       .catch((error: unknown) => {
         setStatus("error");
-        setErrorMessage(error instanceof Error ? error.message : "No se pudo guardar.");
+        setErrorMessage(getAdminErrorMessage(error));
       })
       .finally(() => {
         savingRef.current = false;
         if (queuedRef.current) {
           const next = queuedRef.current;
           queuedRef.current = null;
-          run(next.value, next.snapshot);
+          inFlightRef.current = run(next.value, next.snapshot);
         }
       });
+    inFlightRef.current = promise;
+    return promise;
   };
 
   // Resync baseline when the underlying record identity changes (e.g. the
@@ -89,12 +100,20 @@ export function useAdminAutosave<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, enabled, debounceMs]);
 
-  const flush = () => {
+  // Returns a promise that resolves once any pending/in-flight save settles -
+  // callers that need to know the record is durably persisted before doing
+  // something else (e.g. a stock adjustment that will overwrite the local
+  // draft with the server's response) should await this first.
+  const flush = (): Promise<void> => {
     const current = latestValueRef.current;
-    if (!timerRef.current || current == null) return;
-    clearTimeout(timerRef.current);
-    timerRef.current = null;
-    run(current, JSON.stringify(current));
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    if (current == null) return inFlightRef.current;
+    const snapshot = JSON.stringify(current);
+    if (snapshot === baselineRef.current && !savingRef.current) return inFlightRef.current;
+    return run(current, snapshot);
   };
 
   return { status, errorMessage, flush };

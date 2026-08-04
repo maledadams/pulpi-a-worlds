@@ -215,17 +215,37 @@ export function CatalogBrowser({
     [enableNsfwGate, filters.nsfwEnabled, products],
   );
 
-  const departmentOptions = useMemo(() => getDepartmentOptions(visibleProducts), [visibleProducts]);
+  // Facet option counts must reflect every OTHER active filter (department, category,
+  // size, color, price, status) so a selected category actually narrows what the other
+  // facets show/count - otherwise a badge like "Talla unica (41)" stays global-catalog-wide
+  // no matter which category is selected, making it look like that size ignores category.
+  const departmentOptions = useMemo(
+    () => getDepartmentOptions(filterCatalogProducts(visibleProducts, { ...filters, departments: new Set() })),
+    [filters, visibleProducts],
+  );
   const categoryOptions = useMemo(
     () =>
-      getCategoryOptions(visibleProducts).filter(
+      getCategoryOptions(filterCatalogProducts(visibleProducts, { ...filters, categories: new Set() })).filter(
         (c) => filters.nsfwEnabled || !isNsfwCategory(c.id),
       ),
-    [filters.nsfwEnabled, visibleProducts],
+    [filters, visibleProducts],
   );
-  const sizeOptions = useMemo(() => getApparelSizeOptions(visibleProducts), [visibleProducts]);
-  const shoeSizeOptions = useMemo(() => getShoeSizeOptions(visibleProducts), [visibleProducts]);
-  const colorOptions = useMemo(() => getColorOptions(visibleProducts), [visibleProducts]);
+  const sizeOptions = useMemo(
+    () => getApparelSizeOptions(filterCatalogProducts(visibleProducts, { ...filters, apparelSizes: new Set() })),
+    [filters, visibleProducts],
+  );
+  const shoeSizeOptions = useMemo(
+    () => getShoeSizeOptions(filterCatalogProducts(visibleProducts, { ...filters, shoeSizes: new Set() })),
+    [filters, visibleProducts],
+  );
+  const colorOptions = useMemo(
+    () => getColorOptions(filterCatalogProducts(visibleProducts, { ...filters, colors: new Set() })),
+    [filters, visibleProducts],
+  );
+  const priceFacetProducts = useMemo(
+    () => filterCatalogProducts(visibleProducts, { ...filters, priceBuckets: new Set() }),
+    [filters, visibleProducts],
+  );
   const filtered = useMemo(() => filterCatalogProducts(products, filters), [filters, products]);
 
   const activeFilterCount =
@@ -452,7 +472,7 @@ export function CatalogBrowser({
               key={b.id}
               checked={filters.priceBuckets.has(b.id)}
               label={b.label}
-              count={visibleProducts.filter((p) => {
+              count={priceFacetProducts.filter((p) => {
                 const price = p.salePrice ?? p.price;
                 return price >= b.min && price <= b.max;
               }).length}

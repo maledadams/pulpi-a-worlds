@@ -150,6 +150,8 @@ export function CartDrawer({ theme = "store" }: { theme?: CartDrawerTheme }) {
                     <img
                       src={line.image.url}
                       alt={line.image.altText ?? line.productTitle}
+                      loading="lazy"
+                      decoding="async"
                       className={`h-18 w-18 shrink-0 self-start border object-cover ${palette.imageBorder}`}
                       style={{ width: "4.5rem" }}
                     />

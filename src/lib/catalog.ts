@@ -9,11 +9,7 @@ import {
 import { enforceAdminAccess } from "@/lib/admin-access";
 import type { AdminProductRecord, AdminStockMovement } from "@/lib/admin-types";
 import { toAdminProductRecord } from "@/lib/admin-service";
-import {
-  buildProductColorRecord,
-  getProductColorHex,
-  normalizeProductColorName,
-} from "@/lib/product-colors";
+import { getProductColorHex, normalizeProductColorName } from "@/lib/product-colors";
 import { normalizeSizeList } from "@/lib/product-sizing";
 import { applyDiscountsToProducts, listActiveDiscountsInternal } from "@/lib/store-discounts";
 
@@ -561,95 +557,64 @@ function normalizeCategories(record: AdminProductRecord) {
   return categories.length > 0 ? categories : [record.primaryCategory.trim().toLowerCase()];
 }
 
+// Variants are keyed by SIZE ONLY - color is a display attribute of the product,
+// not part of variant identity. A product has exactly one color; changing it never
+// touches stock, since existing variants are matched and preserved purely by their
+// Talla value, regardless of what color they were previously tagged with.
 function normalizeVariants(record: AdminProductRecord, swatch: [string, string], featuredImage: ProductImage | null) {
   const fallbackSizes = record.variants
     .map((variant) => variant.selectedOptions.find((option) => option.name === "Talla")?.value)
     .filter((value): value is string => Boolean(value));
   const sizes = normalizeSizeList(record.sizes.length > 0 ? record.sizes : (fallbackSizes.length > 0 ? fallbackSizes : ["Unica"]));
-  const fallbackColors = record.variants
-    .map((variant) => variant.selectedOptions.find((option) => option.name === "Color")?.value)
-    .filter((value): value is string => Boolean(value));
-  const colors = Array.from(
-    new Map(
-      (record.colors.length > 0
-        ? record.colors
-        : (fallbackColors.length > 0
-            ? fallbackColors.map((name, index) => buildProductColorRecord(name, swatch[index % swatch.length]))
-            : [buildProductColorRecord(getDefaultColorName(record.vibe), swatch[0])]))
-        .map((color) => [
-          normalizeProductColorName(color.name).toLowerCase(),
-          {
-            name: normalizeProductColorName(color.name),
-            hex: getProductColorHex(color.name, color.hex || swatch[0]),
-          },
-        ] as const),
-    ).values(),
-  );
-  const colorNames = colors.map((color) => color.name);
-  const existingVariants = new Map(
+
+  const fallbackColorSource =
+    record.colors[0]?.name ??
+    record.variants
+      .map((variant) => variant.selectedOptions.find((option) => option.name === "Color")?.value)
+      .find((value): value is string => Boolean(value)) ??
+    getDefaultColorName(record.vibe);
+  const colorName = normalizeProductColorName(fallbackColorSource);
+  const colors = [
+    {
+      name: colorName,
+      hex: getProductColorHex(fallbackColorSource, record.colors[0]?.hex || swatch[0]),
+    },
+  ];
+
+  const existingVariantsBySize = new Map(
     record.variants.map((variant) => {
       const size = variant.selectedOptions.find((option) => option.name === "Talla")?.value ?? "Unica";
-      const color = variant.selectedOptions.find((option) => option.name === "Color")?.value ?? colorNames[0] ?? getDefaultColorName(record.vibe);
-      return [`${size}::${color}`.toLowerCase(), variant] as const;
+      return [size, variant] as const;
     }),
   );
 
-  const suppliedVariants = record.variants.filter((variant) => {
-    const size = variant.selectedOptions.find((option) => option.name === "Talla")?.value ?? "Unica";
-    const color = variant.selectedOptions.find((option) => option.name === "Color")?.value ?? colorNames[0];
-    return sizes.includes(size) && colorNames.includes(normalizeProductColorName(color));
-  });
+  const variants = sizes.map((size, index) => {
+    const currentVariant = existingVariantsBySize.get(size);
+    const quantityAvailable = currentVariant?.quantityAvailable ?? record.stock ?? 0;
+    const available = currentVariant?.available ?? record.available;
+    const price = currentVariant?.price ?? record.price;
+    const compareAtPrice = currentVariant?.compareAtPrice ?? record.compareAtPrice;
 
-  const generatedVariants = sizes.flatMap((size, sizeIndex) =>
-    colorNames.map((colorName, colorIndex) => {
-      const selectedOptions = [
-        { name: "Talla", value: size },
-        { name: "Color", value: colorName },
-      ];
-      const currentVariant = existingVariants.get(`${size}::${colorName}`.toLowerCase());
-      const quantityAvailable =
-        currentVariant?.quantityAvailable ??
-        record.stock ??
-        0;
-      const available = currentVariant?.available ?? record.available;
-      const price = currentVariant?.price ?? record.price;
-      const compareAtPrice = currentVariant?.compareAtPrice ?? record.compareAtPrice;
-
-      return {
-        id: `${record.slug.trim().toLowerCase().replace(/\s+/g, "-") || "product"}-${size}-${colorName}`
+    return {
+      id:
+        currentVariant?.id ??
+        `${record.slug.trim().toLowerCase().replace(/\s+/g, "-") || "product"}-${size}`
           .toLowerCase()
           .replace(/[^a-z0-9-]+/g, "-")
           .replace(/-+/g, "-"),
-        title: colorNames.length > 1 ? `${size} / ${colorName}` : size,
-        available,
-        quantityAvailable,
-        price,
-        compareAtPrice,
-        currencyCode: "DOP",
-        image: currentVariant?.image ?? featuredImage ?? record.images[sizeIndex + colorIndex] ?? null,
-        selectedOptions,
-      } satisfies ProductVariant;
-    }),
-  );
-  const variants = suppliedVariants.length > 0
-    ? suppliedVariants.map((variant) => {
-        const size = variant.selectedOptions.find((option) => option.name === "Talla")?.value ?? "Unica";
-        const color = normalizeProductColorName(
-          variant.selectedOptions.find((option) => option.name === "Color")?.value ?? colorNames[0] ?? getDefaultColorName(record.vibe),
-        );
-        return {
-          ...cloneVariant(variant),
-          title: colorNames.length > 1 ? `${size} / ${color}` : size,
-          quantityAvailable: Math.max(0, variant.quantityAvailable ?? 0),
-          price: Math.max(0, variant.price),
-          image: variant.image ?? featuredImage,
-          selectedOptions: [
-            { name: "Talla", value: size },
-            { name: "Color", value: color },
-          ],
-        } satisfies ProductVariant;
-      })
-    : generatedVariants;
+      title: size,
+      available,
+      quantityAvailable: Math.max(0, quantityAvailable),
+      price: Math.max(0, price),
+      compareAtPrice,
+      currencyCode: "DOP",
+      image: currentVariant?.image ?? featuredImage ?? record.images[index] ?? null,
+      selectedOptions: [
+        { name: "Talla", value: size },
+        { name: "Color", value: colorName },
+      ],
+    } satisfies ProductVariant;
+  });
 
   return {
     variants,
@@ -779,6 +744,21 @@ export async function saveCatalogProductInternal(record: AdminProductRecord) {
   const currentProducts = await listCatalogProductsInternal();
   const existing = currentProducts.find((product) => product.id === record.id);
   const normalized = normalizeProduct(record, existing);
+
+  // Same defense the client already applies before calling this function -
+  // repeated here since `products.slug` has its own UNIQUE constraint that
+  // the `ON CONFLICT(id)` upsert below does nothing to guard, and a second
+  // product saved with the same name (hence the same auto-derived slug)
+  // would otherwise surface a raw SQLite constraint error to the admin.
+  const slugConflict = currentProducts.find(
+    (product) => product.id !== normalized.id && product.slug === normalized.slug,
+  );
+  if (slugConflict) {
+    throw new Error(
+      `Ya existe otro producto ("${slugConflict.name || slugConflict.id}") con ese mismo nombre. Cambia el nombre o el slug antes de guardar.`,
+    );
+  }
+
   const db = await getDatabase();
 
   if (!db) {

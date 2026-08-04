@@ -96,46 +96,26 @@ function HomeRailSection({
 
   return (
     <section className="pb-14">
-      <div className="mb-6 flex items-center justify-between gap-4 px-4 xl:px-[5cm]">
+      <div className="mb-6 px-4 xl:px-[5cm]">
         <h2 className="text-left text-2xl md:text-3xl" style={{ transform: "none" }}>
           {title}
         </h2>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            aria-label={`Anterior en ${title}`}
-            disabled={!canScrollPrev}
-            onClick={() => api?.scrollPrev()}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-foreground/20 bg-background text-foreground transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-35"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            aria-label={`Siguiente en ${title}`}
-            disabled={!canScrollNext}
-            onClick={() => api?.scrollNext()}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-foreground/20 bg-background text-foreground transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-35"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
       </div>
 
-      <div className="px-4 xl:px-[5cm]">
+      <div className="relative px-4 xl:px-[5cm]">
         <Carousel
           setApi={setApi}
           opts={{
             align: "start",
             containScroll: "trimSnaps",
-            dragFree: true,
+            slidesToScroll: 1,
           }}
         >
           <CarouselContent>
             {products.map((product) => (
               <CarouselItem
                 key={product.id}
-                className="basis-[calc(50%+0.5rem)] lg:basis-60"
+                className="basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5 xl:basis-1/6"
               >
                 <ProductCard
                   product={product}
@@ -147,6 +127,24 @@ function HomeRailSection({
             ))}
           </CarouselContent>
         </Carousel>
+        <button
+          type="button"
+          aria-label={`Anterior en ${title}`}
+          disabled={!canScrollPrev}
+          onClick={() => api?.scrollPrev()}
+          className="absolute left-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-0 sm:left-3 xl:left-5"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+        <button
+          type="button"
+          aria-label={`Siguiente en ${title}`}
+          disabled={!canScrollNext}
+          onClick={() => api?.scrollNext()}
+          className="absolute right-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-0 sm:right-3 xl:right-5"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </button>
       </div>
     </section>
   );

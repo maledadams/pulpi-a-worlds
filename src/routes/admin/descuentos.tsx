@@ -15,6 +15,7 @@ import {
 } from "@/components/admin/AdminControls";
 import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
+import { getAdminErrorMessage } from "@/lib/admin-errors";
 import { deleteAdminDiscount, getAdminDiscounts, saveAdminDiscount } from "@/lib/admin-content";
 import { getVibeLabel } from "@/lib/admin-service";
 import type { AdminDiscountRecord } from "@/lib/admin-types";
@@ -132,7 +133,7 @@ function AdminDiscountsPage() {
     setSaveMessage("");
     void performSave(draft)
       .catch((error) => {
-        showSaveMessage(error instanceof Error ? error.message : "No se pudo guardar la promoción ahora mismo.", "error");
+        showSaveMessage(getAdminErrorMessage(error, "No se pudo guardar la promoción ahora mismo."), "error");
       })
       .finally(() => {
         setIsSaving(false);
@@ -156,7 +157,7 @@ function AdminDiscountsPage() {
         showSaveMessage("Promoción eliminada.", "success");
       })
       .catch((error) => {
-        showSaveMessage(error instanceof Error ? error.message : "No se pudo eliminar la promoción ahora mismo.", "error");
+        showSaveMessage(getAdminErrorMessage(error, "No se pudo eliminar la promoción ahora mismo."), "error");
       })
       .finally(() => {
         setIsDeleting(false);

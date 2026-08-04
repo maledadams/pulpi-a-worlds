@@ -388,6 +388,40 @@ async function getDatabase() {
   return workerEnv.DB ?? null;
 }
 
+// Seeds `seedFn` exactly once, ever, via a persisted app_settings marker.
+// Re-checking COUNT(*) instead would re-insert the mock/default rows the
+// moment an admin deletes them all (count back to 0), undoing intentional
+// deletions on the next cold isolate. A database that already has rows but
+// no marker predates this marker (or was seeded by a sibling file sharing
+// the same table) - record the marker without re-inserting.
+async function ensureSeededOnce(
+  db: D1Database,
+  markerKey: string,
+  countQuery: string,
+  seedFn: () => Promise<void>,
+) {
+  const seededRow = await db
+    .prepare("SELECT value_json FROM app_settings WHERE key = ?")
+    .bind(markerKey)
+    .first<{ value_json: string }>();
+  if (seededRow) return;
+
+  const markSeeded = () =>
+    db
+      .prepare("INSERT INTO app_settings (key, value_json) VALUES (?, ?) ON CONFLICT(key) DO NOTHING")
+      .bind(markerKey, JSON.stringify({ seededAt: new Date().toISOString() }))
+      .run();
+
+  const countRow = await db.prepare(countQuery).first<{ count: number }>();
+  if ((countRow?.count ?? 0) > 0) {
+    await markSeeded();
+    return;
+  }
+
+  await seedFn();
+  await markSeeded();
+}
+
 async function ensureAdminContentReady(db: D1Database) {
   if (!adminContentReadyPromise) {
     adminContentReadyPromise = (async () => {
@@ -467,8 +501,7 @@ async function ensureAdminContentReady(db: D1Database) {
         }
       }
 
-      const categoryCount = await db.prepare("SELECT COUNT(*) AS count FROM categories").first<{ count: number }>();
-      if ((categoryCount?.count ?? 0) === 0) {
+      await ensureSeededOnce(db, "categories_seeded", "SELECT COUNT(*) AS count FROM categories", async () => {
         const insertCategory = db.prepare(`
           INSERT INTO categories (id, slug, name_es, is_nsfw, department_scope, size_format, sort_order, images_json)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -487,10 +520,9 @@ async function ensureAdminContentReady(db: D1Database) {
             ),
           ),
         );
-      }
+      });
 
-      const sizeFormatCount = await db.prepare("SELECT COUNT(*) AS count FROM size_formats").first<{ count: number }>();
-      if ((sizeFormatCount?.count ?? 0) === 0) {
+      await ensureSeededOnce(db, "size_formats_seeded", "SELECT COUNT(*) AS count FROM size_formats", async () => {
         const insertSizeFormat = db.prepare(`
           INSERT INTO size_formats (id, label, sizes_json, sort_order)
           VALUES (?, ?, ?, ?)
@@ -500,10 +532,9 @@ async function ensureAdminContentReady(db: D1Database) {
             insertSizeFormat.bind(format.id, format.label, JSON.stringify(format.sizes), format.sortOrder),
           ),
         );
-      }
+      });
 
-      const collectionCount = await db.prepare("SELECT COUNT(*) AS count FROM collections").first<{ count: number }>();
-      if ((collectionCount?.count ?? 0) === 0) {
+      await ensureSeededOnce(db, "collections_seeded", "SELECT COUNT(*) AS count FROM collections", async () => {
         const insertCollection = db.prepare(`
           INSERT INTO collections (
             id,
@@ -537,7 +568,7 @@ async function ensureAdminContentReady(db: D1Database) {
             ),
           ),
         );
-      }
+      });
 
       await db
         .prepare(`
@@ -548,8 +579,7 @@ async function ensureAdminContentReady(db: D1Database) {
         .bind(SETTINGS_KEY, JSON.stringify(ADMIN_SETTINGS))
         .run();
 
-      const discountCount = await db.prepare("SELECT COUNT(*) AS count FROM discounts").first<{ count: number }>();
-      if ((discountCount?.count ?? 0) === 0) {
+      await ensureSeededOnce(db, "discounts_seeded", "SELECT COUNT(*) AS count FROM discounts", async () => {
         const insertDiscount = db.prepare(`
           INSERT INTO discounts (id, code, label, discount_type, amount, active, scope, max_redemptions, one_per_customer)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -569,7 +599,7 @@ async function ensureAdminContentReady(db: D1Database) {
             ),
           ),
         );
-      }
+      });
     })().catch((error) => {
       adminContentReadyPromise = null;
       throw error;
@@ -715,6 +745,21 @@ async function listSizeFormatsInternal() {
   return (rows.results ?? []).map(parseSizeFormatRow);
 }
 
+async function assertSizesNotInUse(formatId: string, removedSizes: string[], categoryIds: string[]) {
+  if (removedSizes.length === 0 || categoryIds.length === 0) return;
+  const products = await listCatalogProductsInternal();
+  const inUse = products.some((product) => {
+    const productCategories = product.categories && product.categories.length > 0 ? product.categories : [product.category];
+    if (!productCategories.some((category) => categoryIds.includes(category))) return false;
+    return (product.sizes ?? []).some((size) => removedSizes.includes(size));
+  });
+  if (inUse) {
+    throw new Error(
+      `No se puede quitar ${removedSizes.join(", ")}: hay productos que todavia usan esa talla en este formato.`,
+    );
+  }
+}
+
 async function saveSizeFormatInternal(input: AdminSizeFormatRecord) {
   const normalized = sizeFormatSchema.parse({
     ...input,
@@ -725,11 +770,37 @@ async function saveSizeFormatInternal(input: AdminSizeFormatRecord) {
   const db = await getDatabase();
   if (!db) {
     seedMemoryContent();
+    const previous = memorySizeFormats.get(normalized.id);
+    if (previous) {
+      const removedSizes = previous.sizes.filter((size) => !normalized.sizes.includes(size));
+      const categoryIds = Array.from(memoryCategories.values())
+        .filter((category) => category.sizeFormat === normalized.id)
+        .map((category) => category.id);
+      await assertSizesNotInUse(normalized.id, removedSizes, categoryIds);
+    }
     memorySizeFormats.set(normalized.id, cloneSizeFormat(normalized));
     return cloneSizeFormat(normalized);
   }
 
   await ensureAdminContentReady(db);
+
+  const previousRow = await db
+    .prepare("SELECT sizes_json FROM size_formats WHERE id = ? LIMIT 1")
+    .bind(normalized.id)
+    .first<{ sizes_json: string | null }>();
+  if (previousRow?.sizes_json) {
+    const previousSizes = normalizeSizeList(JSON.parse(previousRow.sizes_json) as string[]);
+    const removedSizes = previousSizes.filter((size) => !normalized.sizes.includes(size));
+    if (removedSizes.length > 0) {
+      const categoryRows = await db
+        .prepare("SELECT id FROM categories WHERE size_format = ?")
+        .bind(normalized.id)
+        .all<{ id: string }>();
+      const categoryIds = (categoryRows.results ?? []).map((row) => row.id);
+      await assertSizesNotInUse(normalized.id, removedSizes, categoryIds);
+    }
+  }
+
   await db
     .prepare(`
       INSERT INTO size_formats (id, label, sizes_json, sort_order, updated_at)
@@ -846,6 +917,8 @@ async function saveCategoryInternal(input: AdminCategoryRecord) {
         memoryCategories.delete(normalized.previousId);
         await reassignCategoryReferences(normalized.previousId, normalized.id);
       }
+    } else if (!normalized.previousId && memoryCategories.has(normalized.id)) {
+      throw new Error("Ya existe otra categoria con ese slug interno.");
     }
     memoryCategories.set(normalized.id, cloneCategory(normalized));
     await cleanupCategoryImages(previousImages, normalized.images);
@@ -862,7 +935,12 @@ async function saveCategoryInternal(input: AdminCategoryRecord) {
   const conflicting = normalized.previousId && normalized.previousId !== normalized.id
     ? await db.prepare("SELECT id FROM categories WHERE id = ? LIMIT 1").bind(normalized.id).first()
     : null;
-  if (conflicting) {
+  // A brand-new category (no previousId at all) never went through the
+  // rename-conflict check above, so its auto-generated id could silently
+  // collide with an already-existing category - the upsert below would
+  // then overwrite that other category instead of being blocked.
+  const isNewDraft = !normalized.previousId;
+  if (conflicting || (isNewDraft && existing)) {
     throw new Error("Ya existe otra categoria con ese slug interno.");
   }
   const count = await db.prepare("SELECT COUNT(*) AS count FROM categories").first<{ count: number }>();
@@ -963,14 +1041,18 @@ async function listCollectionsInternal() {
 
   const collections = (rows.results ?? []).map(parseCollectionRow);
 
-  // product_ids_json is a plain JSON array, not a real foreign key, so a
-  // deleted product's id can linger here even after cleanup elsewhere.
-  // Filter it out at read time too, so the admin UI never shows a ghost
-  // product regardless of how it got into storage.
+  // product_ids_json / category_ids_json are plain JSON arrays, not real
+  // foreign keys, so a deleted product's or category's id can linger here
+  // even after cleanup elsewhere (and, since ids can be reused - see the
+  // category id-collision fix - a stale reference could otherwise silently
+  // reactivate against an unrelated later category). Filter both at read
+  // time so the admin UI never shows a ghost reference.
   const liveProductIds = new Set((await listCatalogProductsInternal()).map((product) => product.id));
+  const liveCategoryIds = new Set((await listCategoriesInternal()).map((category) => category.id));
   return collections.map((collection) => ({
     ...collection,
     productIds: collection.productIds.filter((productId) => liveProductIds.has(productId)),
+    categoryIds: collection.categoryIds.filter((categoryId) => liveCategoryIds.has(categoryId)),
   }));
 }
 
@@ -978,7 +1060,13 @@ async function saveCollectionInternal(input: AdminCollectionRecord) {
   const normalized = {
     ...input,
     id: normalizeCollectionId(input.id),
-    slug: input.slug.trim().toLowerCase().replace(/\s+/g, "-"),
+    slug: input.slug
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, ""),
     name: input.name.trim(),
     description: input.description.trim(),
     vibe: input.vibe === "pulpina" ? "store" : input.vibe,
@@ -990,11 +1078,28 @@ async function saveCollectionInternal(input: AdminCollectionRecord) {
   const db = await getDatabase();
   if (!db) {
     seedMemoryContent();
+    const memoryConflict = Array.from(memoryCollections.values()).find(
+      (collection) => collection.id !== normalized.id && collection.slug === normalized.slug,
+    );
+    if (memoryConflict) {
+      throw new Error("Ya existe otra coleccion con ese mismo nombre.");
+    }
     memoryCollections.set(normalized.id, cloneCollection(normalized));
     return cloneCollection(normalized);
   }
 
   await ensureAdminContentReady(db);
+  // `collections.slug` has its own UNIQUE constraint separate from the id -
+  // the upsert below only guards against id collisions, so two collections
+  // that happen to share a name (hence the same auto-derived slug) would
+  // otherwise surface a raw SQLite constraint error straight to the admin.
+  const slugConflict = await db
+    .prepare("SELECT id FROM collections WHERE slug = ? AND id != ? LIMIT 1")
+    .bind(normalized.slug, normalized.id)
+    .first();
+  if (slugConflict) {
+    throw new Error("Ya existe otra coleccion con ese mismo nombre.");
+  }
   await db
     .prepare(`
       INSERT INTO collections (

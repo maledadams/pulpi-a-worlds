@@ -312,7 +312,7 @@ export function AdminAutosaveIndicator({
 
   if (status === "saving") {
     return (
-      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#6b5a55]">
+      <span className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#f3eadf] px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-[#6b5a55]">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
         Guardando...
       </span>
@@ -321,15 +321,18 @@ export function AdminAutosaveIndicator({
 
   if (status === "error") {
     return (
-      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#9a3423]" title={errorMessage}>
-        <AlertCircle className="h-3.5 w-3.5" />
+      <span
+        className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#f7ddd4] px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-[#9a3423]"
+        title={errorMessage}
+      >
+        <AlertCircle className="h-3.5 w-3.5 shrink-0" />
         {errorMessage || "No se pudo guardar"}
       </span>
     );
   }
 
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
+    <span className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#e3f0e6] px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-emerald-700">
       <CheckCircle2 className="h-3.5 w-3.5" />
       Guardado
     </span>

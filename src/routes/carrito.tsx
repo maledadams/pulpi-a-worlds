@@ -69,6 +69,8 @@ function CartPage() {
                   <img
                     src={line.image.url}
                     alt={line.image.altText ?? line.productTitle}
+                    loading="lazy"
+                    decoding="async"
                     className="h-28 w-28 shrink-0 self-start rounded-xl border border-foreground/20 object-cover sm:h-24 sm:w-24"
                   />
                 ) : (

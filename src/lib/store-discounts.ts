@@ -82,8 +82,37 @@ async function ensureDiscountStorageReady(db: D1Database) {
         }
       }
 
+      await db.exec(
+        `
+        CREATE TABLE IF NOT EXISTS app_settings (
+          key TEXT PRIMARY KEY,
+          value_json TEXT NOT NULL,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      `.replace(/\n/g, " "),
+      );
+
+      // Seed exactly once, ever, via a persisted marker - re-checking COUNT(*)
+      // would re-insert NEW10/MOON500 the moment an admin deletes them all
+      // (count back to 0), undoing intentional deletions on the next cold
+      // isolate. Shares the "discounts_seeded" key with admin-content.ts,
+      // which manages this same table - whichever file's ensure-ready runs
+      // first wins the seed, the other just records the marker.
+      const seededRow = await db
+        .prepare("SELECT value_json FROM app_settings WHERE key = ?")
+        .bind("discounts_seeded")
+        .first<{ value_json: string }>();
+      if (seededRow) return;
+
+      const markSeeded = () =>
+        db
+          .prepare("INSERT INTO app_settings (key, value_json) VALUES (?, ?) ON CONFLICT(key) DO NOTHING")
+          .bind("discounts_seeded", JSON.stringify({ seededAt: new Date().toISOString() }))
+          .run();
+
       const discountCount = await db.prepare("SELECT COUNT(*) AS count FROM discounts").first<{ count: number }>();
       if ((discountCount?.count ?? 0) > 0) {
+        await markSeeded();
         return;
       }
 
@@ -107,6 +136,7 @@ async function ensureDiscountStorageReady(db: D1Database) {
           ),
         ),
       );
+      await markSeeded();
     })().catch((error) => {
       discountStorageReadyPromise = null;
       throw error;

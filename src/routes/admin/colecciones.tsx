@@ -19,6 +19,7 @@ import {
 } from "@/components/admin/AdminControls";
 import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
+import { getAdminErrorMessage } from "@/lib/admin-errors";
 import {
   deleteAdminCollection,
   getAdminCategories,
@@ -71,12 +72,12 @@ function getResolvedCollectionCount(collection: AdminCollectionRecord, products:
 export const Route = createFileRoute("/admin/colecciones")({
   beforeLoad: () => enforceAdminAccess(),
   loader: async () => {
-    const products = await getAdminCatalogProducts();
-    return {
-      categories: await getAdminCategories(),
-      collections: await getAdminCollections(),
-      products,
-    };
+    const [products, categories, collections] = await Promise.all([
+      getAdminCatalogProducts(),
+      getAdminCategories(),
+      getAdminCollections(),
+    ]);
+    return { categories, collections, products };
   },
   head: () => ({ meta: [{ title: "Admin - Colecciones" }] }),
   component: AdminCollectionsPage,
@@ -216,8 +217,8 @@ function AdminCollectionsPage() {
 
   const handleSave = () => {
     if (!draft) return;
-    void performSave(draft).catch(() => {
-      showSaveMessage("No se pudo guardar la coleccion ahora mismo.", "error");
+    void performSave(draft).catch((error) => {
+      showSaveMessage(getAdminErrorMessage(error, "No se pudo guardar la coleccion ahora mismo."), "error");
     });
   };
 
@@ -253,7 +254,7 @@ function AdminCollectionsPage() {
         showSaveMessage("Coleccion eliminada.", "success");
       })
       .catch((error) => {
-        showSaveMessage(error instanceof Error ? error.message : "No se pudo eliminar la coleccion.", "error");
+        showSaveMessage(getAdminErrorMessage(error, "No se pudo eliminar la coleccion."), "error");
       })
       .finally(() => {
         setIsDeleting(false);
