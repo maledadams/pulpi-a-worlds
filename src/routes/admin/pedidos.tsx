@@ -18,6 +18,7 @@ import {
 import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { getAdminErrorMessage } from "@/lib/admin-errors";
+import { matchesAdminSearch } from "@/lib/admin-search";
 import { getAdminCatalogProducts } from "@/lib/catalog";
 import { formatPrice } from "@/data/products";
 import { formatAdminInquiryChannel, formatAdminInquiryStatus } from "@/lib/admin-service";
@@ -109,10 +110,16 @@ function buildCreateState(products: AdminProductRecord[]): OrderFormState {
 }
 
 function buildEditableLines(inquiry: AdminInquiryRecord, products: AdminProductRecord[]): DraftOrderLine[] {
-  return inquiry.lines.map((line) => {
+  // The key must be deterministic (not crypto.randomUUID()) - this function
+  // runs once from the initial useState() and again from the effect that
+  // resyncs on selection change, including on mount. A random key would make
+  // those two calls produce "different" data for the exact same order, which
+  // fools the autosave hook's change-detection into firing on a page load
+  // where nothing was actually edited.
+  return inquiry.lines.map((line, index) => {
     const product = products.find((entry) => entry.id === line.productId);
     return {
-      key: crypto.randomUUID(),
+      key: `${line.variantId || line.productId || "line"}-${index}`,
       productId: line.productId,
       productQuery: product?.name ?? line.productName,
       quantity: line.quantity,
@@ -133,13 +140,8 @@ function ProductSearchField({
   onQueryChange: (value: string) => void;
 }) {
   const matches = useMemo(() => {
-    const lowered = line.productQuery.trim().toLowerCase();
     return products
-      .filter((entry) => {
-        if (!lowered) return true;
-        const haystack = `${entry.name} ${entry.id} ${entry.slug}`.toLowerCase();
-        return haystack.includes(lowered);
-      })
+      .filter((entry) => matchesAdminSearch([entry.name, entry.id, entry.slug], line.productQuery))
       .slice(0, 6);
   }, [line.productQuery, products]);
 
@@ -206,19 +208,37 @@ function AdminOrdersPage() {
   const [newOrder, setNewOrder] = useState<OrderFormState>(() => buildCreateState(products));
 
   const filtered = useMemo(() => {
-    const lowered = query.trim().toLowerCase();
     return rows.filter((inquiry) => {
       const matchesStatus =
         statusFilter === "all" ? inquiry.status !== "pending_contact" : inquiry.status === statusFilter;
-      const haystack = `${inquiry.requestNumber} ${inquiry.customerName} ${inquiry.customerEmail} ${inquiry.customerPhone}`.toLowerCase();
-      return matchesStatus && haystack.includes(lowered);
+      return (
+        matchesStatus &&
+        matchesAdminSearch(
+          [inquiry.requestNumber, inquiry.id, inquiry.customerName, inquiry.customerEmail, inquiry.customerPhone],
+          query,
+        )
+      );
     });
   }, [rows, query, statusFilter]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pages - 1);
   const paged = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
-  const selected = rows.find((inquiry) => inquiry.id === selectedId) ?? null;
+
+  // Sets selectedId together with draft/draftLines in the same event, rather
+  // than changing selectedId and letting a separate effect catch up on the
+  // next render. That one-render lag meant the autosave hook's resetKey
+  // (selectedId) briefly pointed at the new order while its value
+  // (draft/draftLines) still held the previous order's data, so it baselined
+  // against the wrong record and then "saw" a change worth saving as soon as
+  // draft/draftLines caught up - firing a real save nobody asked for on a
+  // plain row click.
+  const selectOrder = (id: string) => {
+    setSelectedId(id);
+    const match = rows.find((inquiry) => inquiry.id === id) ?? null;
+    setDraft(match ? cloneInquiry(match) : null);
+    setDraftLines(match ? buildEditableLines(match, products) : []);
+  };
 
   useEffect(() => {
     setPage(0);
@@ -226,27 +246,15 @@ function AdminOrdersPage() {
 
   useEffect(() => {
     if (!filtered.length) {
-      setSelectedId("");
-      setDraft(null);
-      setDraftLines([]);
+      if (selectedId) selectOrder("");
       return;
     }
 
     if (!filtered.some((inquiry) => inquiry.id === selectedId)) {
-      setSelectedId(filtered[0]!.id);
+      selectOrder(filtered[0]!.id);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtered, selectedId]);
-
-  useEffect(() => {
-    if (!selected) {
-      setDraft(null);
-      setDraftLines([]);
-      return;
-    }
-
-    setDraft(cloneInquiry(selected));
-    setDraftLines(buildEditableLines(selected, products));
-  }, [selected, products]);
 
   useEffect(() => {
     if (!toastMessage) return;
@@ -576,7 +584,7 @@ function AdminOrdersPage() {
                     {paged.map((inquiry) => (
                       <tr
                         key={inquiry.id}
-                        onClick={() => setSelectedId(inquiry.id)}
+                        onClick={() => selectOrder(inquiry.id)}
                         className={`cursor-pointer border-t border-[#231717]/10 align-top transition-colors ${
                           selectedId === inquiry.id ? "bg-[#f7f2ec]" : "hover:bg-[#faf6f0]"
                         }`}

@@ -153,7 +153,7 @@ export function Footer({
           </div>
         </div>
 
-        <div data-footer-store>
+        <div data-footer-store className="text-center">
           <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Store</div>
           <ul className="space-y-1.5 text-sm">
             {resolvedSettings.footerShopLinks.map((link) => (
@@ -166,7 +166,7 @@ export function Footer({
           </ul>
         </div>
 
-        <div>
+        <div className="text-center">
           <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Ayuda</div>
           <ul className="space-y-1.5 text-sm">
             {resolvedSettings.footerHelpLinks

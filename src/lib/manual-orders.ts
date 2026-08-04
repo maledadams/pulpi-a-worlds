@@ -356,22 +356,38 @@ async function getOrderConfirmSecret() {
   return workerEnv.ORDER_CONFIRM_SECRET ?? process.env.ORDER_CONFIRM_SECRET ?? "";
 }
 
-async function buildCanonicalLines(lines: ManualOrderInput["lines"], enforceStock = true) {
+async function buildCanonicalLines(
+  lines: ManualOrderInput["lines"],
+  enforceStock = true,
+  previousLines: CanonicalManualOrderLine[] = [],
+) {
   const consolidated = new Map<string, number>();
 
   for (const line of lines) {
     consolidated.set(line.variantId, (consolidated.get(line.variantId) ?? 0) + line.quantity);
   }
 
+  const previousByVariant = new Map(previousLines.map((line) => [line.variantId, line]));
+
   const resolved = await Promise.all(
     Array.from(consolidated.entries()).map(async ([variantId, quantity]) => ({
       canonical: await getCatalogVariantByIdInternal(variantId),
+      previous: previousByVariant.get(variantId),
       quantity,
     })),
   );
 
-  return resolved.map(({ canonical, quantity }) => {
+  return resolved.map(({ canonical, previous, quantity }) => {
     if (!canonical) {
+      // The product/variant this line pointed to was deleted or regenerated
+      // after the order was placed - the order itself is still valid, so
+      // keep whatever was already recorded for this line instead of
+      // blocking every future edit (even a plain status change) on a
+      // catalog lookup that can never succeed again. Only a genuinely new
+      // line with no history to fall back on gets rejected.
+      if (previous) {
+        return { ...previous, quantity };
+      }
       throw new Error("Uno de los productos ya no existe.");
     }
 
@@ -736,12 +752,17 @@ async function createOrderInDatabaseAttempt(
     )
     .run();
 
-  if (record.status !== "cancelled") {
+  // Stock is only consumed once an order is "closed" (see
+  // buildOrderInventoryImpact) - a freshly created order is essentially
+  // always pending_contact/new, so this is normally a no-op, but stays
+  // consistent with that rule if an order is ever created already closed.
+  const createdImpact = buildOrderInventoryImpact(record.lines, record.status);
+  if (createdImpact.size > 0) {
     await adjustCatalogVariantInventoryInternal(
-      record.lines.map((line) => ({ delta: -line.quantity, variantId: line.variantId })),
+      Array.from(createdImpact.entries()).map(([variantId, quantity]) => ({ delta: -quantity, variantId })),
       {
         source: "order",
-        reason: "Reserva automatica al crear el pedido",
+        reason: "Pedido creado como cerrado",
         referenceId: record.requestNumber,
       },
     );
@@ -771,12 +792,13 @@ async function createOrderInMemory(input: OrderWriteInput, lines: CanonicalManua
   });
 
   memoryOrders.set(record.id, cloneInquiry(record));
-  if (record.status !== "cancelled") {
+  const createdImpact = buildOrderInventoryImpact(record.lines, record.status);
+  if (createdImpact.size > 0) {
     await adjustCatalogVariantInventoryInternal(
-      record.lines.map((line) => ({ delta: -line.quantity, variantId: line.variantId })),
+      Array.from(createdImpact.entries()).map(([variantId, quantity]) => ({ delta: -quantity, variantId })),
       {
         source: "order",
-        reason: "Reserva automatica al crear el pedido",
+        reason: "Pedido creado como cerrado",
         referenceId: record.requestNumber,
       },
     );
@@ -860,8 +882,13 @@ async function listOrdersInternal() {
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.requestNumber.localeCompare(a.requestNumber));
 }
 
+// Stock is only actually consumed once an order is "closed" (fulfilled) -
+// every other status (including a brand-new order) is just a request being
+// worked, not a completed sale, so it holds no inventory. This is why
+// creating/editing an order never touches stock below except on the
+// transition into or out of "closed".
 function buildOrderInventoryImpact(lines: AdminInquiryRecord["lines"], status: AdminInquiryStatus) {
-  if (status === "cancelled") {
+  if (status !== "closed") {
     return new Map<string, number>();
   }
 
@@ -876,15 +903,18 @@ async function ensureInventoryChangesAvailable(changes: Array<{ delta: number; v
   for (const change of changes) {
     if (change.delta >= 0) continue;
     const canonical = await getCatalogVariantByIdInternal(change.variantId);
-    const available = Math.max(0, canonical?.variant.quantityAvailable ?? 0);
-    if (!canonical || available < Math.abs(change.delta)) {
+    // The variant no longer resolves (deleted/regenerated product) - there's
+    // no live stock to check against, and nothing useful to block. Just skip
+    // this line rather than erroring on a lookup that can never succeed.
+    if (!canonical) continue;
+    const available = Math.max(0, canonical.variant.quantityAvailable ?? 0);
+    if (available < Math.abs(change.delta)) {
       throw new Error(`No hay suficiente stock para actualizar la variante ${change.variantId}.`);
     }
   }
 }
 
 async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>) {
-  const canonicalLines = await buildCanonicalLines(input.lines, false);
   const db = await getDatabase();
   if (!db) {
     const current = memoryOrders.get(input.id);
@@ -892,6 +922,7 @@ async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>
       throw new Error("La orden no existe.");
     }
 
+    const canonicalLines = await buildCanonicalLines(input.lines, false, current.lines);
     const next = cloneInquiry({
       ...buildInquiryRecord({
         channel: input.channel,
@@ -971,24 +1002,6 @@ async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>
   }
 
   const shipping = fromCents(existing.shipping_cents);
-  const nextRecord = buildInquiryRecord({
-    channel: input.channel,
-    createdAt: existing.created_at,
-    customerEmail: input.customerEmail,
-    customerName: input.customerName,
-    customerPhone: input.customerPhone,
-    discount: input.discount,
-    fulfillmentMethod: input.fulfillmentMethod,
-    id: existing.id,
-    lines: canonicalLines,
-    notes: input.notes,
-    paymentStatus: input.paymentStatus,
-    requestNumber: existing.request_number,
-    shipping: input.shipping ?? shipping,
-    shippingAddress: input.shippingAddress,
-    status: input.status,
-  });
-
   const previousRecord = buildInquiryRecord({
     channel: normalizeOrderChannel(existing.channel),
     createdAt: existing.created_at,
@@ -1012,6 +1025,25 @@ async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>
       province: existing.shipping_province ?? "",
     },
     status: normalizeOrderStatus(existing.status),
+  });
+
+  const canonicalLines = await buildCanonicalLines(input.lines, false, previousRecord.lines);
+  const nextRecord = buildInquiryRecord({
+    channel: input.channel,
+    createdAt: existing.created_at,
+    customerEmail: input.customerEmail,
+    customerName: input.customerName,
+    customerPhone: input.customerPhone,
+    discount: input.discount,
+    fulfillmentMethod: input.fulfillmentMethod,
+    id: existing.id,
+    lines: canonicalLines,
+    notes: input.notes,
+    paymentStatus: input.paymentStatus,
+    requestNumber: existing.request_number,
+    shipping: input.shipping ?? shipping,
+    shippingAddress: input.shippingAddress,
+    status: input.status,
   });
 
   const previousImpact = buildOrderInventoryImpact(previousRecord.lines, previousRecord.status);

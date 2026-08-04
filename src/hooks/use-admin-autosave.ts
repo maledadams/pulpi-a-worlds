@@ -5,6 +5,24 @@ export type AdminAutosaveStatus = "idle" | "saving" | "saved" | "error";
 
 const UNSET = Symbol("admin-autosave-unset");
 
+// Plain JSON.stringify is sensitive to object key order. A save round-trip
+// through the server often comes back with keys in a different order than
+// the locally-built draft (different construction path, spread order,
+// column order, etc.) even when every value is identical - with a naive
+// stringify that reads as "changed" and re-triggers "Guardando..." on the
+// very next tick, over and over. Sorting keys recursively before comparing
+// makes the snapshot depend only on content, not incidental ordering.
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableStringify(entry)).join(",")}]`;
+  }
+  if (value && typeof value === "object") {
+    const keys = Object.keys(value as Record<string, unknown>).sort();
+    return `{${keys.map((key) => `${JSON.stringify(key)}:${stableStringify((value as Record<string, unknown>)[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
 /**
  * Debounced auto-save for admin editors. Saves `value` automatically a short
  * while after it stops changing - no explicit "save" click required.
@@ -23,6 +41,7 @@ export function useAdminAutosave<T>(
   const [status, setStatus] = useState<AdminAutosaveStatus>("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
   const queuedRef = useRef<{ value: T; snapshot: string } | null>(null);
   const baselineRef = useRef<string | null>(null);
@@ -42,12 +61,23 @@ export function useAdminAutosave<T>(
       return inFlightRef.current;
     }
     savingRef.current = true;
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
     setStatus("saving");
     setErrorMessage("");
     const promise = save(nextValue)
       .then(() => {
         baselineRef.current = snapshot;
         setStatus("saved");
+        // A permanent "Guardado" pill just sits there taking up space long
+        // after it stopped being useful information - fade it back to idle
+        // shortly after, like the rest of the admin's toasts already do.
+        hideTimerRef.current = setTimeout(() => {
+          hideTimerRef.current = null;
+          setStatus((current) => (current === "saved" ? "idle" : current));
+        }, 1800);
       })
       .catch((error: unknown) => {
         setStatus("error");
@@ -70,10 +100,14 @@ export function useAdminAutosave<T>(
   useEffect(() => {
     if (resetKey !== lastResetKeyRef.current) {
       lastResetKeyRef.current = resetKey;
-      baselineRef.current = value == null ? null : JSON.stringify(value);
+      baselineRef.current = value == null ? null : stableStringify(value);
       if (timerRef.current) {
         clearTimeout(timerRef.current);
         timerRef.current = null;
+      }
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = null;
       }
       setStatus("idle");
     }
@@ -82,7 +116,7 @@ export function useAdminAutosave<T>(
 
   useEffect(() => {
     if (!enabled || value == null) return;
-    const snapshot = JSON.stringify(value);
+    const snapshot = stableStringify(value);
     if (snapshot === baselineRef.current) return;
 
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -111,7 +145,7 @@ export function useAdminAutosave<T>(
       timerRef.current = null;
     }
     if (current == null) return inFlightRef.current;
-    const snapshot = JSON.stringify(current);
+    const snapshot = stableStringify(current);
     if (snapshot === baselineRef.current && !savingRef.current) return inFlightRef.current;
     return run(current, snapshot);
   };

@@ -627,11 +627,9 @@ function normalizeProduct(record: AdminProductRecord, existing?: Product) {
   const categories = normalizeCategories(record);
   const swatch = colorsToSwatch(record.colors, record.vibe);
   const trimmedImages = record.images.slice(0, 5).map(cloneImage);
-  const featuredImage =
-    (record.featuredImage && trimmedImages.some((image) => image.url === record.featuredImage?.url) ? record.featuredImage : null) ??
-    trimmedImages[0] ??
-    existing?.featuredImage ??
-    null;
+  // Position 0 is always the storefront cover, everywhere it's shown - not
+  // a separately-tracked pointer that reordering could leave stale.
+  const featuredImage = trimmedImages[0] ?? existing?.featuredImage ?? null;
   const { variants, sizes, colors } = normalizeVariants(record, swatch, featuredImage);
   const totalStock = variants.reduce((sum, variant) => sum + Math.max(0, variant.quantityAvailable ?? 0), 0);
   const hasSellableVariant = variants.some(

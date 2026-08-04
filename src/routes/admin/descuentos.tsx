@@ -16,6 +16,7 @@ import {
 import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { getAdminErrorMessage } from "@/lib/admin-errors";
+import { matchesAdminSearch } from "@/lib/admin-search";
 import { deleteAdminDiscount, getAdminDiscounts, saveAdminDiscount } from "@/lib/admin-content";
 import { getVibeLabel } from "@/lib/admin-service";
 import type { AdminDiscountRecord } from "@/lib/admin-types";
@@ -71,8 +72,7 @@ function AdminDiscountsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const filtered = useMemo(() => {
-    const lowered = query.trim().toLowerCase();
-    return rows.filter((discount) => `${discount.code} ${discount.label}`.toLowerCase().includes(lowered));
+    return rows.filter((discount) => matchesAdminSearch([discount.code, discount.label, discount.id], query));
   }, [rows, query]);
 
   const selected = rows.find((discount) => discount.id === selectedId) ?? null;

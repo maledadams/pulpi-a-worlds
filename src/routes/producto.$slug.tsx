@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ProductCard } from "@/components/product/ProductCard";
 import { useCatalogProducts } from "@/context/catalog";
@@ -176,6 +176,14 @@ function ProductPage() {
   const [color, setColor] = useState(colors[0]?.name ?? "Unica");
   const [qty, setQty] = useState(1);
   const [imageIndex, setImageIndex] = useState(0);
+
+  // Navigating between products on this same route (e.g. a "more from this
+  // vibe" link) does not remount the component, so imageIndex would
+  // otherwise stay at whatever it was on the previous product - showing the
+  // initials placeholder if the new product has fewer images.
+  useEffect(() => {
+    setImageIndex(0);
+  }, [product.id]);
 
   const selectedVariant = useMemo(
     () =>

@@ -17,6 +17,7 @@ import {
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { getAdminCategories } from "@/lib/admin-content";
 import { getAdminErrorMessage } from "@/lib/admin-errors";
+import { matchesAdminSearch } from "@/lib/admin-search";
 import { adjustAdminStock, getAdminStockData, saveAdminCatalogProduct } from "@/lib/catalog";
 import { formatPrice } from "@/data/products";
 import { getVibeLabel } from "@/lib/admin-service";
@@ -95,18 +96,25 @@ function AdminStockPage() {
   const pagedMovements = movements.slice(safeMovementPage * 8, safeMovementPage * 8 + 8);
 
   const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase();
     return products
-      .filter((product) => `${product.name} ${product.slug} ${product.id}`.toLowerCase().includes(needle))
+      .filter((product) => matchesAdminSearch([product.name, product.slug, product.id], query))
       .filter((product) => !lowStockOnly || hasLowStock(product));
   }, [products, query, lowStockOnly]);
-  const selected = products.find((product) => product.id === selectedId) ?? null;
-
-  useEffect(() => {
-    setDraft(selected ? cloneProduct(selected) : null);
+  // Sets selectedId together with draft in the same event instead of
+  // changing selectedId and letting the effect below catch up next render.
+  // That one-render lag meant the autosave hook's resetKey (selectedId)
+  // briefly pointed at the newly-clicked product while its value (draft)
+  // still held the previous product's data, so it baselined against the
+  // wrong product and then treated the real data catching up as an edit
+  // worth saving - firing a phantom save of whichever product you just
+  // navigated away from.
+  const selectProduct = (id: string) => {
+    setSelectedId(id);
+    const match = products.find((product) => product.id === id) ?? null;
+    setDraft(match ? cloneProduct(match) : null);
     setQuantity(1);
     setReason("");
-  }, [selected]);
+  };
 
   useEffect(() => {
     if (!message) return;
@@ -221,7 +229,7 @@ function AdminStockPage() {
               return (
                 <button
                   key={product.id}
-                  onClick={() => setSelectedId(product.id)}
+                  onClick={() => selectProduct(product.id)}
                   className={`rounded-xl border p-3 text-left transition ${selectedId === product.id ? "border-[#231717] bg-[#231717] text-white" : "border-[#231717]/10 bg-[#faf6f0] hover:bg-[#f3eadf]"}`}
                 >
                   <div className="font-bold">{product.name}</div>
@@ -299,7 +307,7 @@ function AdminStockPage() {
             <AdminPanel title="Historial de movimientos">
               {movements.length === 0 ? <AdminEmptyState title="Sin movimientos" body="Las entradas, salidas, reservas y cancelaciones apareceran aqui." /> : (
                 <>
-                  <div className="overflow-x-auto"><table className="min-w-[780px] text-left text-sm"><thead className="text-[11px] font-black uppercase tracking-[0.14em] text-[#7c665f]"><tr><th className="pb-3">Fecha</th><th className="pb-3">Producto</th><th className="pb-3">Movimiento</th><th className="pb-3">Saldo</th><th className="pb-3">Motivo</th></tr></thead><tbody>{pagedMovements.map((movement) => <tr key={movement.id} className="border-t border-[#231717]/10"><td className="py-3 pr-3 text-xs">{formatMovementDate(movement.createdAt)}</td><td className="py-3 pr-3"><div className="font-bold">{movement.productName}</div><div className="text-xs text-[#6b5a55]">{movement.variantLabel}</div></td><td className={`py-3 pr-3 font-black ${movement.delta > 0 ? "text-emerald-700" : "text-[#9a3423]"}`}>{movement.delta > 0 ? "+" : ""}{movement.delta}</td><td className="py-3 pr-3 font-bold">{movement.balanceAfter}</td><td className="py-3"><div>{movement.reason}</div>{movement.referenceId ? <div className="text-xs text-[#6b5a55]">{movement.referenceId}</div> : null}</td></tr>)}</tbody></table></div>
+                  <div className="overflow-x-auto"><table className="min-w-[780px] text-left text-sm"><thead className="text-[11px] font-black uppercase tracking-[0.14em] text-[#7c665f]"><tr><th className="pb-3 pr-3">Fecha</th><th className="pb-3 pr-3">Producto</th><th className="pb-3 pr-3">Movimiento</th><th className="pb-3 pr-3">Saldo</th><th className="pb-3">Motivo</th></tr></thead><tbody>{pagedMovements.map((movement) => <tr key={movement.id} className="border-t border-[#231717]/10"><td className="py-3 pr-3 text-xs">{formatMovementDate(movement.createdAt)}</td><td className="py-3 pr-3"><div className="font-bold">{movement.productName}</div><div className="text-xs text-[#6b5a55]">{movement.variantLabel}</div></td><td className={`py-3 pr-3 font-black ${movement.delta > 0 ? "text-emerald-700" : "text-[#9a3423]"}`}>{movement.delta > 0 ? "+" : ""}{movement.delta}</td><td className="py-3 pr-3 font-bold">{movement.balanceAfter}</td><td className="py-3"><div>{movement.reason}</div>{movement.referenceId ? <div className="text-xs text-[#6b5a55]">{movement.referenceId}</div> : null}</td></tr>)}</tbody></table></div>
                   <div className="mt-3">
                     <AdminPagination page={safeMovementPage} pages={movementPages} onChange={setMovementPage} />
                   </div>

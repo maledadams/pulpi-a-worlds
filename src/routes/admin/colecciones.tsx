@@ -20,6 +20,7 @@ import {
 import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { getAdminErrorMessage } from "@/lib/admin-errors";
+import { matchesAdminSearch } from "@/lib/admin-search";
 import {
   deleteAdminCollection,
   getAdminCategories,
@@ -101,11 +102,12 @@ function AdminCollectionsPage() {
   const [productQuery, setProductQuery] = useState("");
 
   const filtered = useMemo(() => {
-    const lowered = query.trim().toLowerCase();
     return rows.filter((collection) => {
       const matchesScope = scope === "all" || collection.vibe === scope;
-      const haystack = `${collection.name} ${collection.description}`.toLowerCase();
-      return matchesScope && haystack.includes(lowered);
+      return (
+        matchesScope &&
+        matchesAdminSearch([collection.name, collection.description, collection.id, collection.slug], query)
+      );
     });
   }, [rows, query, scope]);
 
@@ -119,12 +121,9 @@ function AdminCollectionsPage() {
     return products.filter((product) => draft.vibe === "store" || product.vibe === draft.vibe);
   }, [draft, products]);
   const filteredAssignableProducts = useMemo(() => {
-    const lowered = productQuery.trim().toLowerCase();
-    return assignableProducts.filter((product) => {
-      if (!lowered) return true;
-      const haystack = `${product.name} ${product.id} ${product.slug} ${product.tags.join(" ")}`.toLowerCase();
-      return haystack.includes(lowered);
-    });
+    return assignableProducts.filter((product) =>
+      matchesAdminSearch([product.name, product.id, product.slug, ...product.tags], productQuery),
+    );
   }, [assignableProducts, productQuery]);
 
   useEffect(() => {

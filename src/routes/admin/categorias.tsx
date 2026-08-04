@@ -19,6 +19,7 @@ import {
 import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { getAdminErrorMessage } from "@/lib/admin-errors";
+import { matchesAdminSearch } from "@/lib/admin-search";
 import { compressImageForUpload } from "@/lib/image-resize";
 import {
   deleteAdminCategoryImage,
@@ -103,11 +104,9 @@ function AdminCategoriesPage() {
   const [uploadingVibe, setUploadingVibe] = useState<SubstoreVibe | null>(null);
 
   const filtered = useMemo(() => {
-    const lowered = query.trim().toLowerCase();
-    return rows.filter((category) => {
-      const haystack = `${category.label} ${category.id} ${category.vibes.join(" ")} ${category.sizeFormat}`.toLowerCase();
-      return haystack.includes(lowered);
-    });
+    return rows.filter((category) =>
+      matchesAdminSearch([category.label, category.id, ...category.vibes, category.sizeFormat], query),
+    );
   }, [rows, query]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));

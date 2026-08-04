@@ -23,6 +23,7 @@ import {
 import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { getAdminErrorMessage } from "@/lib/admin-errors";
+import { matchesAdminSearch } from "@/lib/admin-search";
 import { compressImageForUpload } from "@/lib/image-resize";
 import {
   deleteAdminProductImage,
@@ -159,8 +160,8 @@ function normalizeDraftForSave(draft: AdminProductRecord) {
     url: image.url,
     altText: image.altText?.trim() || draft.name.trim() || null,
   }));
-  const featuredImage =
-    trimmedImages.find((image) => image.url === draft.featuredImage?.url) ?? trimmedImages[0] ?? null;
+  // Position 0 is always the cover, everywhere - see moveImage/setFeaturedImage.
+  const featuredImage = trimmedImages[0] ?? null;
 
   const normalizedVariants = syncDraftVariants({
     ...draft,
@@ -233,11 +234,12 @@ function AdminProductsPage() {
   const [persistedIds, setPersistedIds] = useState(() => new Set(products.map((product) => product.id)));
 
   const filtered = useMemo(() => {
-    const lowered = query.trim().toLowerCase();
     return rows.filter((product) => {
       const matchesScope = scope === "all" || product.vibe === scope;
-      const haystack = `${product.name} ${product.slug} ${product.id} ${product.categories.join(" ")}`.toLowerCase();
-      return matchesScope && haystack.includes(lowered);
+      return (
+        matchesScope &&
+        matchesAdminSearch([product.name, product.slug, product.id, ...product.categories], query)
+      );
     });
   }, [rows, query, scope]);
 
@@ -366,6 +368,10 @@ function AdminProductsPage() {
     });
   };
 
+  // The first image is always the storefront cover everywhere else (product
+  // cards, category previews, etc.) - keep featuredImage in sync with
+  // position 0 instead of a separate pointer that reordering could silently
+  // leave stale.
   const moveImage = (url: string, direction: -1 | 1) => {
     setDraft((current) => {
       if (!current) return current;
@@ -376,17 +382,19 @@ function AdminProductsPage() {
       const images = [...current.images];
       const [moved] = images.splice(index, 1);
       images.splice(nextIndex, 0, moved);
-      return { ...current, images };
+      return { ...current, images, featuredImage: images[0] ?? null };
     });
   };
 
   const setFeaturedImage = (url: string) => {
     setDraft((current) => {
       if (!current) return current;
-      return {
-        ...current,
-        featuredImage: current.images.find((image) => image.url === url) ?? null,
-      };
+      const index = current.images.findIndex((image) => image.url === url);
+      if (index <= 0) return current;
+      const images = [...current.images];
+      const [moved] = images.splice(index, 1);
+      images.unshift(moved);
+      return { ...current, images, featuredImage: images[0] ?? null };
     });
   };
 

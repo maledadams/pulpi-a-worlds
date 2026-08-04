@@ -896,6 +896,14 @@ async function saveCategoryInternal(input: AdminCategoryRecord) {
       ([vibe, image]) => normalizedVibes.includes(vibe as AdminCategoryRecord["vibes"][number]) && Boolean(image?.url),
     ),
   ) as AdminCategoryRecord["images"];
+  // A brand-new, never-saved category uses the client's draft-id convention
+  // (see createBlankCategory in categorias.tsx). previousId being absent is
+  // NOT a reliable signal on its own - callers that re-save an EXISTING
+  // category through a different path (e.g. uploadCategoryImageInternal,
+  // which fetches the record fresh and never sets previousId) would
+  // otherwise look identical to a new draft and get falsely blocked as a
+  // "collision" with themselves.
+  const isNewDraft = input.id.trim().startsWith("draft-category-");
   const normalized = {
     ...input,
     id: normalizeCategoryId(input.id),
@@ -917,7 +925,7 @@ async function saveCategoryInternal(input: AdminCategoryRecord) {
         memoryCategories.delete(normalized.previousId);
         await reassignCategoryReferences(normalized.previousId, normalized.id);
       }
-    } else if (!normalized.previousId && memoryCategories.has(normalized.id)) {
+    } else if (isNewDraft && memoryCategories.has(normalized.id)) {
       throw new Error("Ya existe otra categoria con ese slug interno.");
     }
     memoryCategories.set(normalized.id, cloneCategory(normalized));
@@ -935,11 +943,10 @@ async function saveCategoryInternal(input: AdminCategoryRecord) {
   const conflicting = normalized.previousId && normalized.previousId !== normalized.id
     ? await db.prepare("SELECT id FROM categories WHERE id = ? LIMIT 1").bind(normalized.id).first()
     : null;
-  // A brand-new category (no previousId at all) never went through the
-  // rename-conflict check above, so its auto-generated id could silently
-  // collide with an already-existing category - the upsert below would
-  // then overwrite that other category instead of being blocked.
-  const isNewDraft = !normalized.previousId;
+  // A brand-new category never went through the rename-conflict check
+  // above, so its auto-generated id could silently collide with an
+  // already-existing category - the upsert below would then overwrite that
+  // other category instead of being blocked.
   if (conflicting || (isNewDraft && existing)) {
     throw new Error("Ya existe otra categoria con ese slug interno.");
   }
