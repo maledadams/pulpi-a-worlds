@@ -252,7 +252,7 @@ function AdminDiscountsPage() {
                   </AdminSelect>
                 </AdminField>
                 <AdminField label="Valor">
-                  <AdminInput type="number" value={draft.value} onChange={(event) => setDraft((current) => (current ? { ...current, value: Number(event.target.value) } : current))} />
+                  <AdminInput type="number" value={draft.value === 0 ? "" : draft.value} onChange={(event) => setDraft((current) => (current ? { ...current, value: event.target.value === "" ? 0 : Number(event.target.value) } : current))} />
                 </AdminField>
               </div>
               <AdminField label="Aplica a">

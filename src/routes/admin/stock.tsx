@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type RefObject } from "react";
 import { AdminPanel, AdminShell, AdminTag } from "@/components/admin/AdminShell";
 import {
   AdminButton,
@@ -19,6 +19,7 @@ import { adjustAdminStock, getAdminStockData, saveAdminCatalogProduct } from "@/
 import { formatPrice } from "@/data/products";
 import { getVibeLabel } from "@/lib/admin-service";
 import type { AdminCategoryRecord, AdminProductRecord } from "@/lib/admin-types";
+import { useScrollFollow } from "@/hooks/use-scroll-follow";
 
 function cloneProduct(product: AdminProductRecord): AdminProductRecord {
   return {
@@ -69,6 +70,7 @@ export const Route = createFileRoute("/admin/stock")({
 
 function AdminStockPage() {
   const initial = Route.useLoaderData();
+  const listFollower = useScrollFollow(1280);
   const [products, setProducts] = useState(() => initial.products.map(cloneProduct));
   const [movements, setMovements] = useState(initial.movements);
   const [selectedId, setSelectedId] = useState(initial.products[0]?.id ?? "");
@@ -84,10 +86,10 @@ function AdminStockPage() {
     setMessage(text);
     setMessageTone(tone);
   };
-  const [movementPage, setMovementPage] = useState(1);
+  const [movementPage, setMovementPage] = useState(0);
   const movementPages = Math.max(1, Math.ceil(movements.length / 8));
-  const safeMovementPage = Math.min(movementPage, movementPages);
-  const pagedMovements = movements.slice((safeMovementPage - 1) * 8, safeMovementPage * 8);
+  const safeMovementPage = Math.min(movementPage, movementPages - 1);
+  const pagedMovements = movements.slice(safeMovementPage * 8, safeMovementPage * 8 + 8);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -110,7 +112,7 @@ function AdminStockPage() {
   }, [message]);
 
   useEffect(() => {
-    setMovementPage(1);
+    setMovementPage(0);
   }, [movements]);
 
   const updateDraft = (updater: (product: AdminProductRecord) => AdminProductRecord) => {
@@ -170,11 +172,15 @@ function AdminStockPage() {
     <AdminShell
       section="stock"
       title="Stock"
-      subtitle="Inventario por variante con entradas, salidas, reservas e historial permanente. La estructura del producto (categorias, tallas, colores) se edita en Productos."
       actions={<AdminButton tone="primary" onClick={saveChanges} disabled={!draft || busy}>Guardar cambios</AdminButton>}
     >
-      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <AdminPanel title="Productos" className="self-start xl:sticky xl:top-4">
+      <div ref={listFollower.containerRef} className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
+        <div
+          ref={listFollower.floatingRef as RefObject<HTMLDivElement>}
+          className="will-change-transform transition-transform duration-500 ease-out"
+          style={{ transform: `translate3d(0, ${listFollower.offset}px, 0)` }}
+        >
+        <AdminPanel title="Productos">
           <AdminInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar producto" />
           <button
             type="button"
@@ -206,6 +212,7 @@ function AdminStockPage() {
             })}
           </div>
         </AdminPanel>
+        </div>
 
         {draft ? (
           <div className="grid gap-4">
@@ -243,7 +250,7 @@ function AdminStockPage() {
 
             <AdminPanel title="Variantes, precio y movimientos" className="overflow-hidden">
               <div className="mb-4 grid gap-3 sm:grid-cols-[120px_minmax(0,1fr)]">
-                <AdminField label="Cantidad"><AdminInput type="number" min={1} value={quantity} onChange={(event) => setQuantity(Math.max(1, Number(event.target.value) || 1))} /></AdminField>
+                <AdminField label="Cantidad"><AdminInput type="number" min={1} value={quantity === 1 ? "" : quantity} placeholder="1" onChange={(event) => setQuantity(event.target.value === "" ? 1 : Math.max(1, Number(event.target.value) || 1))} /></AdminField>
                 <AdminField label="Motivo obligatorio"><AdminInput value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Ej. reposicion del proveedor, ajuste por dano" /></AdminField>
               </div>
               <div className="overflow-x-auto">
@@ -255,7 +262,7 @@ function AdminStockPage() {
                         <td className="py-3 pr-3"><div className="font-bold">{variant.title}</div><div className="text-[10px] text-[#7c665f]">{variant.id}</div></td>
                         <td className="py-3 pr-3"><AdminCheckbox label="Activa" checked={variant.available} onCheckedChange={(checked) => updateDraft((current) => ({ ...current, variants: current.variants.map((entry) => entry.id === variant.id ? { ...entry, available: checked } : entry) }))} /></td>
                         <td className="py-3 pr-3 text-lg font-black">{variant.quantityAvailable ?? 0}</td>
-                        <td className="py-3 pr-3"><AdminInput type="number" value={variant.price} onChange={(event) => updateDraft((current) => ({ ...current, variants: current.variants.map((entry) => entry.id === variant.id ? { ...entry, price: Math.max(0, Number(event.target.value) || 0) } : entry) }))} /><div className="mt-1 text-xs text-[#6b5a55]">{formatPrice(variant.price)}</div></td>
+                        <td className="py-3 pr-3"><AdminInput type="number" value={variant.price === 0 ? "" : variant.price} onChange={(event) => updateDraft((current) => ({ ...current, variants: current.variants.map((entry) => entry.id === variant.id ? { ...entry, price: event.target.value === "" ? 0 : Math.max(0, Number(event.target.value) || 0) } : entry) }))} /><div className="mt-1 text-xs text-[#6b5a55]">{formatPrice(variant.price)}</div></td>
                         <td className="py-3 pr-3"><div className="flex gap-2"><AdminButton tone="primary" disabled={busy} onClick={() => registerMovement(variant.id, 1)}>+ Entrada</AdminButton><AdminButton tone="warning" disabled={busy} onClick={() => registerMovement(variant.id, -1)}>- Salida</AdminButton></div></td>
                         <td className="py-3"><AdminButton tone="danger" onClick={() => removeVariant(variant.id)}>Quitar</AdminButton></td>
                       </tr>

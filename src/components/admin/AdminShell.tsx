@@ -180,7 +180,7 @@ export function AdminPanel({
           ) : (
             <div />
           )}
-          {actions ? <div className="overflow-x-auto whitespace-nowrap pb-1 sm:pb-0">{actions}</div> : null}
+          {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
         </div>
       ) : null}
       <div className="flex-1 p-3 sm:p-4">{children}</div>

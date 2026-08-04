@@ -104,17 +104,15 @@ function syncDraftVariants(product: AdminProductRecord): AdminProductRecord {
   };
 }
 
-function createBlankProduct(categories: AdminCategoryRecord[], sizeFormats: AdminSizeFormatRecord[]): AdminProductRecord {
-  const primaryCategory = categories[0]?.id ?? "tops";
-  const initialSizes = getAllowedSizes(categories, sizeFormats, primaryCategory);
+function createBlankProduct(): AdminProductRecord {
   return syncDraftVariants({
     id: `draft-${Date.now()}`,
     slug: "",
     name: "",
     vibe: "moon",
     sortOrder: 0,
-    categories: [primaryCategory],
-    primaryCategory,
+    categories: [],
+    primaryCategory: "",
     description: "",
     price: 0,
     compareAtPrice: null,
@@ -126,8 +124,8 @@ function createBlankProduct(categories: AdminCategoryRecord[], sizeFormats: Admi
     isNsfw: false,
     images: [],
     featuredImage: null,
-    sizes: initialSizes.length > 0 ? initialSizes.slice(0, Math.min(3, initialSizes.length)) : ["Unica"],
-    colors: [buildProductColorRecord("black")],
+    sizes: [],
+    colors: [],
     variants: [],
     tags: [],
     createdAt: new Date().toISOString(),
@@ -164,7 +162,7 @@ function normalizeDraftForSave(draft: AdminProductRecord) {
 
   const normalizedVariants = syncDraftVariants({
     ...draft,
-    slug: draft.slug.trim().toLowerCase().replace(/\s+/g, "-"),
+    slug: (draft.slug.trim() || draft.name.trim()).toLowerCase().replace(/\s+/g, "-"),
     name: draft.name.trim(),
     description: draft.description.trim(),
     sortOrder: Math.max(0, Number(draft.sortOrder ?? 0)),
@@ -222,6 +220,7 @@ function AdminProductsPage() {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [persistedIds, setPersistedIds] = useState(() => new Set(products.map((product) => product.id)));
 
   const filtered = useMemo(() => {
     const lowered = query.trim().toLowerCase();
@@ -241,7 +240,7 @@ function AdminProductsPage() {
     () => new Set((draft?.colors ?? []).map((color) => normalizeProductColorName(color.name).toLowerCase())),
     [draft],
   );
-  const canUploadImages = Boolean(draft && !draft.id.startsWith("draft-") && draft.images.length < 5);
+  const canUploadImages = Boolean(draft && persistedIds.has(draft.id) && draft.images.length < 5);
 
   useEffect(() => {
     setPage(0);
@@ -416,6 +415,7 @@ function AdminProductsPage() {
         });
         setSelectedId(saved.id);
         setDraft(cloneProduct(saved));
+        setPersistedIds((current) => new Set(current).add(saved.id));
         showSaveMessage("Producto guardado.", "success");
       })
       .catch(() => showSaveMessage("No se pudo guardar el producto ahora mismo.", "error"))
@@ -423,7 +423,7 @@ function AdminProductsPage() {
   };
 
   const handleCreate = () => {
-    const blank = createBlankProduct(categories, sizeFormats);
+    const blank = createBlankProduct();
     setRows((current) => [blank, ...current]);
     setSelectedId(blank.id);
     setDraft(cloneProduct(blank));
@@ -440,7 +440,7 @@ function AdminProductsPage() {
       return;
     }
 
-    if (draft.id.startsWith("draft-")) {
+    if (!persistedIds.has(draft.id)) {
       setRows((current) => current.filter((product) => product.id !== draft.id));
       showSaveMessage("Producto draft eliminado.", "success");
       return;
@@ -666,7 +666,7 @@ function AdminProductsPage() {
 
         {draft ? (
           <>
-            <div className="grid grid-cols-1 items-start gap-4 2xl:grid-cols-[minmax(0,1.1fr)_minmax(420px,0.9fr)]">
+            <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[minmax(0,1.1fr)_minmax(420px,0.9fr)]">
               <AdminPanel
                 title={draft.name || "Producto nuevo"}
                 titleClassName="font-body text-sm font-normal"
@@ -678,7 +678,7 @@ function AdminProductsPage() {
                     </AdminField>
                   </div>
 
-                  {draft.id.startsWith("draft-") ? (
+                  {!persistedIds.has(draft.id) ? (
                     <AdminField label="Product ID" hint="Se usa como referencia interna unica para este producto.">
                       <AdminInput value={draft.id} onChange={(event) => updateDraft("id", event.target.value)} />
                     </AdminField>
@@ -698,6 +698,7 @@ function AdminProductsPage() {
                     </AdminField>
                     <AdminField label="Categoria principal">
                       <AdminSelect value={draft.primaryCategory} onChange={(event) => applyPrimaryCategory(event.target.value)}>
+                        {!draft.primaryCategory ? <option value="">Selecciona una categoria</option> : null}
                         {categories.map((category) => (
                           <option key={category.id} value={category.id}>
                             {category.label}
@@ -708,7 +709,11 @@ function AdminProductsPage() {
                   </div>
 
                   <AdminField label="Precio base">
-                    <AdminInput type="number" value={draft.price} onChange={(event) => updateDraft("price", Number(event.target.value))} />
+                    <AdminInput
+                      type="number"
+                      value={draft.price === 0 ? "" : draft.price}
+                      onChange={(event) => updateDraft("price", event.target.value === "" ? 0 : Number(event.target.value))}
+                    />
                   </AdminField>
 
                   <AdminField label="Descripcion">
@@ -725,8 +730,8 @@ function AdminProductsPage() {
                 </div>
               </AdminPanel>
 
-              <AdminPanel title="Imagenes">
-                <div className="grid gap-4">
+              <AdminPanel title="Imagenes" className="flex flex-col">
+                <div className="flex h-full flex-col gap-4">
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-sm text-[#5f4941]">
                       Sube entre 1 y 5 imagenes. La portada sale de la marcada como principal.
@@ -734,49 +739,51 @@ function AdminProductsPage() {
                     <AdminTag>{draft.images.length}/5</AdminTag>
                   </div>
 
-                  {draft.images.length > 0 ? (
-                    <div className="grid gap-3">
-                      {draft.images.map((image, index) => (
-                        <div key={image.url} className="overflow-hidden rounded-2xl bg-[#faf6f0]">
-                          <div className="grid gap-3 p-3 sm:grid-cols-[92px_minmax(0,1fr)]">
-                            <div className="h-24 w-24 overflow-hidden rounded-2xl bg-[#f7f2ec]">
-                              <img src={image.url} alt={draft.name} className="h-full w-full object-cover" />
-                            </div>
-                            <div className="grid gap-3">
-                              <div className="min-w-0">
-                                <div className="text-xs font-semibold text-[#6b5a55]">
-                                  Imagen {index + 1}
-                                  {draft.featuredImage?.url === image.url ? " · Portada" : ""}
-                                </div>
-                                <div className="mt-1 truncate text-xs text-[#8b756d]">
-                                  {image.altText || draft.name || "Sin nombre"}
-                                </div>
-                                <div className="mt-1 truncate text-[11px] text-[#a08f87]">{image.url}</div>
+                  <div className="flex-1 overflow-y-auto pr-1">
+                    {draft.images.length > 0 ? (
+                      <div className="grid gap-3">
+                        {draft.images.map((image, index) => (
+                          <div key={image.url} className="overflow-hidden rounded-2xl bg-[#faf6f0]">
+                            <div className="grid gap-3 p-3 sm:grid-cols-[72px_minmax(0,1fr)]">
+                              <div className="h-[72px] w-[72px] shrink-0 overflow-hidden rounded-2xl bg-[#f7f2ec]">
+                                <img src={image.url} alt={draft.name} className="h-full w-full object-cover" />
                               </div>
-                              <div className="flex flex-wrap gap-2">
-                                <AdminButton tone="ghost" onClick={() => moveImage(image.url, -1)}>
-                                  ↑
-                                </AdminButton>
-                                <AdminButton tone="ghost" onClick={() => moveImage(image.url, 1)}>
-                                  ↓
-                                </AdminButton>
-                                <AdminButton tone={draft.featuredImage?.url === image.url ? "active" : "ghost"} onClick={() => setFeaturedImage(image.url)}>
-                                  {draft.featuredImage?.url === image.url ? "Portada" : "Hacer portada"}
-                                </AdminButton>
-                                <AdminButton tone="danger" onClick={() => handleDeleteImage(image.url)}>
-                                  Quitar
-                                </AdminButton>
+                              <div className="grid gap-3">
+                                <div className="min-w-0">
+                                  <div className="text-xs font-semibold text-[#6b5a55]">
+                                    Imagen {index + 1}
+                                    {draft.featuredImage?.url === image.url ? " · Portada" : ""}
+                                  </div>
+                                  <div className="mt-1 truncate text-xs text-[#8b756d]">
+                                    {image.altText || draft.name || "Sin nombre"}
+                                  </div>
+                                  <div className="mt-1 truncate text-[11px] text-[#a08f87]">{image.url}</div>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  <AdminButton tone="ghost" onClick={() => moveImage(image.url, -1)}>
+                                    ↑
+                                  </AdminButton>
+                                  <AdminButton tone="ghost" onClick={() => moveImage(image.url, 1)}>
+                                    ↓
+                                  </AdminButton>
+                                  <AdminButton tone={draft.featuredImage?.url === image.url ? "active" : "ghost"} onClick={() => setFeaturedImage(image.url)}>
+                                    {draft.featuredImage?.url === image.url ? "Portada" : "Hacer portada"}
+                                  </AdminButton>
+                                  <AdminButton tone="danger" onClick={() => handleDeleteImage(image.url)}>
+                                    Quitar
+                                  </AdminButton>
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-[#231717]/20 bg-[#faf6f0] px-4 py-8 text-sm text-[#6b5a55]">
-                      Este producto todavia no tiene imagenes.
-                    </div>
-                  )}
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-[#231717]/20 bg-[#faf6f0] px-4 py-8 text-sm text-[#6b5a55]">
+                        Este producto todavia no tiene imagenes.
+                      </div>
+                    )}
+                  </div>
 
                   <div className="grid gap-3">
                     <input
@@ -787,7 +794,7 @@ function AdminProductsPage() {
                       disabled={!canUploadImages}
                       className="block w-full rounded-xl border border-dashed border-[#231717]/20 bg-[#faf6f0] px-4 py-3 text-sm file:mr-3 file:rounded-xl file:border-0 file:bg-[#231717] file:px-3 file:py-2 file:text-xs file:font-black file:uppercase file:tracking-[0.14em] file:text-white"
                     />
-                    {!canUploadImages && draft.id.startsWith("draft-") ? (
+                    {!canUploadImages && !persistedIds.has(draft.id) ? (
                       <div className="rounded-2xl border border-dashed border-[#231717]/20 px-3 py-3 text-xs leading-5 text-[#6b5a55]">
                         Guarda el producto primero para habilitar uploads reales a R2.
                       </div>

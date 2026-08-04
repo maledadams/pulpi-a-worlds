@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, type RefObject } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AdminPanel, AdminShell, AdminTag } from "@/components/admin/AdminShell";
 import {
   AdminButton,
@@ -26,7 +26,6 @@ import {
 import { getAdminCatalogProducts } from "@/lib/catalog";
 import { getCompactCategoryLabel, getVibeLabel } from "@/lib/admin-service";
 import type { AdminCollectionRecord } from "@/lib/admin-types";
-import { useScrollFollow } from "@/hooks/use-scroll-follow";
 
 const PAGE_SIZE = 6;
 
@@ -83,7 +82,6 @@ export const Route = createFileRoute("/admin/colecciones")({
 
 function AdminCollectionsPage() {
   const { categories, collections, products } = Route.useLoaderData();
-  const listFollower = useScrollFollow(1280);
   const [rows, setRows] = useState(() => collections.map(cloneCollection));
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState<"all" | "store" | "moon" | "sunshine" | "men">("all");
@@ -265,12 +263,7 @@ function AdminCollectionsPage() {
         </AdminButton>
       }
     >
-      <div ref={listFollower.containerRef} className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(460px,0.95fr)]">
-        <div
-          ref={listFollower.floatingRef as RefObject<HTMLDivElement>}
-          className="will-change-transform transition-transform duration-500 ease-out"
-          style={{ transform: `translate3d(0, ${listFollower.offset}px, 0)` }}
-        >
+      <div className="grid grid-cols-1 gap-4">
         <AdminPanel
           title="Colecciones"
           actions={
@@ -350,7 +343,6 @@ function AdminCollectionsPage() {
             </>
           )}
         </AdminPanel>
-        </div>
 
         <AdminPanel
           title={draft?.name || "Editor"}

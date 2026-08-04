@@ -203,6 +203,7 @@ function AdminDashboardPage() {
         </AdminPanel>
 
         <AdminPanel
+          title="Ventas"
           actions={
             <div className="flex flex-nowrap gap-1.5">
               {SALES_WINDOWS.map((entry) => (

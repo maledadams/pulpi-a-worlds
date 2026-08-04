@@ -806,7 +806,7 @@ function AdminOrdersPage() {
                     </AdminSelect>
                   </AdminField>
                   <AdminField label="Costo envio">
-                    <AdminInput type="number" value={draft.shipping} onChange={(event) => setDraft((current) => (current ? { ...current, shipping: Math.max(0, Number(event.target.value) || 0) } : current))} />
+                    <AdminInput type="number" value={draft.shipping === 0 ? "" : draft.shipping} onChange={(event) => setDraft((current) => (current ? { ...current, shipping: event.target.value === "" ? 0 : Math.max(0, Number(event.target.value) || 0) } : current))} />
                   </AdminField>
                 </div>
 
