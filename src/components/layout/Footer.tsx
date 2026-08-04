@@ -136,8 +136,8 @@ export function Footer({
   return (
     <footer className={`${theme.spacing} overflow-hidden border-t-2 ${theme.border} ${theme.bg} ${theme.text}`}>
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 md:grid-cols-[auto_1fr_auto]">
-        <div data-footer-brand>
-          <div className="flex h-full min-h-[7.875rem] items-center gap-4 overflow-hidden">
+        <div data-footer-brand className="min-w-max">
+          <div className="flex h-full min-h-[7.875rem] items-center gap-4">
             <div className="flex h-[5.5rem] w-[5.5rem] shrink-0 items-center justify-center overflow-hidden" data-footer-logo-slot>
               <img
                 src={theme.logo}
@@ -145,7 +145,10 @@ export function Footer({
                 className={`${themeKey === "store" ? "h-20 w-20" : "h-full w-full"} object-contain`}
               />
             </div>
-            <div className="flex h-[5.5rem] min-w-0 flex-1 items-center overflow-hidden" data-footer-wordmark-slot>
+            {/* No overflow-hidden here - this gothic display face has decorative
+                overshoot past the letterforms' nominal box (most visible on the
+                "D"), and clipping it made the wordmark misread as "Rl". */}
+            <div className="flex h-[5.5rem] items-center pr-2" data-footer-wordmark-slot>
               <div className="brand-wordmark whitespace-nowrap font-display text-[2.075rem] leading-none min-[1440px]:text-[2.5rem]">
                 {footerHeading}
               </div>
