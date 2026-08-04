@@ -31,6 +31,20 @@ const HELP_LINKS = [
   { to: "/politicas", label: "Politicas y privacidad" },
 ] as const;
 
+const SALE_LINKS = [
+  { to: "/tienda", label: "Ofertas generales", search: { sale: "1" }, hash: "shop" },
+  { to: "/moon", label: "Ofertas Moon", search: { sale: "1" }, hash: "shop" },
+  { to: "/sunshine", label: "Ofertas Sunshine", search: { sale: "1" }, hash: "shop" },
+  { to: "/men", label: "Ofertas Men", search: { sale: "1" }, hash: "shop" },
+] as const;
+
+const NEW_IN_LINKS = [
+  { to: "/tienda", label: "New In General", search: { fresh: "1" }, hash: "shop" },
+  { to: "/moon", label: "New In Moon", search: { fresh: "1" }, hash: "shop" },
+  { to: "/sunshine", label: "New In Sunshine", search: { fresh: "1" }, hash: "shop" },
+  { to: "/men", label: "New In Men", search: { fresh: "1" }, hash: "shop" },
+] as const;
+
 const FOOTER_THEMES: Record<
   FooterTheme,
   {
@@ -157,7 +171,7 @@ export function Footer({
         </div>
 
         {/* Centered as a group in the space between the logo and Redes - not each column centered on its own. */}
-        <div className="flex flex-wrap justify-center gap-8 md:gap-16">
+        <div className="flex flex-wrap justify-center gap-8 md:gap-12">
           <div data-footer-store>
             <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Store</div>
             <ul className="space-y-1.5 text-sm">
@@ -183,6 +197,32 @@ export function Footer({
                     </Link>
                   </li>
                 ))}
+            </ul>
+          </div>
+
+          <div>
+            <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Ofertas</div>
+            <ul className="space-y-1.5 text-sm">
+              {SALE_LINKS.map((link) => (
+                <li key={link.label}>
+                  <Link to={link.to} search={link.search} hash={link.hash} className="transition hover:underline">
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Nuevo</div>
+            <ul className="space-y-1.5 text-sm">
+              {NEW_IN_LINKS.map((link) => (
+                <li key={link.label}>
+                  <Link to={link.to} search={link.search} hash={link.hash} className="transition hover:underline">
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
         </div>
