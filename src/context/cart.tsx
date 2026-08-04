@@ -28,6 +28,7 @@ type CartCtx = {
   add: (line: { variantId: string; quantity: number; openDrawer?: boolean }) => Promise<void>;
   update: (lineId: string, quantity: number) => Promise<void>;
   remove: (lineId: string) => Promise<void>;
+  removeUnavailable: () => void;
   clear: () => void;
   count: number;
   subtotal: number;
@@ -205,6 +206,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const hasUnavailableLines = (cart?.lines ?? []).some(
     (line) => !getLineAvailability(line).available,
   );
+
+  const removeUnavailable = () => {
+    const currentLines = cart?.id === PREVIEW_CART_ID ? cart.lines : loadPreviewLines();
+    const nextLines = currentLines.filter((line) => getLineAvailability(line).available);
+    applyPreviewLines(nextLines);
+  };
   const availableSubtotal = (cart?.lines ?? []).reduce((sum, line) => {
     const availability = getLineAvailability(line);
     return availability.available
@@ -271,6 +278,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         add,
         update,
         remove,
+        removeUnavailable,
         clear,
         count: cart?.totalQuantity ?? 0,
         subtotal: availableSubtotal,

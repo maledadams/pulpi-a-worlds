@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { ShoppingBag, Search, Menu, X } from "lucide-react";
+import { ShoppingBag, Search, Menu, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MegaPortal } from "./MegaPortal";
 import { StorePineapple } from "@/components/branding/StorePineapple";
@@ -339,7 +339,12 @@ export function Header({
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
   const [activeMega, setActiveMega] = useState<MegaKey | null>(null);
   const [renderedMega, setRenderedMega] = useState<MegaKey | null>(null);
+  const [categoryPage, setCategoryPage] = useState(0);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setCategoryPage(0);
+  }, [renderedMega]);
 
   const headerRef = useRef<HTMLElement | null>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -439,6 +444,7 @@ export function Header({
       categories: cats.map((c) => ({
         to,
         label: c.label,
+        hash: "shop",
         search:
           key === "tienda" ? getCategoryLinkSearch(c.id)
           : key === "moon" || key === "sunshine" || key === "men"
@@ -671,21 +677,56 @@ export function Header({
 
                 {/* 3 — Categories */}
                 <div>
-                  <div className="mb-3 flex items-center">
-                    <span className={`text-xs font-black uppercase tracking-wider ${mutedCls}`}>
-                      Categorías
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-6 gap-4">
-                    {currentMega.categories.slice(0, 12).map((item) => (
-                      <CategoryCircle
-                        key={`${currentMega.key}-${item.label}`}
-                        item={item}
-                        textCls={textCls}
-                        isVibe={!!vs}
-                      />
-                    ))}
-                  </div>
+                  {(() => {
+                    const CATEGORY_PAGE_SIZE = 12;
+                    const totalPages = Math.max(1, Math.ceil(currentMega.categories.length / CATEGORY_PAGE_SIZE));
+                    const safePage = Math.min(categoryPage, totalPages - 1);
+                    const paged = currentMega.categories.slice(
+                      safePage * CATEGORY_PAGE_SIZE,
+                      safePage * CATEGORY_PAGE_SIZE + CATEGORY_PAGE_SIZE,
+                    );
+                    return (
+                      <>
+                        <div className="mb-3 flex items-center justify-between">
+                          <span className={`text-xs font-black uppercase tracking-wider ${mutedCls}`}>
+                            Categorías
+                          </span>
+                          {totalPages > 1 ? (
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                aria-label="Categorías anteriores"
+                                onClick={() => setCategoryPage((p) => Math.max(0, p - 1))}
+                                disabled={safePage === 0}
+                                className={`rounded-full p-1 transition disabled:cursor-not-allowed disabled:opacity-30 ${mutedCls}`}
+                              >
+                                <ChevronLeft className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                aria-label="Más categorías"
+                                onClick={() => setCategoryPage((p) => Math.min(totalPages - 1, p + 1))}
+                                disabled={safePage >= totalPages - 1}
+                                className={`rounded-full p-1 transition disabled:cursor-not-allowed disabled:opacity-30 ${mutedCls}`}
+                              >
+                                <ChevronRight className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className="grid grid-cols-6 gap-4">
+                          {paged.map((item) => (
+                            <CategoryCircle
+                              key={`${currentMega.key}-${item.label}`}
+                              item={item}
+                              textCls={textCls}
+                              isVibe={!!vs}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

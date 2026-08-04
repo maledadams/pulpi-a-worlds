@@ -162,6 +162,10 @@ function CartPage() {
             <button
               type="button"
               onClick={() => {
+                if (cart.hasUnavailableLines) {
+                  cart.removeUnavailable();
+                  return;
+                }
                 void cart.refreshAvailability().then((available) => {
                   if (available) {
                     void navigate({ to: "/solicitud" });
@@ -171,17 +175,16 @@ function CartPage() {
                 });
               }}
               disabled={cart.loading}
-              aria-disabled={cart.hasUnavailableLines}
               className={`mt-5 block w-full rounded-full border border-foreground/20 px-6 py-3 text-center font-bold uppercase shadow-none transition-transform hover:-translate-y-0.5 hover:shadow-none disabled:cursor-wait ${
                 cart.hasUnavailableLines
-                  ? "cursor-not-allowed bg-muted text-muted-foreground"
+                  ? "bg-[#c5475f] text-white"
                   : "bg-foreground text-background"
               }`}
             >
               {cart.loading
                 ? "Verificando stock..."
                 : cart.hasUnavailableLines
-                  ? "Quita productos agotados"
+                  ? "Quitar productos agotados"
                   : "Completar pedido"}
             </button>
           </aside>

@@ -549,6 +549,30 @@ export async function deleteBirthdaySubscriberInternal(email: string) {
   return { success: true };
 }
 
+async function birthdaySubscriberExistsInternal(email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const db = await getDatabase();
+
+  if (!db) {
+    return memorySubscribers.has(normalizedEmail);
+  }
+
+  await ensurePublicFormsReady(db);
+  const row = await db
+    .prepare("SELECT email FROM birthday_subscribers WHERE email = ? AND status = 'subscribed'")
+    .bind(normalizedEmail)
+    .first<{ email: string }>();
+  return Boolean(row);
+}
+
+export const checkBirthdaySubscriberExists = createServerFn({ method: "GET" })
+  .inputValidator((data: { email: string }) => z.object({ email: z.string().trim().email() }).parse(data))
+  .handler(async ({ data }) => {
+    const { setResponseHeader } = await import("@tanstack/react-start/server");
+    setResponseHeader("Cache-Control", "private, no-store");
+    return { exists: await birthdaySubscriberExistsInternal(data.email) };
+  });
+
 export const deleteAdminBirthdaySubscriber = createServerFn({ method: "POST" })
   .inputValidator((data: { email: string }) => z.object({ email: z.string().trim().email() }).parse(data))
   .handler(async ({ data }) => {

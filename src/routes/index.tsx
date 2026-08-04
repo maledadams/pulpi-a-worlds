@@ -12,7 +12,7 @@ import {
 import { useCatalogProducts } from "@/context/catalog";
 import type { Product } from "@/data/products";
 import { getStorefrontHomeCollections, getStorefrontSettings } from "@/lib/admin-content";
-import { subscribeNewsletter } from "@/lib/public-forms";
+import { checkBirthdaySubscriberExists, subscribeNewsletter } from "@/lib/public-forms";
 import { createSeoHead } from "@/lib/seo";
 import men1 from "@/assets/men 1.svg";
 import men2 from "@/assets/men 2.svg";
@@ -170,7 +170,22 @@ function Home() {
       const saved = JSON.parse(raw) as { birthDate?: string; email?: string };
       if (saved.email) setNewsletterEmail(saved.email);
       if (saved.birthDate) setBirthdayDate(saved.birthDate);
-      setBirthdaySaved(Boolean(saved.email && saved.birthDate));
+      const hasLocalSave = Boolean(saved.email && saved.birthDate);
+      setBirthdaySaved(hasLocalSave);
+
+      if (hasLocalSave && saved.email) {
+        void checkBirthdaySubscriberExists({ data: { email: saved.email } })
+          .then((result) => {
+            if (!result.exists) {
+              localStorage.removeItem("pulpina_birthday_subscription");
+              localStorage.removeItem("pulpina_birthday_token");
+              setBirthdaySaved(false);
+            }
+          })
+          .catch(() => {
+            // If the check fails (offline, etc.) keep the local state as-is.
+          });
+      }
     } catch {
       // Invalid browser data is ignored and can be replaced by a new signup.
     }

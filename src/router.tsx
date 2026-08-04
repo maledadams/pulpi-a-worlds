@@ -11,6 +11,8 @@ export const getRouter = () => {
     scrollRestoration: true,
     defaultPreloadStaleTime: 0,
     defaultStaleTime: 0,
+    defaultViewTransition: true,
+    defaultHashScrollIntoView: { behavior: "smooth" },
   });
 
   return router;
