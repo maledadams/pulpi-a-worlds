@@ -135,7 +135,7 @@ export function Footer({
     .replace("{year}", String(new Date().getFullYear()));
   return (
     <footer className={`${theme.spacing} overflow-hidden border-t-2 ${theme.border} ${theme.bg} ${theme.text}`}>
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 md:grid-cols-[1fr_auto_auto_auto]">
+      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 md:grid-cols-[auto_auto_auto_1fr_auto]">
         <div data-footer-brand>
           <div className="flex h-full min-h-[7.875rem] items-center gap-4 overflow-hidden">
             <div className="flex h-[5.5rem] w-[5.5rem] shrink-0 items-center justify-center overflow-hidden" data-footer-logo-slot>
@@ -180,6 +180,8 @@ export function Footer({
               ))}
           </ul>
         </div>
+
+        <div aria-hidden="true" className="hidden md:block" />
 
         <div>
           <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Redes</div>

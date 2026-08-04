@@ -68,13 +68,28 @@ function initials(v: string) {
     .join("");
 }
 
+function hashSeed(value: string) {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash * 31 + value.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+}
+
+// Picks a stable "random" product to represent a category circle - stable
+// meaning the same pick for every visitor on every request, not just cached
+// per-browser, and it never changes on its own over time. The seed is built
+// from the exact set of matching product ids, so the pick only changes when
+// a product is actually added to or removed from the category (never just
+// because time passed or someone reloaded the page), and it deliberately
+// does not favor whichever product happens to be newest.
 function getCategoryPreviewProduct(pool: Product[], categoryId: string) {
-  return (
-    pool.find((p) => p.featured && getProductCategories(p).includes(categoryId)) ??
-    pool.find((p) => p.newArrival && getProductCategories(p).includes(categoryId)) ??
-    pool.find((p) => getProductCategories(p).includes(categoryId)) ??
-    null
-  );
+  const matches = pool
+    .filter((p) => getProductCategories(p).includes(categoryId))
+    .sort((a, b) => a.id.localeCompare(b.id));
+  if (matches.length === 0) return null;
+  const seed = `${categoryId}:${matches.map((p) => p.id).join(",")}`;
+  return matches[hashSeed(seed) % matches.length]!;
 }
 
 /* ── quick-link children ───────────────────────── */
