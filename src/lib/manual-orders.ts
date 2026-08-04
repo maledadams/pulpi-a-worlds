@@ -491,10 +491,43 @@ async function ensureOrderStorageReady(db: D1Database) {
         .bind(ORDER_SEQUENCE_KEY)
         .run();
 
-      const countRow = await db.prepare("SELECT COUNT(*) AS count FROM inquiries").first<{ count: number }>();
-      if ((countRow?.count ?? 0) === 0) {
-        const seedOrders = getMockOrders();
-        const insertInquiry = db.prepare(`
+      await db.exec(
+        `
+        CREATE TABLE IF NOT EXISTS app_settings (
+          key TEXT PRIMARY KEY,
+          value_json TEXT NOT NULL,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      `.replace(/\n/g, " "),
+      );
+
+      // Seed the mock orders exactly once, ever. Re-checking COUNT(*) here
+      // would re-insert every mock order the moment an admin deletes all of
+      // them (count back to 0), undoing real deletions on the next cold
+      // isolate. A persisted marker means "seeded" is a one-way door.
+      const seededRow = await db
+        .prepare("SELECT value_json FROM app_settings WHERE key = ?")
+        .bind("orders_seeded")
+        .first<{ value_json: string }>();
+
+      if (!seededRow) {
+        const markSeeded = () =>
+          db
+            .prepare(
+              "INSERT INTO app_settings (key, value_json) VALUES (?, ?) ON CONFLICT(key) DO NOTHING",
+            )
+            .bind("orders_seeded", JSON.stringify({ seededAt: new Date().toISOString() }))
+            .run();
+
+        const countRow = await db.prepare("SELECT COUNT(*) AS count FROM inquiries").first<{ count: number }>();
+        if ((countRow?.count ?? 0) > 0) {
+          // A database that already has orders but no marker predates this
+          // marker: it was already seeded (or has real data) before this code
+          // existed. Record the marker without re-inserting.
+          await markSeeded();
+        } else {
+          const seedOrders = getMockOrders();
+          const insertInquiry = db.prepare(`
           INSERT INTO inquiries (
             id,
             request_number,
@@ -520,45 +553,48 @@ async function ensureOrderStorageReady(db: D1Database) {
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'DOP', ?, ?, ?, ?, ?, ?, ?)
         `);
 
-        await db.batch(
-          seedOrders.map((order) =>
-            insertInquiry.bind(
-              order.id,
-              order.requestNumber,
-              order.customerEmail,
-              order.customerName,
-              order.customerPhone,
-              order.status,
-              order.channel,
-              order.fulfillmentMethod,
-              toCents(order.subtotal),
-              toCents(order.shipping),
-              toCents(order.discount),
-              toCents(order.total),
-              order.paymentStatus,
-              order.shippingAddress.line1,
-              order.shippingAddress.city,
-              order.shippingAddress.province,
-              order.notes,
-              serializeRecordLines(order.lines),
-              order.createdAt,
+          await db.batch(
+            seedOrders.map((order) =>
+              insertInquiry.bind(
+                order.id,
+                order.requestNumber,
+                order.customerEmail,
+                order.customerName,
+                order.customerPhone,
+                order.status,
+                order.channel,
+                order.fulfillmentMethod,
+                toCents(order.subtotal),
+                toCents(order.shipping),
+                toCents(order.discount),
+                toCents(order.total),
+                order.paymentStatus,
+                order.shippingAddress.line1,
+                order.shippingAddress.city,
+                order.shippingAddress.province,
+                order.notes,
+                serializeRecordLines(order.lines),
+                order.createdAt,
+              ),
             ),
-          ),
-        );
+          );
 
-        const maxSequence = seedOrders.reduce(
-          (max, order) => Math.max(max, parseOrderSequence(order.requestNumber)),
-          -1,
-        );
+          const maxSequence = seedOrders.reduce(
+            (max, order) => Math.max(max, parseOrderSequence(order.requestNumber)),
+            -1,
+          );
 
-        await db
-          .prepare(`
+          await db
+            .prepare(`
             UPDATE order_sequences
             SET current_value = ?, updated_at = CURRENT_TIMESTAMP
             WHERE key = ?
           `)
-          .bind(maxSequence, ORDER_SEQUENCE_KEY)
-          .run();
+            .bind(maxSequence, ORDER_SEQUENCE_KEY)
+            .run();
+
+          await markSeeded();
+        }
       }
     })().catch((error) => {
       orderStorageReadyPromise = null;
