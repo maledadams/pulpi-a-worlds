@@ -1,9 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { AdminPanel, AdminShell, AdminTag } from "@/components/admin/AdminShell";
-import {
-  AdminAutosaveIndicator,
-  AdminButton,
+import {  AdminButton,
   AdminCheckbox,
   AdminEmptyState,
   AdminField,
@@ -360,9 +358,7 @@ function AdminCollectionsPage() {
               </AdminButton>
               <AdminButton tone="primary" onClick={handleSave} disabled={!draft || isDeleting}>
                 Guardar
-              </AdminButton>
-              <AdminAutosaveIndicator status={autosave.status} errorMessage={autosave.errorMessage} />
-            </div>
+              </AdminButton>            </div>
           }
         >
           {draft ? (

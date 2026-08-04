@@ -1,9 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AdminPanel, AdminShell, AdminTag } from "@/components/admin/AdminShell";
-import {
-  AdminAutosaveIndicator,
-  AdminButton,
+import {  AdminButton,
   AdminEmptyState,
   AdminField,
   AdminInput,
@@ -764,9 +762,7 @@ function AdminOrdersPage() {
                   </AdminButton>
                   <AdminButton tone="primary" onClick={handleSave} disabled={saving || deleting}>
                     {saving ? "Guardando..." : "Guardar"}
-                  </AdminButton>
-                  <AdminAutosaveIndicator status={autosave.status} errorMessage={autosave.errorMessage} />
-                </div>
+                  </AdminButton>                </div>
               }
             >
               <div className="grid gap-4">

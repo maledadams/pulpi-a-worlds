@@ -1,9 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { AdminPanel, AdminShell, AdminTag } from "@/components/admin/AdminShell";
-import {
-  AdminAutosaveIndicator,
-  AdminButton,
+import {  AdminButton,
   AdminCheckbox,
   AdminEmptyState,
   AdminField,
@@ -441,9 +439,7 @@ function AdminCategoriesPage() {
             <div className="flex flex-wrap items-center gap-2">
               <AdminButton tone="primary" onClick={handleSaveFormat}>
                 Guardar formato
-              </AdminButton>
-              <AdminAutosaveIndicator status={formatAutosave.status} errorMessage={formatAutosave.errorMessage} />
-            </div>
+              </AdminButton>            </div>
           }
         >
           <div className="grid gap-4">
@@ -521,9 +517,7 @@ function AdminCategoriesPage() {
                 </AdminButton>
                 <AdminButton tone="primary" onClick={handleSave} disabled={!draft || isDeleting}>
                   Guardar
-                </AdminButton>
-                <AdminAutosaveIndicator status={autosave.status} errorMessage={autosave.errorMessage} />
-              </div>
+                </AdminButton>              </div>
             }
           >
             {draft ? (

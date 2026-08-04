@@ -135,7 +135,7 @@ export function Footer({
     .replace("{year}", String(new Date().getFullYear()));
   return (
     <footer className={`${theme.spacing} overflow-hidden border-t-2 ${theme.border} ${theme.bg} ${theme.text}`}>
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 md:grid-cols-[auto_auto_auto_1fr_auto]">
+      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 md:grid-cols-[auto_1fr_auto]">
         <div data-footer-brand>
           <div className="flex h-full min-h-[7.875rem] items-center gap-4 overflow-hidden">
             <div className="flex h-[5.5rem] w-[5.5rem] shrink-0 items-center justify-center overflow-hidden" data-footer-logo-slot>
@@ -153,35 +153,36 @@ export function Footer({
           </div>
         </div>
 
-        <div data-footer-store className="text-center">
-          <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Store</div>
-          <ul className="space-y-1.5 text-sm">
-            {resolvedSettings.footerShopLinks.map((link) => (
-              <li key={link.label}>
-                <Link to={link.to} className="transition hover:underline">
-                  {link.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="text-center">
-          <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Ayuda</div>
-          <ul className="space-y-1.5 text-sm">
-            {resolvedSettings.footerHelpLinks
-              .filter((link) => link.to !== "/solicitud")
-              .map((link) => (
+        {/* Centered as a group in the space between the logo and Redes - not each column centered on its own. */}
+        <div className="flex flex-wrap justify-center gap-8 md:gap-16">
+          <div data-footer-store>
+            <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Store</div>
+            <ul className="space-y-1.5 text-sm">
+              {resolvedSettings.footerShopLinks.map((link) => (
                 <li key={link.label}>
                   <Link to={link.to} className="transition hover:underline">
                     {link.label}
                   </Link>
                 </li>
               ))}
-          </ul>
-        </div>
+            </ul>
+          </div>
 
-        <div aria-hidden="true" className="hidden md:block" />
+          <div>
+            <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Ayuda</div>
+            <ul className="space-y-1.5 text-sm">
+              {resolvedSettings.footerHelpLinks
+                .filter((link) => link.to !== "/solicitud")
+                .map((link) => (
+                  <li key={link.label}>
+                    <Link to={link.to} className="transition hover:underline">
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        </div>
 
         <div>
           <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Redes</div>

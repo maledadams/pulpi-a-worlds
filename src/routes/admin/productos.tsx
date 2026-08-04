@@ -2,9 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Check, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AdminPanel, AdminShell, AdminTag } from "@/components/admin/AdminShell";
-import {
-  AdminAutosaveIndicator,
-  AdminButton,
+import {  AdminButton,
   AdminCheckbox,
   AdminEmptyState,
   AdminField,
@@ -613,9 +611,7 @@ function AdminProductsPage() {
           </AdminButton>
           <AdminButton tone="primary" onClick={handleSave} disabled={!draft || isSaving || isDeleting || isUploadingImage}>
             {isSaving ? "Guardando..." : "Guardar"}
-          </AdminButton>
-          <AdminAutosaveIndicator status={autosave.status} errorMessage={autosave.errorMessage} />
-        </>
+          </AdminButton>        </>
       }
     >
       <div className="grid gap-4">

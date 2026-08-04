@@ -2,9 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AdminPanel, AdminShell } from "@/components/admin/AdminShell";
-import {
-  AdminAutosaveIndicator,
-  AdminButton,
+import {  AdminButton,
   AdminField,
   AdminInput,
   AdminTabs,
@@ -73,9 +71,7 @@ function AdminSettingsPage() {
         <>
           <AdminButton tone="primary" onClick={handleSave}>
             Guardar cambios
-          </AdminButton>
-          <AdminAutosaveIndicator status={autosave.status} errorMessage={autosave.errorMessage} />
-        </>
+          </AdminButton>        </>
       }
     >
       <div className="grid gap-4">
