@@ -17,8 +17,8 @@ type WorkerEnv = {
   RESEND_FROM_EMAIL?: string;
 };
 
-export const BIRTHDAY_COUPON_CODE = "CUMP15";
-const BIRTHDAY_DISCOUNT_RATE = 0.15;
+export const BIRTHDAY_COUPON_CODE = "CUMP20";
+const BIRTHDAY_DISCOUNT_RATE = 0.2;
 
 const contactSchema = z.object({
   email: z.string().email(),
@@ -68,8 +68,8 @@ async function getBirthdayTokenSecret() {
   return workerEnv.ORDER_CONFIRM_SECRET ?? process.env.ORDER_CONFIRM_SECRET ?? "";
 }
 
-function birthdayTokenSubject(email: string, dateKey: string) {
-  return `birthday:${email}:${dateKey}`;
+function birthdayTokenSubject(email: string, monthKey: string) {
+  return `birthday:${email}:${monthKey}`;
 }
 
 async function ensurePublicFormsReady(db: D1Database) {
@@ -170,7 +170,14 @@ function getDominicanDateParts(date = new Date()) {
   const year = value("year");
   const month = value("month");
   const day = value("day");
-  return { day, month, year, dateKey: `${year}-${month}-${day}`, monthDay: `${month}-${day}` };
+  return {
+    day,
+    month,
+    year,
+    dateKey: `${year}-${month}-${day}`,
+    monthDay: `${month}-${day}`,
+    monthKey: `${year}-${month}`,
+  };
 }
 
 function isValidBirthDate(value: string) {
@@ -205,7 +212,7 @@ async function saveNewsletterSubscriber(input: z.infer<typeof newsletterSchema>)
       lastCouponSentDate: isBirthdayToday ? today.dateKey : (existing?.lastCouponSentDate ?? null),
     });
     const secret = await getBirthdayTokenSecret();
-    const token = isBirthdayToday && secret ? await signOrderConfirmToken(birthdayTokenSubject(email, today.dateKey), secret) : "";
+    const token = isBirthdayToday && secret ? await signOrderConfirmToken(birthdayTokenSubject(email, today.monthKey), secret) : "";
     return { message: "Cumpleaños guardado. Recibiras tu código especial en esa fecha.", ok: true as const, token };
   }
 
@@ -234,7 +241,7 @@ async function saveNewsletterSubscriber(input: z.infer<typeof newsletterSchema>)
     const sent = await sendBirthdayEmailIfNeeded(email, today);
     if (sent) {
       const secret = await getBirthdayTokenSecret();
-      token = secret ? await signOrderConfirmToken(birthdayTokenSubject(email, today.dateKey), secret) : "";
+      token = secret ? await signOrderConfirmToken(birthdayTokenSubject(email, today.monthKey), secret) : "";
     }
   }
   return { message: "Cumpleaños guardado. Recibiras tu código especial en esa fecha.", ok: true as const, token };
@@ -247,7 +254,8 @@ async function sendBirthdayEmail(email: string, dateKey: string) {
   if (!apiKey || !from) return false;
 
   const secret = await getBirthdayTokenSecret();
-  const token = secret ? await signOrderConfirmToken(birthdayTokenSubject(email, dateKey), secret) : "";
+  const monthKey = dateKey.slice(0, 7);
+  const token = secret ? await signOrderConfirmToken(birthdayTokenSubject(email, monthKey), secret) : "";
   const confirmUrl = token
     ? `https://pulpinastore.com/cumpleanos/confirmar?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`
     : "https://pulpinastore.com/tienda";
@@ -258,7 +266,7 @@ async function sendBirthdayEmail(email: string, dateKey: string) {
         <p style="letter-spacing:.18em;text-transform:uppercase;color:#6b5a55;font-size:12px;margin:0 0 4px">Pulpiña RD</p>
         <h1 style="font-size:28px;margin:0 0 12px;color:#231717">Feliz cumpleaños 🎂</h1>
         <p style="font-size:14px;line-height:1.6;color:#231717;margin:0 0 20px">
-          Hoy celebramos contigo. Usa este código durante todo el día de hoy y recibe <strong>15% de descuento</strong> en toda la tienda.
+          Hoy celebramos contigo. Usa este código durante todo este mes y recibe <strong>20% de descuento</strong> en toda la tienda.
         </p>
         <div style="margin:8px auto 20px;padding:16px;border:2px dashed #c5475f;border-radius:12px;font-size:26px;font-weight:800;letter-spacing:.16em;color:#231717">
           ${BIRTHDAY_COUPON_CODE}
@@ -269,7 +277,7 @@ async function sendBirthdayEmail(email: string, dateKey: string) {
           </a>
         </div>
         <p style="font-size:12px;line-height:1.6;color:#6b5a55;margin-top:20px">
-          Válido únicamente hoy y para el correo que recibió este mensaje. Toca el botón desde el navegador donde vas a comprar para activarlo.
+          Válido durante todo el mes de tu cumpleaños y para el correo que recibió este mensaje. Toca el botón desde el navegador donde vas a comprar para activarlo.
         </p>
       </div>
     </div>`;
@@ -281,7 +289,7 @@ async function sendBirthdayEmail(email: string, dateKey: string) {
       from,
       to: [email],
       subject: "Tu regalo de cumpleaños de Pulpiña RD 🎂",
-      text: `Feliz cumpleaños. Usa el código ${BIRTHDAY_COUPON_CODE} hoy para recibir 15% de descuento en toda la tienda. Activa tu descuento aquí: ${confirmUrl}`,
+      text: `Feliz cumpleaños. Usa el código ${BIRTHDAY_COUPON_CODE} este mes para recibir 20% de descuento en toda la tienda. Activa tu descuento aquí: ${confirmUrl}`,
       html,
     }),
   });
@@ -347,7 +355,7 @@ export async function validateDiscountCodeInternal(input: z.infer<typeof couponV
   if (code === BIRTHDAY_COUPON_CODE) {
     const secret = await getBirthdayTokenSecret();
     const today = getDominicanDateParts();
-    if (!secret || !input.token || !(await verifyOrderConfirmToken(birthdayTokenSubject(email, today.dateKey), input.token, secret))) {
+    if (!secret || !input.token || !(await verifyOrderConfirmToken(birthdayTokenSubject(email, today.monthKey), input.token, secret))) {
       return invalidResult;
     }
 
@@ -363,7 +371,7 @@ export async function validateDiscountCodeInternal(input: z.infer<typeof couponV
         })()
       : memorySubscribers.get(email)?.birthDate ?? null;
 
-    if (!birthDate || birthDate.slice(5) !== today.monthDay) {
+    if (!birthDate || birthDate.slice(5, 7) !== today.month) {
       return invalidResult;
     }
 
@@ -478,7 +486,7 @@ export async function maybeHandleBirthdayConfirmRequest(request: Request): Promi
   if (!email || !token || !secret) return fallback;
 
   const today = getDominicanDateParts();
-  if (!(await verifyOrderConfirmToken(birthdayTokenSubject(email, today.dateKey), token, secret))) {
+  if (!(await verifyOrderConfirmToken(birthdayTokenSubject(email, today.monthKey), token, secret))) {
     return fallback;
   }
 
@@ -494,7 +502,7 @@ export async function maybeHandleBirthdayConfirmRequest(request: Request): Promi
       })()
     : memorySubscribers.get(email)?.birthDate ?? null;
 
-  if (!birthDate || birthDate.slice(5) !== today.monthDay) return fallback;
+  if (!birthDate || birthDate.slice(5, 7) !== today.month) return fallback;
 
   return birthdayRedirectPage(email, token);
 }
