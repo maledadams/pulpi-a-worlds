@@ -252,14 +252,14 @@ function ProductPage() {
               <>
                 <button
                   onClick={() => setImageIndex((current) => (current === 0 ? galleryImages.length - 1 : current - 1))}
-                  className={`absolute left-3 top-1/2 z-10 -translate-y-1/2 bg-black/20 p-2 transition hover:bg-black/35 ${arrowToneClass}`}
+                  className="absolute left-3 top-1/2 z-10 -translate-y-1/2 bg-black/20 p-2 text-white transition hover:bg-black/35"
                   aria-label="Imagen anterior"
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
                 <button
                   onClick={() => setImageIndex((current) => (current === galleryImages.length - 1 ? 0 : current + 1))}
-                  className={`absolute right-3 top-1/2 z-10 -translate-y-1/2 bg-black/20 p-2 transition hover:bg-black/35 ${arrowToneClass}`}
+                  className="absolute right-3 top-1/2 z-10 -translate-y-1/2 bg-black/20 p-2 text-white transition hover:bg-black/35"
                   aria-label="Imagen siguiente"
                 >
                   <ChevronRight className="h-5 w-5" />

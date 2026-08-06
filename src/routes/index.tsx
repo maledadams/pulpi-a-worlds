@@ -102,49 +102,56 @@ function HomeRailSection({
         </h2>
       </div>
 
-      <div className="relative px-4 xl:px-[5cm]">
-        <Carousel
-          setApi={setApi}
-          opts={{
-            align: "start",
-            containScroll: "trimSnaps",
-            slidesToScroll: 1,
-          }}
-        >
-          <CarouselContent>
-            {products.map((product) => (
-              <CarouselItem
-                key={product.id}
-                className="basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5 xl:basis-1/6"
-              >
-                <ProductCard
-                  product={product}
-                  soldOutMode="standard"
-                  showSubtitle={false}
-                  tone="store"
-                />
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-        </Carousel>
-        <button
-          type="button"
-          aria-label={`Anterior en ${title}`}
-          disabled={!canScrollPrev}
-          onClick={() => api?.scrollPrev()}
-          className="absolute left-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-0 sm:left-3 xl:left-5"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-        <button
-          type="button"
-          aria-label={`Siguiente en ${title}`}
-          disabled={!canScrollNext}
-          onClick={() => api?.scrollNext()}
-          className="absolute right-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-0 sm:right-3 xl:right-5"
-        >
-          <ChevronRight className="h-5 w-5" />
-        </button>
+      <div className="px-4 xl:px-[5cm]">
+        {/* relative wrapper sized to the carousel itself, not the outer
+            padding - so "left-1/right-1" is always a small, consistent gap
+            from the actual product row regardless of how wide the outer
+            gutter is at any breakpoint, instead of drifting further from it
+            as xl:px-[5cm] grows. */}
+        <div className="relative">
+          <Carousel
+            setApi={setApi}
+            opts={{
+              align: "start",
+              containScroll: "trimSnaps",
+              slidesToScroll: 1,
+            }}
+          >
+            <CarouselContent>
+              {products.map((product) => (
+                <CarouselItem
+                  key={product.id}
+                  className="basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5 xl:basis-1/6"
+                >
+                  <ProductCard
+                    product={product}
+                    soldOutMode="standard"
+                    showSubtitle={false}
+                    tone="store"
+                  />
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+          </Carousel>
+          <button
+            type="button"
+            aria-label={`Anterior en ${title}`}
+            disabled={!canScrollPrev}
+            onClick={() => api?.scrollPrev()}
+            className="absolute -left-1 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-background/90 disabled:hover:text-foreground sm:-left-2"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            aria-label={`Siguiente en ${title}`}
+            disabled={!canScrollNext}
+            onClick={() => api?.scrollNext()}
+            className="absolute -right-1 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-background/90 disabled:hover:text-foreground sm:-right-2"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </div>
       </div>
     </section>
   );
