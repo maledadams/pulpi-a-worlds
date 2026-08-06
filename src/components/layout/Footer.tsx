@@ -186,17 +186,15 @@ export function Footer({
           </div>
 
           <div>
-            <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Ayuda</div>
+            <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Nuevo</div>
             <ul className="space-y-1.5 text-sm">
-              {resolvedSettings.footerHelpLinks
-                .filter((link) => link.to !== "/solicitud")
-                .map((link) => (
-                  <li key={link.label}>
-                    <Link to={link.to} className="transition hover:underline">
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
+              {NEW_IN_LINKS.map((link) => (
+                <li key={link.label}>
+                  <Link to={link.to} search={link.search} hash={link.hash} className="transition hover:underline">
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 
@@ -214,15 +212,17 @@ export function Footer({
           </div>
 
           <div>
-            <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Nuevo</div>
+            <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Ayuda</div>
             <ul className="space-y-1.5 text-sm">
-              {NEW_IN_LINKS.map((link) => (
-                <li key={link.label}>
-                  <Link to={link.to} search={link.search} hash={link.hash} className="transition hover:underline">
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
+              {resolvedSettings.footerHelpLinks
+                .filter((link) => link.to !== "/solicitud")
+                .map((link) => (
+                  <li key={link.label}>
+                    <Link to={link.to} className="transition hover:underline">
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
             </ul>
           </div>
         </div>

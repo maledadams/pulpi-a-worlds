@@ -138,7 +138,7 @@ function HomeRailSection({
             aria-label={`Anterior en ${title}`}
             disabled={!canScrollPrev}
             onClick={() => api?.scrollPrev()}
-            className="absolute -left-1 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-background/90 disabled:hover:text-foreground sm:-left-2"
+            className="absolute -left-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-background/90 disabled:hover:text-foreground sm:-left-4 md:-left-6 lg:-left-8 xl:-left-16"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
@@ -147,7 +147,7 @@ function HomeRailSection({
             aria-label={`Siguiente en ${title}`}
             disabled={!canScrollNext}
             onClick={() => api?.scrollNext()}
-            className="absolute -right-1 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-background/90 disabled:hover:text-foreground sm:-right-2"
+            className="absolute -right-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-background/90 disabled:hover:text-foreground sm:-right-4 md:-right-6 lg:-right-8 xl:-right-16"
           >
             <ChevronRight className="h-5 w-5" />
           </button>
