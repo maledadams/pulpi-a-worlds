@@ -10,7 +10,7 @@ import {
   listStorefrontCatalogProductsInternal,
 } from "@/lib/catalog";
 import { verifyTurnstileToken } from "@/lib/turnstile";
-import { validateDiscountCodeInternal } from "@/lib/public-forms";
+import { getDominicanDateParts, getDominicanDayStartIso, validateDiscountCodeInternal } from "@/lib/public-forms";
 import { recordDiscountRedemption } from "@/lib/store-discounts";
 import { signOrderConfirmToken, verifyOrderConfirmToken } from "@/lib/order-confirm-token";
 import type { AdminInquiryChannel, AdminInquiryRecord, AdminInquiryStatus } from "@/lib/admin-types";
@@ -499,6 +499,17 @@ async function ensureOrderStorageReady(db: D1Database) {
           current_value INTEGER NOT NULL DEFAULT -1,
           updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS order_rate_limits (
+          id TEXT PRIMARY KEY,
+          ip TEXT NOT NULL DEFAULT '',
+          email TEXT NOT NULL DEFAULT '',
+          created_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS order_rate_limits_ip ON order_rate_limits (ip);
+        CREATE INDEX IF NOT EXISTS order_rate_limits_email ON order_rate_limits (email);
+        CREATE INDEX IF NOT EXISTS order_rate_limits_created_at ON order_rate_limits (created_at);
       `.replace(/\n/g, " "),
       );
 
@@ -1609,6 +1620,42 @@ async function sendTeamOrderNotificationEmail(record: AdminInquiryRecord): Promi
   });
 }
 
+const ORDER_RATE_LIMIT_MAX_PER_DAY = 3;
+const ORDER_RATE_LIMIT_BURST_MS = 20_000;
+
+async function checkOrderRateLimit(db: D1Database, ip: string, email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const lastRow = await db
+    .prepare("SELECT created_at FROM order_rate_limits WHERE ip = ? OR email = ? ORDER BY created_at DESC LIMIT 1")
+    .bind(ip, normalizedEmail)
+    .first<{ created_at: string }>();
+  if (lastRow) {
+    const elapsedMs = Date.now() - new Date(lastRow.created_at).getTime();
+    if (elapsedMs >= 0 && elapsedMs < ORDER_RATE_LIMIT_BURST_MS) {
+      return "Estas enviando pedidos demasiado rapido. Espera unos segundos e intenta de nuevo.";
+    }
+  }
+
+  const dayStartIso = getDominicanDayStartIso(getDominicanDateParts().dateKey);
+  const countRow = await db
+    .prepare("SELECT COUNT(*) as count FROM order_rate_limits WHERE created_at >= ? AND (ip = ? OR email = ?)")
+    .bind(dayStartIso, ip, normalizedEmail)
+    .first<{ count: number }>();
+  if ((countRow?.count ?? 0) >= ORDER_RATE_LIMIT_MAX_PER_DAY) {
+    return "Llegaste al limite de pedidos por hoy. Escribenos por WhatsApp si necesitas hacer otro.";
+  }
+
+  return null;
+}
+
+async function recordOrderRateLimit(db: D1Database, ip: string, email: string) {
+  await db
+    .prepare("INSERT INTO order_rate_limits (id, ip, email, created_at) VALUES (?, ?, ?, ?)")
+    .bind(crypto.randomUUID(), ip, email.trim().toLowerCase(), new Date().toISOString())
+    .run();
+}
+
 export const submitManualOrder = createServerFn({ method: "POST" })
   .inputValidator((data: z.input<typeof manualOrderSchema>) => manualOrderSchema.parse(data))
   .handler(async ({ data }) => {
@@ -1631,6 +1678,16 @@ export const submitManualOrder = createServerFn({ method: "POST" })
         message: "La verificacion anti-spam fallo. Intentalo otra vez.",
         ok: false as const,
       };
+    }
+
+    const rateLimitIp = getRequestHeader("cf-connecting-ip") ?? "";
+    const rateLimitDb = await getDatabase();
+    if (rateLimitDb) {
+      await ensureOrderStorageReady(rateLimitDb);
+      const rateLimitMessage = await checkOrderRateLimit(rateLimitDb, rateLimitIp, data.customerEmail);
+      if (rateLimitMessage) {
+        return { message: rateLimitMessage, ok: false as const };
+      }
     }
 
     let canonicalLines: CanonicalManualOrderLine[];
@@ -1691,6 +1748,13 @@ export const submitManualOrder = createServerFn({ method: "POST" })
           await recordDiscountRedemption(discountCode, data.customerEmail, record.id);
         } catch (error) {
           console.error("[submitManualOrder] failed to record discount redemption", discountCode, error);
+        }
+      }
+      if (db) {
+        try {
+          await recordOrderRateLimit(db, rateLimitIp, data.customerEmail);
+        } catch (error) {
+          console.error("[submitManualOrder] failed to record order rate limit entry", error);
         }
       }
       const config = await getEmailConfig();

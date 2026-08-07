@@ -115,6 +115,15 @@ async function ensurePublicFormsReady(db: D1Database) {
 
         CREATE INDEX IF NOT EXISTS birthday_coupons_valid_date
         ON birthday_coupons (valid_date, email);
+
+        CREATE TABLE IF NOT EXISTS discount_check_attempts (
+          id TEXT PRIMARY KEY,
+          ip TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS discount_check_attempts_ip_created
+        ON discount_check_attempts (ip, created_at);
       `.replace(/\n/g, " "),
       );
 
@@ -159,7 +168,7 @@ async function saveContactMessage(input: z.infer<typeof contactSchema>) {
     .run();
 }
 
-function getDominicanDateParts(date = new Date()) {
+export function getDominicanDateParts(date = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Santo_Domingo",
     year: "numeric",
@@ -178,6 +187,12 @@ function getDominicanDateParts(date = new Date()) {
     monthDay: `${month}-${day}`,
     monthKey: `${year}-${month}`,
   };
+}
+
+// Dominican Republic doesn't observe DST and sits at a fixed UTC-4, so local
+// midnight for a given dateKey is always 04:00 UTC on that same date.
+export function getDominicanDayStartIso(dateKey: string) {
+  return `${dateKey}T04:00:00.000Z`;
 }
 
 function isValidBirthDate(value: string) {
@@ -454,11 +469,45 @@ export const subscribeNewsletter = createServerFn({ method: "POST" })
     return saveNewsletterSubscriber(data);
   });
 
+const DISCOUNT_CHECK_MAX_PER_WINDOW = 20;
+const DISCOUNT_CHECK_WINDOW_MS = 10 * 60 * 1000;
+
+async function isDiscountCheckRateLimited(ip: string) {
+  if (!ip) return false;
+  const db = await getDatabase();
+  if (!db) return false;
+
+  await ensurePublicFormsReady(db);
+  const windowStartIso = new Date(Date.now() - DISCOUNT_CHECK_WINDOW_MS).toISOString();
+  const row = await db
+    .prepare("SELECT COUNT(*) as count FROM discount_check_attempts WHERE ip = ? AND created_at >= ?")
+    .bind(ip, windowStartIso)
+    .first<{ count: number }>();
+
+  await db
+    .prepare("INSERT INTO discount_check_attempts (id, ip, created_at) VALUES (?, ?, ?)")
+    .bind(crypto.randomUUID(), ip, new Date().toISOString())
+    .run();
+
+  return (row?.count ?? 0) >= DISCOUNT_CHECK_MAX_PER_WINDOW;
+}
+
 export const validateDiscountCode = createServerFn({ method: "POST" })
   .inputValidator((data: z.input<typeof couponValidationSchema>) => couponValidationSchema.parse(data))
   .handler(async ({ data }) => {
-    const { setResponseHeader } = await import("@tanstack/react-start/server");
+    const { getRequestHeader, setResponseHeader } = await import("@tanstack/react-start/server");
     setResponseHeader("Cache-Control", "private, no-store");
+
+    const ip = getRequestHeader("cf-connecting-ip") ?? "";
+    if (await isDiscountCheckRateLimited(ip)) {
+      return {
+        code: "",
+        discount: 0,
+        message: "Demasiados intentos. Espera unos minutos e intenta de nuevo.",
+        ok: false as const,
+      };
+    }
+
     return validateDiscountCodeInternal(data);
   });
 
