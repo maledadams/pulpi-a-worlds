@@ -861,7 +861,6 @@ function AdminProductsPage() {
                     <AdminCheckbox label="NSFW" checked={draft.isNsfw} onCheckedChange={(checked) => updateDraft("isNsfw", checked)} />
                     <AdminCheckbox
                       label="En oferta"
-                      hint="El precio base se muestra tachado y el precio ofertado es el que se cobra."
                       checked={draft.compareAtPrice !== null}
                       onCheckedChange={(checked) => {
                         if (checked) {
