@@ -8,7 +8,13 @@ import { formatPrice, type Product } from "@/data/products";
 import { useVibe } from "@/hooks/use-vibe";
 import { getStorefrontProductBySlug } from "@/lib/catalog";
 import { buildProductColorRecord, normalizeProductColorName } from "@/lib/product-colors";
-import { absoluteSiteUrl, createSeoHead, SITE_NAME } from "@/lib/seo";
+import { absoluteSiteUrl, buildBreadcrumbJsonLd, createSeoHead, SITE_NAME } from "@/lib/seo";
+
+const VIBE_CRUMB: Partial<Record<string, { name: string; path: string }>> = {
+  moon: { name: "Moon", path: "/moon" },
+  sunshine: { name: "Sunshine", path: "/sunshine" },
+  men: { name: "Men", path: "/men" },
+};
 
 export const Route = createFileRoute("/producto/$slug")({
   loader: async ({ params }) => {
@@ -20,12 +26,15 @@ export const Route = createFileRoute("/producto/$slug")({
   head: ({ loaderData, params }) => {
     const product = loaderData?.product;
     if (!product) return {};
+    const productImage = product.featuredImage?.url || product.images[0]?.url;
     const seo = createSeoHead({
       pageName: product.name,
       path: `/producto/${params.slug}`,
       description: product.description,
       type: "product",
+      image: productImage,
     });
+    const parentCrumb = VIBE_CRUMB[product.vibe] ?? { name: "Tienda", path: "/tienda" };
     return {
       ...seo,
       scripts: [
@@ -36,6 +45,7 @@ export const Route = createFileRoute("/producto/$slug")({
             "@type": "Product",
             name: product.name,
             description: product.description,
+            image: productImage ? [productImage] : undefined,
             url: absoluteSiteUrl(`/producto/${params.slug}`),
             brand: { "@type": "Brand", name: SITE_NAME },
             offers: {
@@ -48,6 +58,16 @@ export const Route = createFileRoute("/producto/$slug")({
               url: absoluteSiteUrl(`/producto/${params.slug}`),
             },
           }),
+        },
+        {
+          type: "application/ld+json",
+          children: JSON.stringify(
+            buildBreadcrumbJsonLd([
+              { name: "Inicio", path: "/" },
+              parentCrumb,
+              { name: product.name, path: `/producto/${params.slug}` },
+            ]),
+          ),
         },
       ],
     };

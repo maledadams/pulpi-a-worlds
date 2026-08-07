@@ -13,6 +13,7 @@ export const Route = createFileRoute("/sunshine")({
     pageName: "Sunshine",
     path: "/sunshine",
     description: loaderData?.settings.sunshinePageIntro,
+    image: logo,
   }),
   component: SunshinePage,
 });

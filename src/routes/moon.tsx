@@ -13,6 +13,7 @@ export const Route = createFileRoute("/moon")({
     pageName: "Moon",
     path: "/moon",
     description: loaderData?.settings.moonPageIntro,
+    image: logo,
   }),
   component: MoonPage,
 });

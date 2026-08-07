@@ -25,9 +25,10 @@ import {
   getStorefrontSettings,
 } from "@/lib/admin-content";
 import { getStorefrontCatalog } from "@/lib/catalog";
-import { SITE_NAME, SITE_URL } from "@/lib/seo";
+import { absoluteSiteUrl, SITE_NAME, SITE_URL } from "@/lib/seo";
 import generalPineapple from "@/assets/PULPINAGENERALPINA.svg";
 import moonPineapple from "@/assets/PULPINAMOONPINA.svg";
+import generalLogo from "@/assets/logo-sunshine.png";
 
 function NotFoundComponent() {
   return (
@@ -65,7 +66,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     categories: await getStorefrontCategories(),
     settings: await getStorefrontSettings(),
   }),
-  head: () => ({
+  head: ({ loaderData }) => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
@@ -83,6 +84,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", type: "image/svg+xml", href: generalPineapple },
       { rel: "icon", type: "image/svg+xml", href: generalPineapple, media: "(prefers-color-scheme: light)" },
       { rel: "icon", type: "image/svg+xml", href: moonPineapple, media: "(prefers-color-scheme: dark)" },
+      { rel: "icon", href: "/favicon.ico", sizes: "any" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
@@ -98,6 +101,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "@type": "WebSite",
           name: SITE_NAME,
           url: SITE_URL,
+        }),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: SITE_NAME,
+          url: SITE_URL,
+          logo: absoluteSiteUrl(generalLogo),
+          ...(loaderData?.settings.instagramUrl
+            ? { sameAs: [loaderData.settings.instagramUrl] }
+            : {}),
         }),
       },
     ],
