@@ -103,8 +103,24 @@
 }
 
 html {
-  font-size: clamp(14px, calc(13px + 0.2vw), 16px);
+  font-size: 16px;
   overflow-x: clip;
+}
+
+/* Uniform "zoom out" instead of elements reflowing/shrinking independently:
+   everything (fonts, gaps, fixed-width tables, prices) scales down together
+   at smaller screens so nothing wraps or clips, rather than each component
+   picking its own breakpoint-driven size. Left untouched below 768px - real
+   phones already get a dedicated mobile layout via the sm:/md:/etc classes,
+   and shrinking further there would make touch targets too small. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  html { zoom: 0.75; }
+}
+@media (min-width: 1024px) and (max-width: 1439px) {
+  html { zoom: 0.76; }
+}
+@media (min-width: 1440px) and (max-width: 1535px) {
+  html { zoom: 0.9; }
 }
 
 body,

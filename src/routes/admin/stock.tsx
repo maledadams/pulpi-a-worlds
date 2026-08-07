@@ -149,10 +149,11 @@ function AdminStockPage() {
   };
 
   const registerMovement = (variantId: string, direction: 1 | -1) => {
-    if (!reason.trim() || quantity < 1) {
-      showMessage("Indica una cantidad y un motivo antes de registrar el movimiento.", "error");
+    if (quantity < 1) {
+      showMessage("Indica una cantidad antes de registrar el movimiento.", "error");
       return;
     }
+    const effectiveReason = reason.trim() || (direction > 0 ? "Entrada manual" : "Salida manual");
     setBusy(true);
     // Flush any pending/in-flight edit on this product first (e.g. a price
     // change still inside its debounce window) - otherwise the stock
@@ -162,7 +163,7 @@ function AdminStockPage() {
     void autosave
       .flush()
       .then(() =>
-        adjustAdminStock({ data: { variantId, delta: direction * quantity, reason } }),
+        adjustAdminStock({ data: { variantId, delta: direction * quantity, reason: effectiveReason } }),
       )
       .then((result) => {
         setProducts(result.products.map(cloneProduct));
@@ -279,7 +280,7 @@ function AdminStockPage() {
             <AdminPanel title="Variantes, precio y movimientos" className="overflow-hidden">
               <div className="mb-4 grid gap-3 sm:grid-cols-[120px_minmax(0,1fr)]">
                 <AdminField label="Cantidad"><AdminInput type="number" min={1} value={quantity === 1 ? "" : quantity} placeholder="1" onChange={(event) => setQuantity(event.target.value === "" ? 1 : Math.max(1, Number(event.target.value) || 1))} /></AdminField>
-                <AdminField label="Motivo obligatorio"><AdminInput value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Ej. reposicion del proveedor, ajuste por dano" /></AdminField>
+                <AdminField label="Motivo (opcional)"><AdminInput value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Ej. reposicion del proveedor, ajuste por dano" /></AdminField>
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-[920px] text-left text-sm">
