@@ -285,6 +285,23 @@ function AdminProductsPage() {
     setDraft((current) => (current ? { ...current, [key]: value } : current));
   };
 
+  // "En oferta" is a product-wide sale, not a per-Talla one - every variant
+  // charges the same sale price so the badge shown on the card always
+  // matches what checkout actually charges, regardless of which size gets
+  // added to cart.
+  const setProductPricing = (price: number, compareAtPrice: number | null) => {
+    setDraft((current) =>
+      current
+        ? {
+            ...current,
+            price,
+            compareAtPrice,
+            variants: current.variants.map((variant) => ({ ...variant, price, compareAtPrice })),
+          }
+        : current,
+    );
+  };
+
   const applyPrimaryCategory = (nextCategoryId: string) => {
     setDraft((current) => {
       if (!current) return current;
@@ -786,11 +803,46 @@ function AdminProductsPage() {
                       type="number"
                       min={0}
                       step="0.01"
-                      value={draft.price === 0 ? "" : draft.price}
-                      onChange={(event) => updateDraft("price", event.target.value === "" ? 0 : Number(event.target.value))}
+                      value={
+                        draft.compareAtPrice !== null
+                          ? draft.compareAtPrice === 0 ? "" : draft.compareAtPrice
+                          : draft.price === 0 ? "" : draft.price
+                      }
+                      onChange={(event) => {
+                        const next = event.target.value === "" ? 0 : Number(event.target.value);
+                        if (draft.compareAtPrice !== null) {
+                          setProductPricing(draft.price, next);
+                        } else {
+                          setProductPricing(next, null);
+                        }
+                      }}
                       onBlur={() => {
-                        if (!(draft.price >= 0)) {
-                          updateDraft("price", 0);
+                        const current = draft.compareAtPrice !== null ? draft.compareAtPrice : draft.price;
+                        if (!(current >= 0)) {
+                          if (draft.compareAtPrice !== null) setProductPricing(draft.price, 0);
+                          else setProductPricing(0, null);
+                          showSaveMessage("El precio no puede ser negativo - se ajusto a 0.", "error");
+                        }
+                      }}
+                    />
+                  </AdminField>
+
+                  <AdminField
+                    label="Precio ofertado"
+                    hint={draft.compareAtPrice === null ? "Activa \"En oferta\" para editar el precio de venta." : undefined}
+                  >
+                    <AdminInput
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      disabled={draft.compareAtPrice === null}
+                      value={draft.compareAtPrice !== null ? (draft.price === 0 ? "" : draft.price) : ""}
+                      onChange={(event) =>
+                        setProductPricing(event.target.value === "" ? 0 : Number(event.target.value), draft.compareAtPrice)
+                      }
+                      onBlur={() => {
+                        if (draft.compareAtPrice !== null && !(draft.price >= 0)) {
+                          setProductPricing(0, draft.compareAtPrice);
                           showSaveMessage("El precio no puede ser negativo - se ajusto a 0.", "error");
                         }
                       }}
@@ -807,6 +859,18 @@ function AdminProductsPage() {
                     <AdminCheckbox label="Destacado" checked={draft.featured} onCheckedChange={(checked) => updateDraft("featured", checked)} />
                     <AdminCheckbox label="Nuevo" checked={draft.newArrival} onCheckedChange={(checked) => updateDraft("newArrival", checked)} />
                     <AdminCheckbox label="NSFW" checked={draft.isNsfw} onCheckedChange={(checked) => updateDraft("isNsfw", checked)} />
+                    <AdminCheckbox
+                      label="En oferta"
+                      hint="El precio base se muestra tachado y el precio ofertado es el que se cobra."
+                      checked={draft.compareAtPrice !== null}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setProductPricing(draft.price, draft.price);
+                        } else {
+                          setProductPricing(draft.compareAtPrice ?? draft.price, null);
+                        }
+                      }}
+                    />
                   </div>
                 </div>
               </AdminPanel>

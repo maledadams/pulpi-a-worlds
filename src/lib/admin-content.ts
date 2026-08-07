@@ -63,12 +63,14 @@ type CollectionRow = {
 
 type DiscountRow = {
   id: string;
+  kind: string | null;
   code: string;
   label: string;
   discount_type: string;
   amount: number;
   active: number;
   scope: string;
+  category_ids_json: string | null;
   max_redemptions: number | null;
   one_per_customer: number | null;
 };
@@ -124,12 +126,14 @@ const collectionSchema = z.object({
 
 const discountSchema = z.object({
   id: z.string().trim().min(1),
-  code: z.string().trim().min(1),
+  kind: z.enum(["code", "promotion"]),
+  code: z.string().trim(),
   label: z.string().trim().min(1),
   type: z.enum(["percentage", "fixed"]),
   value: z.number().nonnegative(),
   active: z.boolean(),
   scope: z.enum(["store", "pulpina", "men", "moon", "sunshine"]),
+  categoryIds: z.array(z.string().trim().min(1)),
   maxRedemptions: z.number().int().positive().nullable(),
   onePerCustomer: z.boolean(),
 });
@@ -307,6 +311,7 @@ function mergeCollectionProductIds(
 function cloneDiscount(discount: AdminDiscountRecord): AdminDiscountRecord {
   return {
     ...discount,
+    categoryIds: [...discount.categoryIds],
   };
 }
 
@@ -460,12 +465,14 @@ async function ensureAdminContentReady(db: D1Database) {
 
         CREATE TABLE IF NOT EXISTS discounts (
           id TEXT PRIMARY KEY,
+          kind TEXT NOT NULL DEFAULT 'code',
           code TEXT NOT NULL UNIQUE,
           label TEXT NOT NULL,
           discount_type TEXT NOT NULL,
           amount INTEGER NOT NULL,
           active INTEGER NOT NULL DEFAULT 1,
           scope TEXT NOT NULL DEFAULT 'store',
+          category_ids_json TEXT NOT NULL DEFAULT '[]',
           created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
 
@@ -491,6 +498,8 @@ async function ensureAdminContentReady(db: D1Database) {
         "ALTER TABLE size_formats ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;",
         "ALTER TABLE discounts ADD COLUMN max_redemptions INTEGER;",
         "ALTER TABLE discounts ADD COLUMN one_per_customer INTEGER NOT NULL DEFAULT 0;",
+        "ALTER TABLE discounts ADD COLUMN kind TEXT NOT NULL DEFAULT 'code';",
+        "ALTER TABLE discounts ADD COLUMN category_ids_json TEXT NOT NULL DEFAULT '[]';",
       ];
 
       for (const statement of migrations) {
@@ -581,19 +590,21 @@ async function ensureAdminContentReady(db: D1Database) {
 
       await ensureSeededOnce(db, "discounts_seeded", "SELECT COUNT(*) AS count FROM discounts", async () => {
         const insertDiscount = db.prepare(`
-          INSERT INTO discounts (id, code, label, discount_type, amount, active, scope, max_redemptions, one_per_customer)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO discounts (id, kind, code, label, discount_type, amount, active, scope, category_ids_json, max_redemptions, one_per_customer)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         await db.batch(
           ADMIN_DISCOUNTS.map((discount) =>
             insertDiscount.bind(
               discount.id,
+              discount.kind,
               discount.code,
               discount.label,
               discount.type,
               discount.value,
               discount.active ? 1 : 0,
               discount.scope,
+              JSON.stringify(discount.categoryIds),
               discount.maxRedemptions,
               discount.onePerCustomer ? 1 : 0,
             ),
@@ -692,14 +703,24 @@ function parseCollectionRow(row: CollectionRow): AdminCollectionRecord {
 }
 
 function parseDiscountRow(row: DiscountRow): AdminDiscountRecord {
+  let categoryIds: string[] = [];
+  try {
+    const raw = row.category_ids_json ? JSON.parse(row.category_ids_json) : [];
+    categoryIds = Array.isArray(raw) ? raw.filter((entry): entry is string => typeof entry === "string") : [];
+  } catch {
+    categoryIds = [];
+  }
+
   return {
     id: row.id,
+    kind: row.kind === "promotion" ? "promotion" : "code",
     code: row.code,
     label: row.label,
     type: row.discount_type === "fixed" ? "fixed" : "percentage",
     value: row.amount,
     active: row.active === 1,
     scope: ((row.scope?.trim() === "pulpina" ? "store" : row.scope?.trim()) || "store") as AdminDiscountRecord["scope"],
+    categoryIds,
     maxRedemptions: row.max_redemptions ?? null,
     onePerCustomer: row.one_per_customer === 1,
   };
@@ -1215,7 +1236,7 @@ async function listDiscountsInternal() {
   await ensureAdminContentReady(db);
   const rows = await db
     .prepare(`
-      SELECT id, code, label, discount_type, amount, active, scope, max_redemptions, one_per_customer
+      SELECT id, kind, code, label, discount_type, amount, active, scope, category_ids_json, max_redemptions, one_per_customer
       FROM discounts
       ORDER BY active DESC, code ASC
     `)
@@ -1225,13 +1246,24 @@ async function listDiscountsInternal() {
 }
 
 async function saveDiscountInternal(input: AdminDiscountRecord) {
+  const id = normalizeDiscountId(input.id, input.code || input.label);
+  // Promotions have no visible code (they auto-apply, nothing to type at
+  // checkout) but the code column is NOT NULL UNIQUE, so give them an
+  // invisible placeholder derived from their id instead of leaving it blank.
+  const code =
+    input.kind === "promotion"
+      ? input.code.trim() || `PROMO-${id}`.toUpperCase()
+      : input.code.trim().toUpperCase();
   const normalized = {
     ...input,
-    id: normalizeDiscountId(input.id, input.code),
-    code: input.code.trim().toUpperCase(),
+    id,
+    code,
     label: input.label.trim(),
     value: Math.round(input.value),
     scope: input.scope === "pulpina" ? "store" : input.scope,
+    categoryIds: input.kind === "promotion" ? [...input.categoryIds] : [],
+    maxRedemptions: input.kind === "promotion" ? null : input.maxRedemptions,
+    onePerCustomer: input.kind === "promotion" ? false : input.onePerCustomer,
   } satisfies AdminDiscountRecord;
 
   const db = await getDatabase();
@@ -1245,26 +1277,30 @@ async function saveDiscountInternal(input: AdminDiscountRecord) {
   await ensureAdminContentReady(db);
   await db
     .prepare(`
-      INSERT INTO discounts (id, code, label, discount_type, amount, active, scope, max_redemptions, one_per_customer)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO discounts (id, kind, code, label, discount_type, amount, active, scope, category_ids_json, max_redemptions, one_per_customer)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
+        kind = excluded.kind,
         code = excluded.code,
         label = excluded.label,
         discount_type = excluded.discount_type,
         amount = excluded.amount,
         active = excluded.active,
         scope = excluded.scope,
+        category_ids_json = excluded.category_ids_json,
         max_redemptions = excluded.max_redemptions,
         one_per_customer = excluded.one_per_customer
     `)
     .bind(
       normalized.id,
+      normalized.kind,
       normalized.code,
       normalized.label,
       normalized.type,
       normalized.value,
       normalized.active ? 1 : 0,
       normalized.scope,
+      JSON.stringify(normalized.categoryIds),
       normalized.maxRedemptions,
       normalized.onePerCustomer ? 1 : 0,
     )

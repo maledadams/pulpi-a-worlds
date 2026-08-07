@@ -129,12 +129,14 @@ export type AdminInquiryRecord = {
 
 export type AdminDiscountRecord = {
   id: string;
+  kind: "code" | "promotion";
   code: string;
   label: string;
   type: "percentage" | "fixed";
   value: number;
   active: boolean;
   scope: "store" | Vibe;
+  categoryIds: string[];
   maxRedemptions: number | null;
   onePerCustomer: boolean;
 };

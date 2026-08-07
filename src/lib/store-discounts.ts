@@ -8,12 +8,14 @@ type WorkerEnv = {
 
 type DiscountRow = {
   id: string;
+  kind: string | null;
   code: string;
   label: string;
   discount_type: string;
   amount: number;
   active: number;
   scope: string;
+  category_ids_json: string | null;
   max_redemptions: number | null;
   one_per_customer: number | null;
 };
@@ -49,12 +51,14 @@ async function ensureDiscountStorageReady(db: D1Database) {
         `
         CREATE TABLE IF NOT EXISTS discounts (
           id TEXT PRIMARY KEY,
+          kind TEXT NOT NULL DEFAULT 'code',
           code TEXT NOT NULL UNIQUE,
           label TEXT NOT NULL,
           discount_type TEXT NOT NULL,
           amount INTEGER NOT NULL,
           active INTEGER NOT NULL DEFAULT 1,
           scope TEXT NOT NULL DEFAULT 'store',
+          category_ids_json TEXT NOT NULL DEFAULT '[]',
           created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
 
@@ -73,6 +77,8 @@ async function ensureDiscountStorageReady(db: D1Database) {
       const discountMigrations = [
         "ALTER TABLE discounts ADD COLUMN max_redemptions INTEGER;",
         "ALTER TABLE discounts ADD COLUMN one_per_customer INTEGER NOT NULL DEFAULT 0;",
+        "ALTER TABLE discounts ADD COLUMN kind TEXT NOT NULL DEFAULT 'code';",
+        "ALTER TABLE discounts ADD COLUMN category_ids_json TEXT NOT NULL DEFAULT '[]';",
       ];
       for (const statement of discountMigrations) {
         try {
@@ -117,20 +123,22 @@ async function ensureDiscountStorageReady(db: D1Database) {
       }
 
       const insertDiscount = db.prepare(`
-        INSERT INTO discounts (id, code, label, discount_type, amount, active, scope, max_redemptions, one_per_customer)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO discounts (id, kind, code, label, discount_type, amount, active, scope, category_ids_json, max_redemptions, one_per_customer)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       await db.batch(
         ADMIN_DISCOUNTS.map((discount) =>
           insertDiscount.bind(
             discount.id,
+            discount.kind,
             discount.code,
             discount.label,
             discount.type,
             discount.value,
             discount.active ? 1 : 0,
             discount.scope,
+            JSON.stringify(discount.categoryIds),
             discount.maxRedemptions,
             discount.onePerCustomer ? 1 : 0,
           ),
@@ -147,14 +155,24 @@ async function ensureDiscountStorageReady(db: D1Database) {
 }
 
 function parseDiscountRow(row: DiscountRow): AdminDiscountRecord {
+  let categoryIds: string[] = [];
+  try {
+    const raw = row.category_ids_json ? JSON.parse(row.category_ids_json) : [];
+    categoryIds = Array.isArray(raw) ? raw.filter((entry): entry is string => typeof entry === "string") : [];
+  } catch {
+    categoryIds = [];
+  }
+
   return {
     id: row.id,
+    kind: row.kind === "promotion" ? "promotion" : "code",
     code: row.code,
     label: row.label,
     type: row.discount_type === "fixed" ? "fixed" : "percentage",
     value: row.amount,
     active: row.active === 1,
     scope: (row.scope?.trim() || "store") as AdminDiscountRecord["scope"],
+    categoryIds,
     maxRedemptions: row.max_redemptions ?? null,
     onePerCustomer: row.one_per_customer === 1,
   };
@@ -185,7 +203,7 @@ export async function listActiveDiscountsInternal() {
   await ensureDiscountStorageReady(db);
   const rows = await db
     .prepare(`
-      SELECT id, code, label, discount_type, amount, active, scope, max_redemptions, one_per_customer
+      SELECT id, kind, code, label, discount_type, amount, active, scope, category_ids_json, max_redemptions, one_per_customer
       FROM discounts
       WHERE active = 1
       ORDER BY code ASC
@@ -202,7 +220,7 @@ export async function findActiveCheckoutDiscount(code: string) {
   if (!normalized) return null;
 
   const discounts = await listActiveDiscountsInternal();
-  return discounts.find((discount) => discount.scope === "store" && discount.code.toUpperCase() === normalized) ?? null;
+  return discounts.find((discount) => discount.kind === "code" && discount.code.toUpperCase() === normalized) ?? null;
 }
 
 export async function getDiscountRedemptionStatus(discount: AdminDiscountRecord, email: string) {
@@ -260,8 +278,18 @@ export function computeCheckoutDiscountAmount(discount: AdminDiscountRecord, sub
 }
 
 export function applyDiscountsToProduct(product: Product, discounts: AdminDiscountRecord[]) {
+  const productCategories = product.categories?.length ? product.categories : [product.category];
   const applicable = discounts.filter(
-    (discount) => discount.active && (discount.scope === "store" || discount.scope === product.vibe),
+    (discount) =>
+      discount.active &&
+      // Only promotions auto-apply to displayed prices - a code discount
+      // must stay invisible until someone actually types it in at checkout,
+      // otherwise creating a checkout code would silently discount every
+      // matching product storewide/department-wide the moment it's active.
+      discount.kind === "promotion" &&
+      (discount.scope === "store" || discount.scope === product.vibe) &&
+      (discount.categoryIds.length === 0 ||
+        productCategories.some((category) => discount.categoryIds.includes(category))),
   );
 
   if (applicable.length === 0) {
