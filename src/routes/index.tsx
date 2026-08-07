@@ -97,7 +97,7 @@ function HomeRailSection({
   return (
     <section className="pb-14">
       <div className="mb-6 px-4 xl:px-[5cm]">
-        <h2 className="text-center text-2xl md:text-3xl" style={{ transform: "none" }}>
+        <h2 className="text-left text-2xl md:text-3xl" style={{ transform: "none" }}>
           {title}
         </h2>
       </div>
