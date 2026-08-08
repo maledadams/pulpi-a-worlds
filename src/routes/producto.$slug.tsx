@@ -251,19 +251,6 @@ function ProductPage() {
     typeof selectedVariant?.compareAtPrice === "number" && selectedVariant.compareAtPrice > selectedVariant.price;
   const related = useMemo(() => getMoreFromThisVibeProducts(product, products), [product, products]);
   const currentImage = galleryImages[imageIndex] ?? null;
-  const averageLuma =
-    product.swatch
-      .map((hex) => {
-        const clean = hex.replace("#", "");
-        const normalized = clean.length === 3 ? clean.split("").map((char) => `${char}${char}`).join("") : clean;
-        const value = Number.parseInt(normalized, 16);
-        const r = (value >> 16) & 255;
-        const g = (value >> 8) & 255;
-        const b = value & 255;
-        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-      })
-      .reduce((total, value) => total + value, 0) / product.swatch.length;
-  const arrowToneClass = averageLuma < 140 ? "text-white" : "text-black";
 
   return (
     <div
@@ -282,14 +269,6 @@ function ProductPage() {
             className="relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl border border-foreground/20 grain"
             style={{ background: `linear-gradient(135deg, ${product.swatch[0]}, ${product.swatch[1]})` }}
           >
-            {currentImage ? (
-              // Absolutely positioned so this label can never push the image
-              // or anything next to this column around - it's laid out on
-              // top of the image, not in-flow above it.
-              <p className="pointer-events-none absolute left-0 right-0 top-2 z-10 text-center text-[10px] uppercase tracking-[0.2em] text-[#243011] [text-shadow:0_1px_2px_rgba(255,255,255,0.55)]">
-                Toca la imagen para agrandar
-              </p>
-            ) : null}
             {currentImage ? (
               <button
                 type="button"
@@ -334,7 +313,7 @@ function ProductPage() {
             ) : null}
           </div>
           {galleryImages.length > 1 ? (
-            <div className={`mt-3 flex items-center justify-center text-sm font-black uppercase ${arrowToneClass}`}>
+            <div className="mt-3 flex items-center justify-center text-sm font-black uppercase text-foreground">
               <span className="text-[10px] tracking-[0.24em] opacity-80">
                 {imageIndex + 1} / {galleryImages.length}
               </span>
