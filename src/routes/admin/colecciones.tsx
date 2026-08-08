@@ -58,7 +58,7 @@ function getResolvedCollectionCount(collection: AdminCollectionRecord, products:
   const scopedProducts =
     collection.vibe === "store"
       ? products
-      : products.filter((product) => product.vibe === collection.vibe);
+      : products.filter((product) => product.vibe === collection.vibe || product.secondaryVibe === collection.vibe);
   const explicitIds = collection.productIds;
   const categoryIds = new Set(collection.categoryIds);
   return scopedProducts.filter((product) => {
@@ -115,7 +115,9 @@ function AdminCollectionsPage() {
 
   const assignableProducts = useMemo(() => {
     if (!draft) return [];
-    return products.filter((product) => draft.vibe === "store" || product.vibe === draft.vibe);
+    return products.filter(
+      (product) => draft.vibe === "store" || product.vibe === draft.vibe || product.secondaryVibe === draft.vibe,
+    );
   }, [draft, products]);
   const filteredAssignableProducts = useMemo(() => {
     return assignableProducts.filter((product) =>

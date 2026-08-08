@@ -36,6 +36,7 @@ export function toAdminProductRecord(product: Product): AdminProductRecord {
     slug: product.slug,
     name: product.name,
     vibe: product.vibe,
+    secondaryVibe: product.secondaryVibe ?? null,
     sortOrder: product.sortOrder ?? 0,
     categories,
     primaryCategory: product.category,

@@ -287,7 +287,7 @@ export function applyDiscountsToProduct(product: Product, discounts: AdminDiscou
       // otherwise creating a checkout code would silently discount every
       // matching product storewide/department-wide the moment it's active.
       discount.kind === "promotion" &&
-      (discount.scope === "store" || discount.scope === product.vibe) &&
+      (discount.scope === "store" || discount.scope === product.vibe || discount.scope === product.secondaryVibe) &&
       (discount.categoryIds.length === 0 ||
         productCategories.some((category) => discount.categoryIds.includes(category))),
   );

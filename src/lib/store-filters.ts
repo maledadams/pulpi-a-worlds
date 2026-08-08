@@ -75,6 +75,10 @@ export function getProductCategories(product: Product) {
   return product.categories && product.categories.length > 0 ? product.categories : [product.category];
 }
 
+export function getProductDepartments(product: Product) {
+  return product.secondaryVibe ? [product.vibe, product.secondaryVibe] : [product.vibe];
+}
+
 export function isNsfwCategory(category: string) {
   return isConfiguredNsfwCategory(category);
 }
@@ -295,7 +299,12 @@ export function filterCatalogProducts(products: Product[], filters: CatalogFilte
         );
       if (!matchesNonNsfwFilter) return false;
     }
-    if (filters.departments.size > 0 && !filters.departments.has(product.vibe)) return false;
+    if (
+      filters.departments.size > 0 &&
+      !getProductDepartments(product).some((vibe) => filters.departments.has(vibe))
+    ) {
+      return false;
+    }
     if (filters.categories.size > 0 && !getProductCategories(product).some((category) => filters.categories.has(category))) {
       return false;
     }
@@ -342,7 +351,7 @@ export function getDepartmentOptions(products: Product[]) {
   return DEPARTMENTS.map((vibe) => ({
     value: vibe,
     label: vibe === "moon" ? "Moon" : vibe === "sunshine" ? "Sunshine" : "Men",
-    count: products.filter((product) => product.vibe === vibe).length,
+    count: products.filter((product) => getProductDepartments(product).includes(vibe)).length,
   })).filter((option) => option.count > 0);
 }
 
@@ -447,7 +456,7 @@ export function getAvailableMenuCategories(
   const safeIncludeNsfw = Array.isArray(productsOrVibe)
     ? includeNsfw
     : (typeof vibeOrIncludeNsfw === "boolean" ? vibeOrIncludeNsfw : includeNsfw);
-  const pool = vibe ? products.filter((product) => product.vibe === vibe) : products;
+  const pool = vibe ? products.filter((product) => getProductDepartments(product).includes(vibe)) : products;
   const available = new Set(pool.flatMap((product) => getProductCategories(product)));
 
   return Array.from(available)

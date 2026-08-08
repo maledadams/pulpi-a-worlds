@@ -437,9 +437,9 @@ export function Header({
   /* build mega sections */
   const megaSections = useMemo<Record<MegaKey, MegaSection>>(() => {
     const publicProducts = catalogProducts;
-    const moonPool = publicProducts.filter((p) => p.vibe === "moon");
-    const sunPool = publicProducts.filter((p) => p.vibe === "sunshine");
-    const menPool = publicProducts.filter((p) => p.vibe === "men");
+    const moonPool = publicProducts.filter((p) => p.vibe === "moon" || p.secondaryVibe === "moon");
+    const sunPool = publicProducts.filter((p) => p.vibe === "sunshine" || p.secondaryVibe === "sunshine");
+    const menPool = publicProducts.filter((p) => p.vibe === "men" || p.secondaryVibe === "men");
     const newPool = publicProducts.filter((p) => p.newArrival);
     const salePool = publicProducts.filter((p) => !!p.salePrice);
 

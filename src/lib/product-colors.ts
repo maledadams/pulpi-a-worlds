@@ -14,6 +14,9 @@ export const PRODUCT_COLOR_PRESETS = [
   { id: "white", label: "Blanco", hex: "#f4f1eb" },
   { id: "black", label: "Negro", hex: "#111111" },
   { id: "gray", label: "Gris", hex: "#9b9b9b" },
+  { id: "gold", label: "Dorado", hex: "#d4af37" },
+  { id: "silver", label: "Plateado", hex: "#c0c0c0" },
+  { id: "chrome", label: "Cromado", hex: "#a9b0b5" },
 ] as const;
 
 export type ProductColorPresetId = (typeof PRODUCT_COLOR_PRESETS)[number]["id"];
@@ -44,7 +47,6 @@ const COLOR_ALIASES: Record<string, ProductColorPresetId> = {
   peach: "orange",
   yellow: "yellow",
   amarillo: "yellow",
-  gold: "yellow",
   "light-green": "light-green",
   "light green": "light-green",
   "verde-claro": "light-green",
@@ -90,8 +92,19 @@ const COLOR_ALIASES: Record<string, ProductColorPresetId> = {
   gray: "gray",
   grey: "gray",
   gris: "gray",
-  silver: "gray",
   charcoal: "gray",
+  gold: "gold",
+  dorado: "gold",
+  oro: "gold",
+  silver: "silver",
+  plateado: "silver",
+  plata: "silver",
+  chrome: "chrome",
+  cromado: "chrome",
+  cromo: "chrome",
+  metallic: "chrome",
+  metalico: "chrome",
+  "metálico": "chrome",
 };
 
 export function normalizeProductColorId(value: string): ProductColorPresetId | null {

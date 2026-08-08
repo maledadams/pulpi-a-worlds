@@ -111,6 +111,7 @@ function createBlankProduct(): AdminProductRecord {
     slug: "",
     name: "",
     vibe: "moon",
+    secondaryVibe: null,
     sortOrder: 0,
     categories: [],
     primaryCategory: "",
@@ -593,11 +594,12 @@ function AdminProductsPage() {
   const handleExportCsv = () => {
     downloadAdminCsv(
       `productos-${new Date().toISOString().slice(0, 10)}.csv`,
-      ["ID", "Nombre", "Subtienda", "Categorias", "Precio", "Stock", "Visible", "Destacado", "Nuevo"],
+      ["ID", "Nombre", "Subtienda", "Subtienda secundaria", "Categorias", "Precio", "Stock", "Visible", "Destacado", "Nuevo"],
       filtered.map((product) => [
         product.id,
         product.name,
         getVibeLabel(product.vibe),
+        product.secondaryVibe ? getVibeLabel(product.secondaryVibe) : "",
         product.categories.map((category) => getCategoryLabel(category)).join(" / "),
         product.price,
         product.stock ?? 0,
@@ -694,19 +696,32 @@ function AdminProductsPage() {
                           <div className="text-xs text-[#6b5a55]">{product.id}</div>
                         </td>
                         <td className="py-3 pr-3">
-                          <span
-                            className={
-                              product.vibe === "moon" || product.vibe === "sunshine" || product.vibe === "men"
-                                ? getAdminVibeButtonClassName(
-                                    product.vibe,
-                                    true,
-                                    "pointer-events-none cursor-default rounded-[10px] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.16em]",
-                                  )
-                                : "pointer-events-none cursor-default rounded-[10px] bg-[#f3eadf] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-[#5f4941]"
-                            }
-                          >
-                            {getVibeLabel(product.vibe)}
-                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            <span
+                              className={
+                                product.vibe === "moon" || product.vibe === "sunshine" || product.vibe === "men"
+                                  ? getAdminVibeButtonClassName(
+                                      product.vibe,
+                                      true,
+                                      "pointer-events-none cursor-default rounded-[10px] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.16em]",
+                                    )
+                                  : "pointer-events-none cursor-default rounded-[10px] bg-[#f3eadf] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-[#5f4941]"
+                              }
+                            >
+                              {getVibeLabel(product.vibe)}
+                            </span>
+                            {product.secondaryVibe ? (
+                              <span
+                                className={getAdminVibeButtonClassName(
+                                  product.secondaryVibe,
+                                  false,
+                                  "pointer-events-none cursor-default rounded-[10px] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.16em]",
+                                )}
+                              >
+                                + {getVibeLabel(product.secondaryVibe)}
+                              </span>
+                            ) : null}
+                          </div>
                         </td>
                         <td className="py-3 pr-3">
                           <div className="flex max-w-[320px] flex-wrap gap-1">
@@ -780,7 +795,21 @@ function AdminProductsPage() {
 
                   <div className="grid gap-3 md:grid-cols-2">
                     <AdminField label="Subtienda">
-                      <AdminSelect value={draft.vibe} onChange={(event) => updateDraft("vibe", event.target.value as AdminProductRecord["vibe"])}>
+                      <AdminSelect
+                        value={draft.vibe}
+                        onChange={(event) => {
+                          const nextVibe = event.target.value as AdminProductRecord["vibe"];
+                          setDraft((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  vibe: nextVibe,
+                                  secondaryVibe: current.secondaryVibe === nextVibe ? null : current.secondaryVibe,
+                                }
+                              : current,
+                          );
+                        }}
+                      >
                         <option value="moon">Moon</option>
                         <option value="sunshine">Sunshine</option>
                         <option value="men">Men</option>
@@ -797,6 +826,30 @@ function AdminProductsPage() {
                       </AdminSelect>
                     </AdminField>
                   </div>
+
+                  <AdminField
+                    label="Tambien en (opcional)"
+                    hint="El producto aparece en su subtienda principal y, si eliges una aqui, tambien en esta segunda."
+                  >
+                    <AdminSelect
+                      value={draft.secondaryVibe ?? ""}
+                      onChange={(event) =>
+                        updateDraft(
+                          "secondaryVibe",
+                          event.target.value ? (event.target.value as AdminProductRecord["secondaryVibe"]) : null,
+                        )
+                      }
+                    >
+                      <option value="">Ninguna</option>
+                      {(["moon", "sunshine", "men"] as const)
+                        .filter((vibe) => vibe !== draft.vibe)
+                        .map((vibe) => (
+                          <option key={vibe} value={vibe}>
+                            {getVibeLabel(vibe)}
+                          </option>
+                        ))}
+                    </AdminSelect>
+                  </AdminField>
 
                   <AdminField label="Precio base">
                     <AdminInput

@@ -43,6 +43,7 @@ export type AdminProductRecord = {
   slug: string;
   name: string;
   vibe: Vibe;
+  secondaryVibe: SubstoreVibe | null;
   sortOrder: number;
   categories: string[];
   primaryCategory: string;

@@ -34,7 +34,9 @@ export function VibePage({
   onSearchChange: (next: CatalogSearch) => void;
 }) {
   useVibe(cfg.vibe);
-  const products = useCatalogProducts().filter((product) => product.vibe === cfg.vibe);
+  const products = useCatalogProducts().filter(
+    (product) => product.vibe === cfg.vibe || product.secondaryVibe === cfg.vibe,
+  );
   const catalogHeading = /^toda la linea$/i.test(cfg.catalogHeading.trim())
     ? "Toda la Linea"
     : cfg.catalogHeading;

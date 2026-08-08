@@ -30,6 +30,7 @@ export type Product = {
   slug: string;
   name: string;
   vibe: Vibe;
+  secondaryVibe?: SubstoreVibe | null;
   sortOrder?: number;
   category: string;
   categories?: string[];

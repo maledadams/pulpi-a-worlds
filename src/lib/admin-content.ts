@@ -289,7 +289,7 @@ function mergeCollectionProductIds(
   const scopedProducts =
     collection.vibe === "store"
       ? products
-      : products.filter((product) => product.vibe === collection.vibe);
+      : products.filter((product) => product.vibe === collection.vibe || product.secondaryVibe === collection.vibe);
   const explicitIds = collection.productIds.filter((productId) =>
     scopedProducts.some((product) => product.id === productId),
   );
