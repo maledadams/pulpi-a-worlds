@@ -286,7 +286,7 @@ function ProductPage() {
               // Absolutely positioned so this label can never push the image
               // or anything next to this column around - it's laid out on
               // top of the image, not in-flow above it.
-              <p className="pointer-events-none absolute left-0 right-0 top-2 z-10 text-center text-[10px] uppercase tracking-[0.2em] text-white/90 [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">
+              <p className="pointer-events-none absolute left-0 right-0 top-2 z-10 text-center text-[10px] uppercase tracking-[0.2em] text-[#243011] [text-shadow:0_1px_2px_rgba(255,255,255,0.55)]">
                 Toca la imagen para agrandar
               </p>
             ) : null}
