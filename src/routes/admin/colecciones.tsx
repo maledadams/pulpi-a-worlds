@@ -450,7 +450,16 @@ function AdminCollectionsPage() {
                 </div>
                 <div className="mt-2 grid max-h-[320px] gap-2 overflow-y-auto pr-1">
                   {filteredAssignableProducts.map((product) => {
-                    const active = draft.productIds.includes(product.id);
+                    // A product is "in" the collection either because it was
+                    // explicitly picked, or because its category matches the
+                    // collection's categoryIds (same rule the storefront uses
+                    // to resolve membership - see mergeCollectionProductIds).
+                    // Checking only productIds here made every category-matched
+                    // product look deselected even though it's really included.
+                    const active =
+                      draft.productIds.includes(product.id) ||
+                      (draft.categoryIds.length > 0 &&
+                        product.categories.some((category) => draft.categoryIds.includes(category)));
                     return (
                       <label
                         key={product.id}
