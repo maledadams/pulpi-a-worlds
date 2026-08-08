@@ -1,6 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { ProductCard } from "@/components/product/ProductCard";
 import { useCatalogProducts } from "@/context/catalog";
 import { useCart } from "@/context/cart";
@@ -196,6 +196,29 @@ function ProductPage() {
   const [color, setColor] = useState(colors[0]?.name ?? "Unica");
   const [qty, setQty] = useState(1);
   const [imageIndex, setImageIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxVisible, setLightboxVisible] = useState(false);
+
+  // Two-step mount so the overlay/image actually transition in instead of
+  // just appearing - the browser needs to paint the "hidden" state at least
+  // once before a class change to the "visible" state can animate.
+  useEffect(() => {
+    if (!lightboxOpen) {
+      setLightboxVisible(false);
+      return;
+    }
+    const raf = requestAnimationFrame(() => setLightboxVisible(true));
+    return () => cancelAnimationFrame(raf);
+  }, [lightboxOpen]);
+
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setLightboxOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [lightboxOpen]);
 
   // Navigating between products on this same route (e.g. a "more from this
   // vibe" link) does not remount the component, so imageIndex would
@@ -247,18 +270,30 @@ function ProductPage() {
     >
       <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-[minmax(0,32rem)_minmax(0,1fr)]">
         <div>
+          {currentImage ? (
+            <p className="mb-1.5 text-center text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+              Toca la imagen para agrandar
+            </p>
+          ) : null}
           <div
             className="relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl border border-foreground/20 grain"
             style={{ background: `linear-gradient(135deg, ${product.swatch[0]}, ${product.swatch[1]})` }}
           >
             {currentImage ? (
-              <img
-                src={currentImage.url}
-                alt={currentImage.altText ?? product.name}
-                fetchPriority="high"
-                decoding="async"
-                className="h-full w-full object-cover"
-              />
+              <button
+                type="button"
+                onClick={() => setLightboxOpen(true)}
+                className="h-full w-full cursor-zoom-in"
+                aria-label="Ver imagen completa"
+              >
+                <img
+                  src={currentImage.url}
+                  alt={currentImage.altText ?? product.name}
+                  fetchPriority="high"
+                  decoding="async"
+                  className="h-full w-full object-cover"
+                />
+              </button>
             ) : (
               <span className="select-none font-display text-[8rem] leading-none text-foreground/70 mix-blend-multiply md:text-[10rem]">
                 {product.name
@@ -397,6 +432,56 @@ function ProductPage() {
             ))}
           </div>
         </section>
+      ) : null}
+
+      {lightboxOpen && currentImage ? (
+        <div
+          className={`fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 transition-opacity duration-300 ${
+            lightboxVisible ? "opacity-100" : "opacity-0"
+          }`}
+          onClick={() => setLightboxOpen(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setLightboxOpen(false)}
+            aria-label="Cerrar"
+            className="absolute right-4 top-4 z-10 rounded-full bg-white/10 p-2 text-white transition hover:bg-white/20"
+          >
+            <X className="h-6 w-6" />
+          </button>
+          <div
+            className={`relative flex max-h-[90vh] max-w-[90vw] items-center justify-center transition-all duration-300 ${
+              lightboxVisible ? "scale-100 opacity-100" : "scale-90 opacity-0"
+            }`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            {galleryImages.length > 1 ? (
+              <button
+                type="button"
+                onClick={() => setImageIndex((current) => (current === 0 ? galleryImages.length - 1 : current - 1))}
+                className="absolute left-2 top-1/2 z-10 -translate-y-1/2 bg-black/30 p-2 text-white transition hover:bg-black/50 sm:-left-14"
+                aria-label="Imagen anterior"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </button>
+            ) : null}
+            <img
+              src={currentImage.url}
+              alt={currentImage.altText ?? product.name}
+              className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
+            />
+            {galleryImages.length > 1 ? (
+              <button
+                type="button"
+                onClick={() => setImageIndex((current) => (current === galleryImages.length - 1 ? 0 : current + 1))}
+                className="absolute right-2 top-1/2 z-10 -translate-y-1/2 bg-black/30 p-2 text-white transition hover:bg-black/50 sm:-right-14"
+                aria-label="Imagen siguiente"
+              >
+                <ChevronRight className="h-6 w-6" />
+              </button>
+            ) : null}
+          </div>
+        </div>
       ) : null}
     </div>
   );

@@ -428,6 +428,15 @@ function AdminProductsPage() {
   };
 
   const performSave = (value: AdminProductRecord, options: { silent?: boolean } = {}) => {
+    // The Product ID field is only editable before the first save (see the
+    // persistedIds-gated field below) and then locks forever - saving while
+    // it's still the auto-generated draft-<timestamp> placeholder means
+    // nobody can ever give this product a real id again.
+    if (value.id.trim().startsWith("draft-")) {
+      return Promise.reject(
+        new Error("Este producto todavia tiene el ID temporal. Cambia el Product ID por uno real antes de guardar."),
+      );
+    }
     const normalized = normalizeDraftForSave(value);
     const slugConflict = rows.find((product) => product.id !== value.id && product.slug === normalized.slug);
     if (slugConflict) {
@@ -768,8 +777,24 @@ function AdminProductsPage() {
                   </div>
 
                   {!persistedIds.has(draft.id) ? (
-                    <AdminField label="Product ID" hint="Se usa como referencia interna unica para este producto.">
-                      <AdminInput value={draft.id} onChange={(event) => updateDraft("id", event.target.value)} />
+                    <AdminField
+                      label="Product ID"
+                      hint="Se usa como referencia interna unica para este producto. Una vez guardado no se puede editar."
+                    >
+                      <AdminInput
+                        value={draft.id}
+                        onChange={(event) => updateDraft("id", event.target.value)}
+                        className={
+                          draft.id.trim().startsWith("draft-")
+                            ? "border-red-500 bg-red-50 focus:border-red-500 focus-visible:ring-red-200"
+                            : undefined
+                        }
+                      />
+                      {draft.id.trim().startsWith("draft-") ? (
+                        <span className="text-xs font-bold text-red-600">
+                          Este es un ID temporal - cambialo por uno real (ej. el mismo slug) antes de guardar. No se puede editar despues.
+                        </span>
+                      ) : null}
                     </AdminField>
                   ) : (
                     <AdminField label="Product ID">
