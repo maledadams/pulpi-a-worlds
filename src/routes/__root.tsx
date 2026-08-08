@@ -25,7 +25,7 @@ import {
   getStorefrontSettings,
 } from "@/lib/admin-content";
 import { getStorefrontCatalog } from "@/lib/catalog";
-import { absoluteSiteUrl, SITE_NAME, SITE_URL } from "@/lib/seo";
+import { absoluteSiteUrl, SITE_NAME, SITE_NAME_VARIANTS, SITE_URL } from "@/lib/seo";
 import generalPineapple from "@/assets/PULPINAGENERALPINA.svg";
 import moonPineapple from "@/assets/PULPINAMOONPINA.svg";
 import generalLogo from "@/assets/logo-sunshine.png";
@@ -85,6 +85,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", type: "image/svg+xml", href: generalPineapple, media: "(prefers-color-scheme: light)" },
       { rel: "icon", type: "image/svg+xml", href: moonPineapple, media: "(prefers-color-scheme: dark)" },
       { rel: "icon", href: "/favicon.ico", sizes: "any" },
+      // Explicit square PNGs at sizes Google Search's favicon crawler checks
+      // for (multiples of 48px) - the SVGs above are for browsers, this is
+      // the fallback that keeps working for crawlers that skip SVG icons.
+      { rel: "icon", type: "image/png", href: "/icons/icon-48.png", sizes: "48x48" },
+      { rel: "icon", type: "image/png", href: "/icons/icon-96.png", sizes: "96x96" },
+      { rel: "icon", type: "image/png", href: "/icons/icon-192.png", sizes: "192x192" },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
@@ -100,6 +106,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "@context": "https://schema.org",
           "@type": "WebSite",
           name: SITE_NAME,
+          alternateName: SITE_NAME_VARIANTS,
           url: SITE_URL,
         }),
       },
@@ -109,6 +116,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "@context": "https://schema.org",
           "@type": "Organization",
           name: SITE_NAME,
+          alternateName: SITE_NAME_VARIANTS,
           url: SITE_URL,
           logo: absoluteSiteUrl(generalLogo),
           ...(loaderData?.settings.instagramUrl

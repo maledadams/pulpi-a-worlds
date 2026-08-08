@@ -9,7 +9,13 @@ import { formatPrice, type Product } from "@/data/products";
 import { useVibe } from "@/hooks/use-vibe";
 import { getStorefrontProductBySlug } from "@/lib/catalog";
 import { buildProductColorRecord, normalizeProductColorName } from "@/lib/product-colors";
-import { absoluteSiteUrl, buildBreadcrumbJsonLd, createSeoHead, SITE_NAME } from "@/lib/seo";
+import {
+  absoluteSiteUrl,
+  buildBreadcrumbJsonLd,
+  createSeoHead,
+  resolveStructuredDataImage,
+  SITE_NAME,
+} from "@/lib/seo";
 
 const VIBE_CRUMB: Partial<Record<string, { name: string; path: string }>> = {
   moon: { name: "Moon", path: "/moon" },
@@ -46,7 +52,8 @@ export const Route = createFileRoute("/producto/$slug")({
             "@type": "Product",
             name: product.name,
             description: product.description,
-            image: productImage ? [productImage] : undefined,
+            image: resolveStructuredDataImage(productImage),
+            sku: product.id,
             url: absoluteSiteUrl(`/producto/${params.slug}`),
             brand: { "@type": "Brand", name: SITE_NAME },
             offers: {

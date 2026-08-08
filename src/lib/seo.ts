@@ -2,6 +2,9 @@ import defaultShareImage from "@/assets/logo-sunshine.png";
 
 export const SITE_URL = "https://pulpinastore.com";
 export const SITE_NAME = "Pulpiña RD";
+// So Google associates searches for the name without the ñ (or without
+// "RD") with the same brand - people type this store's name several ways.
+export const SITE_NAME_VARIANTS = ["Pulpina RD", "Pulpiña", "Pulpina", "PulpinaRD"];
 
 type SeoOptions = {
   description?: string;
@@ -46,6 +49,12 @@ export function createSeoHead({ description, image, noIndex = false, pageName, p
     meta,
     links: noIndex ? [] : [{ rel: "canonical", href: url }],
   };
+}
+
+// Google's merchant/product structured data treats a missing "image" as a
+// critical error - products without real photos still need something here.
+export function resolveStructuredDataImage(image?: string) {
+  return [absoluteSiteUrl(image || defaultShareImage)];
 }
 
 export function buildBreadcrumbJsonLd(items: Array<{ name: string; path?: string }>) {
