@@ -1,5 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { ProductCard } from "@/components/product/ProductCard";
 import { useCatalogProducts } from "@/context/catalog";
@@ -198,6 +199,7 @@ function ProductPage() {
   const [imageIndex, setImageIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxVisible, setLightboxVisible] = useState(false);
+  const imageFrameRef = useRef<HTMLDivElement | null>(null);
 
   // Two-step mount so the overlay/image actually transition in instead of
   // just appearing - the browser needs to paint the "hidden" state at least
@@ -207,6 +209,11 @@ function ProductPage() {
       setLightboxVisible(false);
       return;
     }
+    // Center the product image in the viewport first, so the fixed overlay
+    // (which covers the header/announcement/footer completely) opens right
+    // where the visitor is already looking instead of snapping to wherever
+    // the page happened to be scrolled.
+    imageFrameRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     const raf = requestAnimationFrame(() => setLightboxVisible(true));
     return () => cancelAnimationFrame(raf);
   }, [lightboxOpen]);
@@ -270,15 +277,19 @@ function ProductPage() {
     >
       <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-[minmax(0,32rem)_minmax(0,1fr)]">
         <div>
-          {currentImage ? (
-            <p className="mb-1.5 text-center text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-              Toca la imagen para agrandar
-            </p>
-          ) : null}
           <div
+            ref={imageFrameRef}
             className="relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl border border-foreground/20 grain"
             style={{ background: `linear-gradient(135deg, ${product.swatch[0]}, ${product.swatch[1]})` }}
           >
+            {currentImage ? (
+              // Absolutely positioned so this label can never push the image
+              // or anything next to this column around - it's laid out on
+              // top of the image, not in-flow above it.
+              <p className="pointer-events-none absolute left-0 right-0 top-2 z-10 text-center text-[10px] uppercase tracking-[0.2em] text-white/90 [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">
+                Toca la imagen para agrandar
+              </p>
+            ) : null}
             {currentImage ? (
               <button
                 type="button"
@@ -434,55 +445,64 @@ function ProductPage() {
         </section>
       ) : null}
 
-      {lightboxOpen && currentImage ? (
-        <div
-          className={`fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 transition-opacity duration-300 ${
-            lightboxVisible ? "opacity-100" : "opacity-0"
-          }`}
-          onClick={() => setLightboxOpen(false)}
-        >
-          <button
-            type="button"
-            onClick={() => setLightboxOpen(false)}
-            aria-label="Cerrar"
-            className="absolute right-4 top-4 z-10 rounded-full bg-white/10 p-2 text-white transition hover:bg-white/20"
-          >
-            <X className="h-6 w-6" />
-          </button>
-          <div
-            className={`relative flex max-h-[90vh] max-w-[90vw] items-center justify-center transition-all duration-300 ${
-              lightboxVisible ? "scale-100 opacity-100" : "scale-90 opacity-0"
-            }`}
-            onClick={(event) => event.stopPropagation()}
-          >
-            {galleryImages.length > 1 ? (
+      {lightboxOpen && currentImage && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className={`fixed inset-0 z-50 flex items-center justify-center bg-black p-4 transition-opacity duration-300 ${
+                lightboxVisible ? "opacity-100" : "opacity-0"
+              }`}
+              onClick={() => setLightboxOpen(false)}
+            >
               <button
                 type="button"
-                onClick={() => setImageIndex((current) => (current === 0 ? galleryImages.length - 1 : current - 1))}
-                className="absolute left-2 top-1/2 z-10 -translate-y-1/2 bg-black/30 p-2 text-white transition hover:bg-black/50 sm:-left-14"
-                aria-label="Imagen anterior"
+                onClick={() => setLightboxOpen(false)}
+                aria-label="Cerrar"
+                className="absolute right-4 top-4 z-10 rounded-full bg-white/10 p-2 text-white transition hover:bg-white/20"
               >
-                <ChevronLeft className="h-6 w-6" />
+                <X className="h-6 w-6" />
               </button>
-            ) : null}
-            <img
-              src={currentImage.url}
-              alt={currentImage.altText ?? product.name}
-              className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
-            />
-            {galleryImages.length > 1 ? (
-              <button
-                type="button"
-                onClick={() => setImageIndex((current) => (current === galleryImages.length - 1 ? 0 : current + 1))}
-                className="absolute right-2 top-1/2 z-10 -translate-y-1/2 bg-black/30 p-2 text-white transition hover:bg-black/50 sm:-right-14"
-                aria-label="Imagen siguiente"
+              <div
+                className={`relative flex max-h-[90vh] max-w-[90vw] items-center justify-center transition-all duration-300 ${
+                  lightboxVisible ? "scale-100 opacity-100" : "scale-90 opacity-0"
+                }`}
+                onClick={(event) => event.stopPropagation()}
               >
-                <ChevronRight className="h-6 w-6" />
-              </button>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+                {galleryImages.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setImageIndex((current) => (current === 0 ? galleryImages.length - 1 : current - 1))
+                    }
+                    className="absolute left-2 top-1/2 z-10 -translate-y-1/2 bg-black/30 p-2 text-white transition hover:bg-black/50 sm:-left-14"
+                    aria-label="Imagen anterior"
+                  >
+                    <ChevronLeft className="h-6 w-6" />
+                  </button>
+                ) : null}
+                <img
+                  src={currentImage.url}
+                  alt={currentImage.altText ?? product.name}
+                  className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
+                />
+                {galleryImages.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setImageIndex((current) =>
+                        current === galleryImages.length - 1 ? 0 : current + 1,
+                      )
+                    }
+                    className="absolute right-2 top-1/2 z-10 -translate-y-1/2 bg-black/30 p-2 text-white transition hover:bg-black/50 sm:-right-14"
+                    aria-label="Imagen siguiente"
+                  >
+                    <ChevronRight className="h-6 w-6" />
+                  </button>
+                ) : null}
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
