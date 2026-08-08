@@ -252,8 +252,15 @@ function AdminCategoriesPage() {
     });
   };
 
+  // While a category is still a fresh draft, its id gets derived from
+  // whatever the label reads at the moment of the FIRST save (see
+  // performSave above) - same as products, which only lock in a slug once
+  // saved. If autosave fired mid-typing it would freeze that id to a
+  // half-typed label instead of the finished one, so autosave stays off
+  // until the admin explicitly saves once and the category gets a real id.
   const autosave = useAdminAutosave(draft, (value) => performSave(value, { silent: true }), {
     resetKey: selectedId,
+    enabled: Boolean(draft && !draft.id.startsWith("draft-category-")),
   });
 
   const handleSave = () => {

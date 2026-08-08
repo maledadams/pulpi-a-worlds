@@ -54,7 +54,6 @@ type CollectionRow = {
   description: string | null;
   department_scope: string | null;
   is_published: number | null;
-  featured: number;
   show_on_home: number | null;
   home_order: number | null;
   category_ids_json: string | null;
@@ -117,7 +116,6 @@ const collectionSchema = z.object({
   description: z.string().trim(),
   vibe: z.enum(["store", "pulpina", "men", "moon", "sunshine"]),
   published: z.boolean(),
-  featured: z.boolean(),
   showOnHome: z.boolean(),
   homeOrder: z.number().int().nonnegative(),
   categoryIds: z.array(z.string().trim().min(1)),
@@ -552,13 +550,12 @@ async function ensureAdminContentReady(db: D1Database) {
             description,
             department_scope,
             is_published,
-            featured,
             show_on_home,
             home_order,
             category_ids_json,
             product_ids_json
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         await db.batch(
           ADMIN_COLLECTIONS.map((collection) =>
@@ -569,7 +566,6 @@ async function ensureAdminContentReady(db: D1Database) {
               collection.description,
               collection.vibe,
               collection.published ? 1 : 0,
-              collection.featured ? 1 : 0,
               collection.showOnHome ? 1 : 0,
               collection.homeOrder,
               JSON.stringify(collection.categoryIds),
@@ -694,7 +690,6 @@ function parseCollectionRow(row: CollectionRow): AdminCollectionRecord {
     description: row.description ?? "",
     vibe: (vibe === "store" ? "store" : vibe) as AdminCollectionRecord["vibe"],
     published: row.is_published !== 0,
-    featured: row.featured === 1,
     showOnHome: row.show_on_home === 1,
     homeOrder: row.home_order ?? 0,
     categoryIds: Array.isArray(rawCategoryIds) ? rawCategoryIds.filter((entry): entry is string => typeof entry === "string") : [],
@@ -1060,7 +1055,7 @@ async function listCollectionsInternal() {
   await ensureAdminContentReady(db);
   const rows = await db
     .prepare(`
-      SELECT id, slug, name, description, department_scope, featured, show_on_home, home_order, category_ids_json, product_ids_json
+      SELECT id, slug, name, description, department_scope, show_on_home, home_order, category_ids_json, product_ids_json
       , is_published
       FROM collections
       ORDER BY show_on_home DESC, home_order ASC, name ASC
@@ -1137,20 +1132,18 @@ async function saveCollectionInternal(input: AdminCollectionRecord) {
         description,
         department_scope,
         is_published,
-        featured,
         show_on_home,
         home_order,
         category_ids_json,
         product_ids_json
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         slug = excluded.slug,
         name = excluded.name,
         description = excluded.description,
         department_scope = excluded.department_scope,
         is_published = excluded.is_published,
-        featured = excluded.featured,
         show_on_home = excluded.show_on_home,
         home_order = excluded.home_order,
         category_ids_json = excluded.category_ids_json,
@@ -1163,7 +1156,6 @@ async function saveCollectionInternal(input: AdminCollectionRecord) {
       normalized.description,
       normalized.vibe,
       normalized.published ? 1 : 0,
-      normalized.featured ? 1 : 0,
       normalized.showOnHome ? 1 : 0,
       normalized.homeOrder,
       JSON.stringify(normalized.categoryIds),

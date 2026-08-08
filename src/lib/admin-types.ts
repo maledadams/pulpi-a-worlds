@@ -85,7 +85,6 @@ export type AdminCollectionRecord = {
   description: string;
   vibe: Vibe | "store";
   published: boolean;
-  featured: boolean;
   showOnHome: boolean;
   homeOrder: number;
   categoryIds: string[];

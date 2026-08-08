@@ -47,7 +47,6 @@ function createBlankCollection(): AdminCollectionRecord {
     description: "",
     vibe: "store",
     published: true,
-    featured: false,
     showOnHome: false,
     homeOrder: 0,
     categoryIds: [],
@@ -331,7 +330,6 @@ function AdminCollectionsPage() {
                       </div>
                       <div className="flex flex-wrap justify-end gap-1">
                         {collection.published ? <AdminTag tone="dark">Publica</AdminTag> : <AdminTag tone="warn">Oculta</AdminTag>}
-                        {collection.featured ? <AdminTag tone="dark">Destacada</AdminTag> : null}
                         {collection.showOnHome ? <AdminTag tone="soft">Inicio #{collection.homeOrder}</AdminTag> : null}
                       </div>
                     </div>
@@ -379,13 +377,9 @@ function AdminCollectionsPage() {
               </AdminField>
               <AdminCheckbox
                 label="Publicar coleccion"
+                hint="Si esta apagada, la pagina de la coleccion no existe y no aparece en el sitemap."
                 checked={draft.published}
                 onCheckedChange={(checked) => setDraft((current) => (current ? { ...current, published: checked } : current))}
-              />
-              <AdminCheckbox
-                label="Coleccion destacada"
-                checked={draft.featured}
-                onCheckedChange={(checked) => setDraft((current) => (current ? { ...current, featured: checked } : current))}
               />
               <AdminCheckbox
                 label="Mostrar en inicio"
