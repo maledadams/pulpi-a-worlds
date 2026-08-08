@@ -759,6 +759,25 @@ export async function saveCatalogProductInternal(record: AdminProductRecord) {
     );
   }
 
+  // Stock adjustments look up a variant purely by its id across the WHOLE
+  // catalog (see adjustCatalogVariantInventoryInternal) - if two products
+  // ever end up with the same variant id, clicking +Entrada/-Salida on one
+  // silently moves stock on the other instead, with no error either way.
+  // This happened for real from a bulk-import bug (two bracelets both
+  // landing on "pulsera-de-acero-unica"), so this check exists specifically
+  // to make that class of bug impossible to reintroduce, from any caller.
+  const incomingVariantIds = new Set(normalized.variants.map((variant) => variant.id));
+  const variantConflict = currentProducts.find(
+    (product) =>
+      product.id !== normalized.id &&
+      product.variants.some((variant) => incomingVariantIds.has(variant.id)),
+  );
+  if (variantConflict) {
+    throw new Error(
+      `Este producto tiene una variante con el mismo ID interno que "${variantConflict.name || variantConflict.id}". Cambia el slug (las variantes se derivan de el) antes de guardar - de lo contrario el stock de ambos productos se mezclaria.`,
+    );
+  }
+
   const db = await getDatabase();
 
   if (!db) {
