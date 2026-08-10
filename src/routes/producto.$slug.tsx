@@ -1,6 +1,7 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { ProductCard } from "@/components/product/ProductCard";
 import { useCatalogProducts } from "@/context/catalog";
 import { useCart } from "@/context/cart";
@@ -8,7 +9,19 @@ import { formatPrice, type Product } from "@/data/products";
 import { useVibe } from "@/hooks/use-vibe";
 import { getStorefrontProductBySlug } from "@/lib/catalog";
 import { buildProductColorRecord, normalizeProductColorName } from "@/lib/product-colors";
-import { absoluteSiteUrl, createSeoHead, SITE_NAME } from "@/lib/seo";
+import {
+  absoluteSiteUrl,
+  buildBreadcrumbJsonLd,
+  createSeoHead,
+  resolveStructuredDataImage,
+  SITE_NAME,
+} from "@/lib/seo";
+
+const VIBE_CRUMB: Partial<Record<string, { name: string; path: string }>> = {
+  moon: { name: "Moon", path: "/moon" },
+  sunshine: { name: "Sunshine", path: "/sunshine" },
+  men: { name: "Men", path: "/men" },
+};
 
 export const Route = createFileRoute("/producto/$slug")({
   loader: async ({ params }) => {
@@ -20,12 +33,15 @@ export const Route = createFileRoute("/producto/$slug")({
   head: ({ loaderData, params }) => {
     const product = loaderData?.product;
     if (!product) return {};
+    const productImage = product.featuredImage?.url || product.images[0]?.url;
     const seo = createSeoHead({
       pageName: product.name,
       path: `/producto/${params.slug}`,
       description: product.description,
       type: "product",
+      image: productImage,
     });
+    const parentCrumb = VIBE_CRUMB[product.vibe] ?? { name: "Tienda", path: "/tienda" };
     return {
       ...seo,
       scripts: [
@@ -36,6 +52,8 @@ export const Route = createFileRoute("/producto/$slug")({
             "@type": "Product",
             name: product.name,
             description: product.description,
+            image: resolveStructuredDataImage(productImage),
+            sku: product.id,
             url: absoluteSiteUrl(`/producto/${params.slug}`),
             brand: { "@type": "Brand", name: SITE_NAME },
             offers: {
@@ -48,6 +66,16 @@ export const Route = createFileRoute("/producto/$slug")({
               url: absoluteSiteUrl(`/producto/${params.slug}`),
             },
           }),
+        },
+        {
+          type: "application/ld+json",
+          children: JSON.stringify(
+            buildBreadcrumbJsonLd([
+              { name: "Inicio", path: "/" },
+              parentCrumb,
+              { name: product.name, path: `/producto/${params.slug}` },
+            ]),
+          ),
         },
       ],
     };
@@ -176,6 +204,43 @@ function ProductPage() {
   const [color, setColor] = useState(colors[0]?.name ?? "Unica");
   const [qty, setQty] = useState(1);
   const [imageIndex, setImageIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxVisible, setLightboxVisible] = useState(false);
+  const imageFrameRef = useRef<HTMLDivElement | null>(null);
+
+  // Two-step mount so the overlay/image actually transition in instead of
+  // just appearing - the browser needs to paint the "hidden" state at least
+  // once before a class change to the "visible" state can animate.
+  useEffect(() => {
+    if (!lightboxOpen) {
+      setLightboxVisible(false);
+      return;
+    }
+    // Center the product image in the viewport first, so the fixed overlay
+    // (which covers the header/announcement/footer completely) opens right
+    // where the visitor is already looking instead of snapping to wherever
+    // the page happened to be scrolled.
+    imageFrameRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const raf = requestAnimationFrame(() => setLightboxVisible(true));
+    return () => cancelAnimationFrame(raf);
+  }, [lightboxOpen]);
+
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setLightboxOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [lightboxOpen]);
+
+  // Navigating between products on this same route (e.g. a "more from this
+  // vibe" link) does not remount the component, so imageIndex would
+  // otherwise stay at whatever it was on the previous product - showing the
+  // initials placeholder if the new product has fewer images.
+  useEffect(() => {
+    setImageIndex(0);
+  }, [product.id]);
 
   const selectedVariant = useMemo(
     () =>
@@ -193,19 +258,6 @@ function ProductPage() {
     typeof selectedVariant?.compareAtPrice === "number" && selectedVariant.compareAtPrice > selectedVariant.price;
   const related = useMemo(() => getMoreFromThisVibeProducts(product, products), [product, products]);
   const currentImage = galleryImages[imageIndex] ?? null;
-  const averageLuma =
-    product.swatch
-      .map((hex) => {
-        const clean = hex.replace("#", "");
-        const normalized = clean.length === 3 ? clean.split("").map((char) => `${char}${char}`).join("") : clean;
-        const value = Number.parseInt(normalized, 16);
-        const r = (value >> 16) & 255;
-        const g = (value >> 8) & 255;
-        const b = value & 255;
-        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-      })
-      .reduce((total, value) => total + value, 0) / product.swatch.length;
-  const arrowToneClass = averageLuma < 140 ? "text-white" : "text-black";
 
   return (
     <div
@@ -220,15 +272,25 @@ function ProductPage() {
       <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-[minmax(0,32rem)_minmax(0,1fr)]">
         <div>
           <div
+            ref={imageFrameRef}
             className="relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl border border-foreground/20 grain"
             style={{ background: `linear-gradient(135deg, ${product.swatch[0]}, ${product.swatch[1]})` }}
           >
             {currentImage ? (
-              <img
-                src={currentImage.url}
-                alt={currentImage.altText ?? product.name}
-                className="h-full w-full object-cover"
-              />
+              <button
+                type="button"
+                onClick={() => setLightboxOpen(true)}
+                className="h-full w-full cursor-zoom-in"
+                aria-label="Ver imagen completa"
+              >
+                <img
+                  src={currentImage.url}
+                  alt={currentImage.altText ?? product.name}
+                  fetchPriority="high"
+                  decoding="async"
+                  className="h-full w-full object-cover"
+                />
+              </button>
             ) : (
               <span className="select-none font-display text-[8rem] leading-none text-foreground/70 mix-blend-multiply md:text-[10rem]">
                 {product.name
@@ -242,14 +304,14 @@ function ProductPage() {
               <>
                 <button
                   onClick={() => setImageIndex((current) => (current === 0 ? galleryImages.length - 1 : current - 1))}
-                  className={`absolute left-3 top-1/2 z-10 -translate-y-1/2 bg-black/20 p-2 transition hover:bg-black/35 ${arrowToneClass}`}
+                  className="absolute left-3 top-1/2 z-10 -translate-y-1/2 bg-black/20 p-2 text-white transition hover:bg-black/35"
                   aria-label="Imagen anterior"
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
                 <button
                   onClick={() => setImageIndex((current) => (current === galleryImages.length - 1 ? 0 : current + 1))}
-                  className={`absolute right-3 top-1/2 z-10 -translate-y-1/2 bg-black/20 p-2 transition hover:bg-black/35 ${arrowToneClass}`}
+                  className="absolute right-3 top-1/2 z-10 -translate-y-1/2 bg-black/20 p-2 text-white transition hover:bg-black/35"
                   aria-label="Imagen siguiente"
                 >
                   <ChevronRight className="h-5 w-5" />
@@ -258,7 +320,7 @@ function ProductPage() {
             ) : null}
           </div>
           {galleryImages.length > 1 ? (
-            <div className={`mt-3 flex items-center justify-center text-sm font-black uppercase ${arrowToneClass}`}>
+            <div className="mt-3 flex items-center justify-center text-sm font-black uppercase text-foreground">
               <span className="text-[10px] tracking-[0.24em] opacity-80">
                 {imageIndex + 1} / {galleryImages.length}
               </span>
@@ -368,6 +430,65 @@ function ProductPage() {
           </div>
         </section>
       ) : null}
+
+      {lightboxOpen && currentImage && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className={`fixed inset-0 z-50 flex items-center justify-center bg-black p-4 transition-opacity duration-300 ${
+                lightboxVisible ? "opacity-100" : "opacity-0"
+              }`}
+              onClick={() => setLightboxOpen(false)}
+            >
+              <button
+                type="button"
+                onClick={() => setLightboxOpen(false)}
+                aria-label="Cerrar"
+                className="absolute right-4 top-4 z-10 rounded-full bg-white/10 p-2 text-white transition hover:bg-white/20"
+              >
+                <X className="h-6 w-6" />
+              </button>
+              <div
+                className={`relative flex max-h-[90vh] max-w-[90vw] items-center justify-center transition-all duration-300 ${
+                  lightboxVisible ? "scale-100 opacity-100" : "scale-90 opacity-0"
+                }`}
+                onClick={(event) => event.stopPropagation()}
+              >
+                {galleryImages.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setImageIndex((current) => (current === 0 ? galleryImages.length - 1 : current - 1))
+                    }
+                    className="absolute left-2 top-1/2 z-10 -translate-y-1/2 bg-black/30 p-2 text-white transition hover:bg-black/50 sm:-left-14"
+                    aria-label="Imagen anterior"
+                  >
+                    <ChevronLeft className="h-6 w-6" />
+                  </button>
+                ) : null}
+                <img
+                  src={currentImage.url}
+                  alt={currentImage.altText ?? product.name}
+                  className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
+                />
+                {galleryImages.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setImageIndex((current) =>
+                        current === galleryImages.length - 1 ? 0 : current + 1,
+                      )
+                    }
+                    className="absolute right-2 top-1/2 z-10 -translate-y-1/2 bg-black/30 p-2 text-white transition hover:bg-black/50 sm:-right-14"
+                    aria-label="Imagen siguiente"
+                  >
+                    <ChevronRight className="h-6 w-6" />
+                  </button>
+                ) : null}
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

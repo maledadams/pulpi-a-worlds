@@ -1,16 +1,27 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AdminPanel, AdminShell } from "@/components/admin/AdminShell";
-import {
-  AdminButton,
+import {  AdminButton,
   AdminField,
   AdminInput,
+  AdminTabs,
   AdminToast,
+  type AdminToastTone,
   AdminTextarea,
   confirmAdminDestructiveAction,
 } from "@/components/admin/AdminControls";
+import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { getAdminSettingsRecord, saveAdminSettingsRecord } from "@/lib/admin-content";
+
+type SettingsTab = "contacto" | "faqs" | "legal";
+
+const SETTINGS_TABS: Array<{ id: SettingsTab; label: string }> = [
+  { id: "contacto", label: "Contacto" },
+  { id: "faqs", label: "Preguntas frecuentes" },
+  { id: "legal", label: "Legal y privacidad" },
+];
 
 export const Route = createFileRoute("/admin/configuracion")({
   beforeLoad: () => enforceAdminAccess(),
@@ -23,6 +34,13 @@ function AdminSettingsPage() {
   const { settings } = Route.useLoaderData();
   const [form, setForm] = useState(settings);
   const [saveMessage, setSaveMessage] = useState("");
+  const [saveTone, setSaveTone] = useState<AdminToastTone>("info");
+  const showSaveMessage = (text: string, tone: AdminToastTone = "info") => {
+    setSaveMessage(text);
+    setSaveTone(tone);
+  };
+  const [tab, setTab] = useState<SettingsTab>("contacto");
+  const [expandedLegalId, setExpandedLegalId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!saveMessage) return;
@@ -30,15 +48,19 @@ function AdminSettingsPage() {
     return () => window.clearTimeout(timeout);
   }, [saveMessage]);
 
+  const performSave = (value: typeof form, options: { silent?: boolean } = {}) => {
+    return saveAdminSettingsRecord({ data: value }).then((saved) => {
+      setForm(saved);
+      if (!options.silent) showSaveMessage("Configuracion guardada.", "success");
+    });
+  };
+
+  const autosave = useAdminAutosave(form, (value) => performSave(value, { silent: true }));
+
   const handleSave = () => {
-    void saveAdminSettingsRecord({ data: form })
-      .then((saved) => {
-        setForm(saved);
-        setSaveMessage("Configuracion guardada.");
-      })
-      .catch(() => {
-        setSaveMessage("No se pudo guardar la configuracion ahora mismo.");
-      });
+    void performSave(form).catch(() => {
+      showSaveMessage("No se pudo guardar la configuracion ahora mismo.", "error");
+    });
   };
 
   return (
@@ -46,12 +68,16 @@ function AdminSettingsPage() {
       section="configuracion"
       title="Configuracion"
       actions={
-        <AdminButton tone="primary" onClick={handleSave}>
-          Guardar cambios
-        </AdminButton>
+        <>
+          <AdminButton tone="primary" onClick={handleSave}>
+            Guardar cambios
+          </AdminButton>        </>
       }
     >
       <div className="grid gap-4">
+        <AdminTabs tabs={SETTINGS_TABS} active={tab} onChange={setTab} />
+
+        {tab === "contacto" ? (
         <AdminPanel title="Canales de contacto">
           <div className="grid gap-3 md:grid-cols-2">
             <AdminField label="Nombre del negocio">
@@ -106,7 +132,9 @@ function AdminSettingsPage() {
             </AdminField>
           </div>
         </AdminPanel>
+        ) : null}
 
+        {tab === "faqs" ? (
         <AdminPanel
           title="Preguntas frecuentes"
           actions={
@@ -128,7 +156,7 @@ function AdminSettingsPage() {
         >
           <div className="grid gap-3">
             {form.contactFaqs.map((faq) => (
-              <div key={faq.id} className="rounded-[18px] border border-[#231717]/15 bg-[#faf6f0] p-4">
+              <div key={faq.id} className="rounded-[18px] bg-[#faf6f0] p-4">
                 <div className="grid gap-3">
                   <div className="flex justify-end">
                     <AdminButton
@@ -176,21 +204,22 @@ function AdminSettingsPage() {
             ))}
           </div>
         </AdminPanel>
+        ) : null}
 
+        {tab === "legal" ? (
         <AdminPanel
           title="Legal y privacidad"
           actions={
             <AdminButton
               tone="secondary"
-              onClick={() =>
+              onClick={() => {
+                const newId = `legal-${Date.now()}`;
                 setForm((current) => ({
                   ...current,
-                  legalSections: [
-                    ...current.legalSections,
-                    { id: `legal-${Date.now()}`, title: "", body: "" },
-                  ],
-                }))
-              }
+                  legalSections: [...current.legalSections, { id: newId, title: "", body: "" }],
+                }));
+                setExpandedLegalId(newId);
+              }}
             >
               Agregar bloque legal
             </AdminButton>
@@ -250,57 +279,71 @@ function AdminSettingsPage() {
               />
             </AdminField>
 
-            {form.legalSections.map((section) => (
-              <div key={section.id} className="rounded-[18px] border border-[#231717]/15 bg-[#faf6f0] p-4">
-                <div className="grid gap-3">
-                  <div className="flex justify-end">
-                    <AdminButton
-                      tone="ghost"
-                      onClick={() =>
-                        confirmAdminDestructiveAction("Vas a eliminar este bloque legal. ¿Quieres continuar?") &&
-                        setForm((current) => ({
-                          ...current,
-                          legalSections: current.legalSections.filter((entry) => entry.id !== section.id),
-                        }))
-                      }
-                    >
-                      Quitar
-                    </AdminButton>
-                  </div>
-                  <AdminField label="Titulo del bloque">
-                    <AdminInput
-                      value={section.title}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          legalSections: current.legalSections.map((entry) =>
-                            entry.id === section.id ? { ...entry, title: event.target.value } : entry,
-                          ),
-                        }))
-                      }
-                    />
-                  </AdminField>
-                  <AdminField label="Contenido del bloque">
-                    <AdminTextarea
-                      value={section.body}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          legalSections: current.legalSections.map((entry) =>
-                            entry.id === section.id ? { ...entry, body: event.target.value } : entry,
-                          ),
-                        }))
-                      }
-                      rows={6}
-                    />
-                  </AdminField>
+            {form.legalSections.map((section) => {
+              const isOpen = expandedLegalId === section.id;
+              return (
+                <div key={section.id} className="rounded-[18px] border border-[#231717]/15 bg-[#faf6f0]">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedLegalId(isOpen ? null : section.id)}
+                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                  >
+                    <span className="min-w-0 truncate text-sm font-bold">{section.title || "Bloque sin titulo"}</span>
+                    <ChevronDown className={`h-4 w-4 shrink-0 text-[#7c665f] transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  {isOpen ? (
+                    <div className="grid gap-3 border-t border-[#231717]/10 p-4">
+                      <div className="flex justify-end">
+                        <AdminButton
+                          tone="ghost"
+                          onClick={() =>
+                            confirmAdminDestructiveAction("Vas a eliminar este bloque legal. ¿Quieres continuar?") &&
+                            setForm((current) => ({
+                              ...current,
+                              legalSections: current.legalSections.filter((entry) => entry.id !== section.id),
+                            }))
+                          }
+                        >
+                          Quitar
+                        </AdminButton>
+                      </div>
+                      <AdminField label="Titulo del bloque">
+                        <AdminInput
+                          value={section.title}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              legalSections: current.legalSections.map((entry) =>
+                                entry.id === section.id ? { ...entry, title: event.target.value } : entry,
+                              ),
+                            }))
+                          }
+                        />
+                      </AdminField>
+                      <AdminField label="Contenido del bloque">
+                        <AdminTextarea
+                          value={section.body}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              legalSections: current.legalSections.map((entry) =>
+                                entry.id === section.id ? { ...entry, body: event.target.value } : entry,
+                              ),
+                            }))
+                          }
+                          rows={6}
+                        />
+                      </AdminField>
+                    </div>
+                  ) : null}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </AdminPanel>
+        ) : null}
       </div>
-      <AdminToast message={saveMessage} />
+      <AdminToast message={saveMessage} tone={saveTone} />
     </AdminShell>
   );
 }

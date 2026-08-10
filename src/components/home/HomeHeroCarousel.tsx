@@ -60,7 +60,7 @@ export function HomeHeroCarousel() {
         className="flex transition-transform duration-700 ease-out"
         style={{ transform: `translateX(-${active * 100}%)` }}
       >
-        {SLIDES.map((slide) => (
+        {SLIDES.map((slide, index) => (
           <div
             key={slide.key}
             className="relative min-w-full"
@@ -70,6 +70,9 @@ export function HomeHeroCarousel() {
               <img
                 src={slide.logo}
                 alt={slide.key}
+                loading={index === 0 ? "eager" : "lazy"}
+                decoding="async"
+                fetchPriority={index === 0 ? "high" : "auto"}
                 className="relative z-10 max-h-[200px] w-auto max-w-[55%] object-contain drop-shadow-[0_24px_48px_rgba(0,0,0,0.35)] sm:max-h-[260px] lg:max-h-[310px]"
               />
             </div>

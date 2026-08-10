@@ -12,7 +12,6 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import type { Vibe } from "@/data/products";
 import appCss from "../styles.css?url";
 import { CartDrawer } from "@/components/cart/CartDrawer";
-import { AgentationToolbar } from "@/components/dev/AgentationToolbar";
 import { CheckoutSideWaves } from "@/components/layout/CheckoutSideWaves";
 import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
@@ -26,9 +25,10 @@ import {
   getStorefrontSettings,
 } from "@/lib/admin-content";
 import { getStorefrontCatalog } from "@/lib/catalog";
-import { SITE_NAME, SITE_URL } from "@/lib/seo";
+import { absoluteSiteUrl, SITE_NAME, SITE_NAME_VARIANTS, SITE_URL } from "@/lib/seo";
 import generalPineapple from "@/assets/PULPINAGENERALPINA.svg";
 import moonPineapple from "@/assets/PULPINAMOONPINA.svg";
+import generalLogo from "@/assets/logo-sunshine.png";
 
 function NotFoundComponent() {
   return (
@@ -66,7 +66,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     categories: await getStorefrontCategories(),
     settings: await getStorefrontSettings(),
   }),
-  head: () => ({
+  head: ({ loaderData }) => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
@@ -78,8 +78,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "stylesheet", href: appCss },
+      // Unconditional default: crawlers (Google Search, link unfurlers, etc.)
+      // don't evaluate the prefers-color-scheme media queries below, so
+      // without this they have nothing dependable to pick up as the icon.
+      { rel: "icon", type: "image/svg+xml", href: generalPineapple },
       { rel: "icon", type: "image/svg+xml", href: generalPineapple, media: "(prefers-color-scheme: light)" },
       { rel: "icon", type: "image/svg+xml", href: moonPineapple, media: "(prefers-color-scheme: dark)" },
+      { rel: "icon", href: "/favicon.ico", sizes: "any" },
+      // Explicit square PNGs at sizes Google Search's favicon crawler checks
+      // for (multiples of 48px) - the SVGs above are for browsers, this is
+      // the fallback that keeps working for crawlers that skip SVG icons.
+      { rel: "icon", type: "image/png", href: "/icons/icon-48.png", sizes: "48x48" },
+      { rel: "icon", type: "image/png", href: "/icons/icon-96.png", sizes: "96x96" },
+      { rel: "icon", type: "image/png", href: "/icons/icon-192.png", sizes: "192x192" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
@@ -94,7 +106,22 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "@context": "https://schema.org",
           "@type": "WebSite",
           name: SITE_NAME,
+          alternateName: SITE_NAME_VARIANTS,
           url: SITE_URL,
+        }),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: SITE_NAME,
+          alternateName: SITE_NAME_VARIANTS,
+          url: SITE_URL,
+          logo: absoluteSiteUrl(generalLogo),
+          ...(loaderData?.settings.instagramUrl
+            ? { sameAs: [loaderData.settings.instagramUrl] }
+            : {}),
         }),
       },
     ],
@@ -136,7 +163,6 @@ function RootComponent() {
           ) : (
             <AppChrome announcements={announcements} settings={settings} />
           )}
-          <AgentationToolbar />
         </CartProvider>
       </CatalogProvider>
     </QueryClientProvider>

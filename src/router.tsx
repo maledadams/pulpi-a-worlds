@@ -10,6 +10,9 @@ export const getRouter = () => {
     context: { queryClient },
     scrollRestoration: true,
     defaultPreloadStaleTime: 0,
+    defaultStaleTime: 0,
+    defaultViewTransition: true,
+    defaultHashScrollIntoView: { behavior: "smooth" },
   });
 
   return router;

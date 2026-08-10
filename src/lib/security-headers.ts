@@ -7,8 +7,8 @@ const CONTENT_SECURITY_POLICY = [
   "img-src 'self' data: https: blob:",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
-  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
-  "connect-src 'self' https://challenges.cloudflare.com https://*.cloudflareaccess.com",
+  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://static.cloudflareinsights.com",
+  "connect-src 'self' https://challenges.cloudflare.com https://*.cloudflareaccess.com https://cloudflareinsights.com",
   "frame-src https://challenges.cloudflare.com https://www.google.com",
   "upgrade-insecure-requests",
 ].join("; ");
@@ -17,6 +17,7 @@ const SECURITY_HEADERS = {
   "Content-Security-Policy": CONTENT_SECURITY_POLICY,
   "Permissions-Policy": "camera=(), geolocation=(), microphone=(), payment=(), usb=()",
   "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
 } as const;

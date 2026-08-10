@@ -75,6 +75,10 @@ export function getProductCategories(product: Product) {
   return product.categories && product.categories.length > 0 ? product.categories : [product.category];
 }
 
+export function getProductDepartments(product: Product) {
+  return product.secondaryVibe ? [product.vibe, product.secondaryVibe] : [product.vibe];
+}
+
 export function isNsfwCategory(category: string) {
   return isConfiguredNsfwCategory(category);
 }
@@ -280,8 +284,27 @@ export function filterCatalogProducts(products: Product[], filters: CatalogFilte
     if (filters.q && !`${product.name} ${product.description}`.toLowerCase().includes(filters.q.toLowerCase())) {
       return false;
     }
-    if (!filters.nsfwEnabled && isNsfwProduct(product)) return false;
-    if (filters.departments.size > 0 && !filters.departments.has(product.vibe)) return false;
+    if (!filters.nsfwEnabled && isNsfwProduct(product)) {
+      // A product tagged with an adult category (e.g. kinkwear) alongside a
+      // regular one (e.g. accessories) should still surface when someone is
+      // specifically browsing that regular category - the adult gate exists
+      // to keep NSFW content out of casual/general browsing, not to hide an
+      // otherwise-normal item from a category it's legitimately also filed
+      // under. Only let it through this way when a non-adult category is
+      // actively being filtered on; unfiltered/general browsing stays gated.
+      const matchesNonNsfwFilter =
+        filters.categories.size > 0 &&
+        getProductCategories(product).some(
+          (category) => filters.categories.has(category) && !isNsfwCategory(category),
+        );
+      if (!matchesNonNsfwFilter) return false;
+    }
+    if (
+      filters.departments.size > 0 &&
+      !getProductDepartments(product).some((vibe) => filters.departments.has(vibe))
+    ) {
+      return false;
+    }
     if (filters.categories.size > 0 && !getProductCategories(product).some((category) => filters.categories.has(category))) {
       return false;
     }
@@ -328,7 +351,7 @@ export function getDepartmentOptions(products: Product[]) {
   return DEPARTMENTS.map((vibe) => ({
     value: vibe,
     label: vibe === "moon" ? "Moon" : vibe === "sunshine" ? "Sunshine" : "Men",
-    count: products.filter((product) => product.vibe === vibe).length,
+    count: products.filter((product) => getProductDepartments(product).includes(vibe)).length,
   })).filter((option) => option.count > 0);
 }
 
@@ -433,7 +456,7 @@ export function getAvailableMenuCategories(
   const safeIncludeNsfw = Array.isArray(productsOrVibe)
     ? includeNsfw
     : (typeof vibeOrIncludeNsfw === "boolean" ? vibeOrIncludeNsfw : includeNsfw);
-  const pool = vibe ? products.filter((product) => product.vibe === vibe) : products;
+  const pool = vibe ? products.filter((product) => getProductDepartments(product).includes(vibe)) : products;
   const available = new Set(pool.flatMap((product) => getProductCategories(product)));
 
   return Array.from(available)

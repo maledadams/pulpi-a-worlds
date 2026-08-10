@@ -9,11 +9,7 @@ import {
 import { enforceAdminAccess } from "@/lib/admin-access";
 import type { AdminProductRecord, AdminStockMovement } from "@/lib/admin-types";
 import { toAdminProductRecord } from "@/lib/admin-service";
-import {
-  buildProductColorRecord,
-  getProductColorHex,
-  normalizeProductColorName,
-} from "@/lib/product-colors";
+import { getProductColorHex, normalizeProductColorName } from "@/lib/product-colors";
 import { normalizeSizeList } from "@/lib/product-sizing";
 import { applyDiscountsToProducts, listActiveDiscountsInternal } from "@/lib/store-discounts";
 
@@ -75,6 +71,7 @@ const adminProductSchema = z.object({
   slug: z.string().trim().min(1),
   name: z.string().trim().min(1),
   vibe: z.enum(["pulpina", "men", "moon", "sunshine"]),
+  secondaryVibe: z.enum(["men", "moon", "sunshine"]).nullable(),
   sortOrder: z.number().int().nonnegative(),
   categories: z.array(z.string().trim().min(1)).min(1),
   primaryCategory: z.string().trim().min(1),
@@ -297,7 +294,8 @@ async function getDatabase() {
 async function ensureCatalogStorageReady(db: D1Database) {
   if (!catalogStorageReadyPromise) {
     catalogStorageReadyPromise = (async () => {
-      await db.exec(`
+      await db.exec(
+        `
         CREATE TABLE IF NOT EXISTS products (
           id TEXT PRIMARY KEY,
           slug TEXT NOT NULL UNIQUE,
@@ -315,9 +313,11 @@ async function ensureCatalogStorageReady(db: D1Database) {
           created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
           updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
-      `);
+      `.replace(/\n/g, " "),
+      );
 
-      await db.exec(`
+      await db.exec(
+        `
         CREATE TABLE IF NOT EXISTS inventory_movements (
           id TEXT PRIMARY KEY,
           product_id TEXT NOT NULL,
@@ -334,7 +334,8 @@ async function ensureCatalogStorageReady(db: D1Database) {
 
         CREATE INDEX IF NOT EXISTS inventory_movements_variant_created
         ON inventory_movements (variant_id, created_at DESC);
-      `);
+      `.replace(/\n/g, " "),
+      );
 
       const schemaUpdates = [
         "ALTER TABLE products ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0;",
@@ -351,9 +352,45 @@ async function ensureCatalogStorageReady(db: D1Database) {
         }
       }
 
-      const countRow = await db.prepare("SELECT COUNT(*) AS count FROM products").first<{ count: number }>();
+      await db.exec(
+        `
+        CREATE TABLE IF NOT EXISTS app_settings (
+          key TEXT PRIMARY KEY,
+          value_json TEXT NOT NULL,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      `.replace(/\n/g, " "),
+      );
+
       await db.prepare("DELETE FROM products WHERE department = ?").bind("pulpina").run();
+
+      // Seed the mock catalog exactly once, ever. Re-checking COUNT(*) here
+      // would re-insert every mock product the moment an admin deletes all
+      // of them (count back to 0), undoing real deletions on the next cold
+      // isolate. A persisted marker means "seeded" is a one-way door.
+      const seededRow = await db
+        .prepare("SELECT value_json FROM app_settings WHERE key = ?")
+        .bind("catalog_seeded")
+        .first<{ value_json: string }>();
+      if (seededRow) {
+        return;
+      }
+
+      const markSeeded = () =>
+        db
+          .prepare(
+            "INSERT INTO app_settings (key, value_json) VALUES (?, ?) ON CONFLICT(key) DO NOTHING",
+          )
+          .bind("catalog_seeded", JSON.stringify({ seededAt: new Date().toISOString() }))
+          .run();
+
+      // A database that already has products but no marker predates this
+      // marker: it was already seeded (or has real data) before this code
+      // existed. Record the marker without re-inserting, since re-running
+      // the batch would collide on the existing primary keys.
+      const countRow = await db.prepare("SELECT COUNT(*) AS count FROM products").first<{ count: number }>();
       if ((countRow?.count ?? 0) > 0) {
+        await markSeeded();
         return;
       }
 
@@ -409,6 +446,7 @@ async function ensureCatalogStorageReady(db: D1Database) {
       });
 
       await db.batch(batch);
+      await markSeeded();
     })().catch((error) => {
       catalogStorageReadyPromise = null;
       throw error;
@@ -520,94 +558,64 @@ function normalizeCategories(record: AdminProductRecord) {
   return categories.length > 0 ? categories : [record.primaryCategory.trim().toLowerCase()];
 }
 
+// Variants are keyed by SIZE ONLY - color is a display attribute of the product,
+// not part of variant identity. A product has exactly one color; changing it never
+// touches stock, since existing variants are matched and preserved purely by their
+// Talla value, regardless of what color they were previously tagged with.
 function normalizeVariants(record: AdminProductRecord, swatch: [string, string], featuredImage: ProductImage | null) {
   const fallbackSizes = record.variants
     .map((variant) => variant.selectedOptions.find((option) => option.name === "Talla")?.value)
     .filter((value): value is string => Boolean(value));
   const sizes = normalizeSizeList(record.sizes.length > 0 ? record.sizes : (fallbackSizes.length > 0 ? fallbackSizes : ["Unica"]));
-  const fallbackColors = record.variants
-    .map((variant) => variant.selectedOptions.find((option) => option.name === "Color")?.value)
-    .filter((value): value is string => Boolean(value));
-  const colors = Array.from(
-    new Map(
-      (record.colors.length > 0
-        ? record.colors
-        : (fallbackColors.length > 0
-            ? fallbackColors.map((name, index) => buildProductColorRecord(name, swatch[index % swatch.length]))
-            : [buildProductColorRecord(getDefaultColorName(record.vibe), swatch[0])]))
-        .map((color) => [
-          normalizeProductColorName(color.name).toLowerCase(),
-          {
-            name: normalizeProductColorName(color.name),
-            hex: getProductColorHex(color.name, color.hex || swatch[0]),
-          },
-        ] as const),
-    ).values(),
-  );
-  const colorNames = colors.map((color) => color.name);
-  const existingVariants = new Map(
+
+  const fallbackColorSource =
+    record.colors[0]?.name ??
+    record.variants
+      .map((variant) => variant.selectedOptions.find((option) => option.name === "Color")?.value)
+      .find((value): value is string => Boolean(value)) ??
+    getDefaultColorName(record.vibe);
+  const colorName = normalizeProductColorName(fallbackColorSource);
+  const colors = [
+    {
+      name: colorName,
+      hex: getProductColorHex(fallbackColorSource, record.colors[0]?.hex || swatch[0]),
+    },
+  ];
+
+  const existingVariantsBySize = new Map(
     record.variants.map((variant) => {
       const size = variant.selectedOptions.find((option) => option.name === "Talla")?.value ?? "Unica";
-      const color = variant.selectedOptions.find((option) => option.name === "Color")?.value ?? colorNames[0] ?? getDefaultColorName(record.vibe);
-      return [`${size}::${color}`.toLowerCase(), variant] as const;
+      return [size, variant] as const;
     }),
   );
 
-  const suppliedVariants = record.variants.filter((variant) => {
-    const size = variant.selectedOptions.find((option) => option.name === "Talla")?.value ?? "Unica";
-    const color = variant.selectedOptions.find((option) => option.name === "Color")?.value ?? colorNames[0];
-    return sizes.includes(size) && colorNames.includes(normalizeProductColorName(color));
-  });
+  const variants = sizes.map((size, index) => {
+    const currentVariant = existingVariantsBySize.get(size);
+    const quantityAvailable = currentVariant?.quantityAvailable ?? record.stock ?? 0;
+    const available = currentVariant?.available ?? record.available;
+    const price = currentVariant?.price ?? record.price;
+    const compareAtPrice = currentVariant?.compareAtPrice ?? record.compareAtPrice;
 
-  const generatedVariants = sizes.flatMap((size, sizeIndex) =>
-    colorNames.map((colorName, colorIndex) => {
-      const selectedOptions = [
-        { name: "Talla", value: size },
-        { name: "Color", value: colorName },
-      ];
-      const currentVariant = existingVariants.get(`${size}::${colorName}`.toLowerCase());
-      const quantityAvailable =
-        currentVariant?.quantityAvailable ??
-        record.stock ??
-        0;
-      const available = currentVariant?.available ?? record.available;
-      const price = currentVariant?.price ?? record.price;
-      const compareAtPrice = currentVariant?.compareAtPrice ?? record.compareAtPrice;
-
-      return {
-        id: `${record.slug.trim().toLowerCase().replace(/\s+/g, "-") || "product"}-${size}-${colorName}`
+    return {
+      id:
+        currentVariant?.id ??
+        `${record.slug.trim().toLowerCase().replace(/\s+/g, "-") || "product"}-${size}`
+          .toLowerCase()
           .replace(/[^a-z0-9-]+/g, "-")
           .replace(/-+/g, "-"),
-        title: colorNames.length > 1 ? `${size} / ${colorName}` : size,
-        available,
-        quantityAvailable,
-        price,
-        compareAtPrice,
-        currencyCode: "DOP",
-        image: currentVariant?.image ?? featuredImage ?? record.images[sizeIndex + colorIndex] ?? null,
-        selectedOptions,
-      } satisfies ProductVariant;
-    }),
-  );
-  const variants = suppliedVariants.length > 0
-    ? suppliedVariants.map((variant) => {
-        const size = variant.selectedOptions.find((option) => option.name === "Talla")?.value ?? "Unica";
-        const color = normalizeProductColorName(
-          variant.selectedOptions.find((option) => option.name === "Color")?.value ?? colorNames[0] ?? getDefaultColorName(record.vibe),
-        );
-        return {
-          ...cloneVariant(variant),
-          title: colorNames.length > 1 ? `${size} / ${color}` : size,
-          quantityAvailable: Math.max(0, variant.quantityAvailable ?? 0),
-          price: Math.max(0, variant.price),
-          image: variant.image ?? featuredImage,
-          selectedOptions: [
-            { name: "Talla", value: size },
-            { name: "Color", value: color },
-          ],
-        } satisfies ProductVariant;
-      })
-    : generatedVariants;
+      title: size,
+      available,
+      quantityAvailable: Math.max(0, quantityAvailable),
+      price: Math.max(0, price),
+      compareAtPrice,
+      currencyCode: "DOP",
+      image: currentVariant?.image ?? featuredImage ?? record.images[index] ?? null,
+      selectedOptions: [
+        { name: "Talla", value: size },
+        { name: "Color", value: colorName },
+      ],
+    } satisfies ProductVariant;
+  });
 
   return {
     variants,
@@ -620,11 +628,9 @@ function normalizeProduct(record: AdminProductRecord, existing?: Product) {
   const categories = normalizeCategories(record);
   const swatch = colorsToSwatch(record.colors, record.vibe);
   const trimmedImages = record.images.slice(0, 5).map(cloneImage);
-  const featuredImage =
-    (record.featuredImage && trimmedImages.some((image) => image.url === record.featuredImage?.url) ? record.featuredImage : null) ??
-    trimmedImages[0] ??
-    existing?.featuredImage ??
-    null;
+  // Position 0 is always the storefront cover, everywhere it's shown - not
+  // a separately-tracked pointer that reordering could leave stale.
+  const featuredImage = trimmedImages[0] ?? existing?.featuredImage ?? null;
   const { variants, sizes, colors } = normalizeVariants(record, swatch, featuredImage);
   const totalStock = variants.reduce((sum, variant) => sum + Math.max(0, variant.quantityAvailable ?? 0), 0);
   const hasSellableVariant = variants.some(
@@ -638,6 +644,7 @@ function normalizeProduct(record: AdminProductRecord, existing?: Product) {
     slug: record.slug.trim().toLowerCase().replace(/\s+/g, "-"),
     name: record.name.trim(),
     vibe: record.vibe,
+    secondaryVibe: record.secondaryVibe && record.secondaryVibe !== record.vibe ? record.secondaryVibe : null,
     sortOrder: Math.max(0, Number(record.sortOrder ?? 0)),
     category: record.primaryCategory.trim().toLowerCase(),
     categories,
@@ -701,7 +708,8 @@ export async function listCatalogProductsInternal() {
     `)
     .all<ProductRow>();
 
-  return (rows.results ?? []).map(productFromRow).filter((product) => product.vibe !== "pulpina");
+  const products = (rows.results ?? []).map(productFromRow).filter((product) => product.vibe !== "pulpina");
+  return cloneProducts(products);
 }
 
 export async function listStorefrontCatalogProductsInternal() {
@@ -736,6 +744,40 @@ export async function saveCatalogProductInternal(record: AdminProductRecord) {
   const currentProducts = await listCatalogProductsInternal();
   const existing = currentProducts.find((product) => product.id === record.id);
   const normalized = normalizeProduct(record, existing);
+
+  // Same defense the client already applies before calling this function -
+  // repeated here since `products.slug` has its own UNIQUE constraint that
+  // the `ON CONFLICT(id)` upsert below does nothing to guard, and a second
+  // product saved with the same name (hence the same auto-derived slug)
+  // would otherwise surface a raw SQLite constraint error to the admin.
+  const slugConflict = currentProducts.find(
+    (product) => product.id !== normalized.id && product.slug === normalized.slug,
+  );
+  if (slugConflict) {
+    throw new Error(
+      `Ya existe otro producto ("${slugConflict.name || slugConflict.id}") con ese mismo nombre. Cambia el nombre o el slug antes de guardar.`,
+    );
+  }
+
+  // Stock adjustments look up a variant purely by its id across the WHOLE
+  // catalog (see adjustCatalogVariantInventoryInternal) - if two products
+  // ever end up with the same variant id, clicking +Entrada/-Salida on one
+  // silently moves stock on the other instead, with no error either way.
+  // This happened for real from a bulk-import bug (two bracelets both
+  // landing on "pulsera-de-acero-unica"), so this check exists specifically
+  // to make that class of bug impossible to reintroduce, from any caller.
+  const incomingVariantIds = new Set(normalized.variants.map((variant) => variant.id));
+  const variantConflict = currentProducts.find(
+    (product) =>
+      product.id !== normalized.id &&
+      product.variants.some((variant) => incomingVariantIds.has(variant.id)),
+  );
+  if (variantConflict) {
+    throw new Error(
+      `Este producto tiene una variante con el mismo ID interno que "${variantConflict.name || variantConflict.id}". Cambia el slug (las variantes se derivan de el) antes de guardar - de lo contrario el stock de ambos productos se mezclaria.`,
+    );
+  }
+
   const db = await getDatabase();
 
   if (!db) {
@@ -819,6 +861,40 @@ export async function saveCatalogProductInternal(record: AdminProductRecord) {
   return normalized;
 }
 
+async function pruneDeletedProductReferences(db: D1Database, productId: string) {
+  // Collections store their product list as a JSON array (product_ids_json),
+  // not a real foreign key, so deleting a product never cascades there on
+  // its own - the id just lingers forever as a ghost entry. Clean it out of
+  // every collection that references it.
+  try {
+    const rows = await db
+      .prepare("SELECT id, product_ids_json FROM collections")
+      .all<{ id: string; product_ids_json: string | null }>();
+
+    for (const row of rows.results ?? []) {
+      if (!row.product_ids_json) continue;
+
+      let ids: unknown;
+      try {
+        ids = JSON.parse(row.product_ids_json);
+      } catch {
+        continue;
+      }
+
+      if (!Array.isArray(ids) || !ids.includes(productId)) continue;
+
+      const nextIds = ids.filter((entry) => entry !== productId);
+      await db
+        .prepare("UPDATE collections SET product_ids_json = ? WHERE id = ?")
+        .bind(JSON.stringify(nextIds), row.id)
+        .run();
+    }
+  } catch (error) {
+    // The collections table may not exist yet on a brand-new database; that's fine.
+    console.error("[deleteCatalogProductInternal] failed to prune collection references", productId, error);
+  }
+}
+
 export async function deleteCatalogProductInternal(id: string) {
   const normalizedId = id.trim();
   const db = await getDatabase();
@@ -830,6 +906,7 @@ export async function deleteCatalogProductInternal(id: string) {
 
   await ensureCatalogStorageReady(db);
   await db.prepare("DELETE FROM products WHERE id = ?").bind(normalizedId).run();
+  await pruneDeletedProductReferences(db, normalizedId);
   return { success: true };
 }
 
@@ -1092,21 +1169,41 @@ export const saveAdminCatalogProduct = createServerFn({ method: "POST" })
   .inputValidator((data: z.input<typeof adminProductSchema>) => adminProductSchema.parse(data))
   .handler(async ({ data }) => {
     const { setResponseHeader } = await import("@tanstack/react-start/server");
-    await enforceAdminAccess();
+    try {
+      await enforceAdminAccess();
+    } catch (error) {
+      console.error("[saveAdminCatalogProduct] enforceAdminAccess failed", error);
+      throw error;
+    }
 
     setResponseHeader("Cache-Control", "private, no-store");
 
-    const savedProduct = await saveCatalogProductInternal(data);
-    return toAdminProductRecord(savedProduct);
+    try {
+      const savedProduct = await saveCatalogProductInternal(data);
+      return toAdminProductRecord(savedProduct);
+    } catch (error) {
+      console.error("[saveAdminCatalogProduct] save failed", data.id, error);
+      throw error;
+    }
   });
 
 export const deleteAdminCatalogProduct = createServerFn({ method: "POST" })
   .inputValidator((data: z.input<typeof deleteProductSchema>) => deleteProductSchema.parse(data))
   .handler(async ({ data }) => {
     const { setResponseHeader } = await import("@tanstack/react-start/server");
-    await enforceAdminAccess();
+    try {
+      await enforceAdminAccess();
+    } catch (error) {
+      console.error("[deleteAdminCatalogProduct] enforceAdminAccess failed", error);
+      throw error;
+    }
 
     setResponseHeader("Cache-Control", "private, no-store");
 
-    return deleteCatalogProductInternal(data.id);
+    try {
+      return await deleteCatalogProductInternal(data.id);
+    } catch (error) {
+      console.error("[deleteAdminCatalogProduct] delete failed", data.id, error);
+      throw error;
+    }
   });

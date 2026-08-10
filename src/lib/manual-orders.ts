@@ -4,15 +4,47 @@ import { getStorefrontSettingsInternal } from "@/lib/admin-content";
 import { ADMIN_INQUIRIES } from "@/lib/admin-service";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { formatPrice, isStorefrontVisible } from "@/data/products";
-import { adjustCatalogVariantInventoryInternal, getCatalogVariantByIdInternal } from "@/lib/catalog";
+import {
+  adjustCatalogVariantInventoryInternal,
+  getCatalogVariantByIdInternal,
+  listStorefrontCatalogProductsInternal,
+} from "@/lib/catalog";
 import { verifyTurnstileToken } from "@/lib/turnstile";
-import { redeemBirthdayCouponInternal, validateBirthdayCouponInternal } from "@/lib/public-forms";
+import { getDominicanDateParts, getDominicanDayStartIso, validateDiscountCodeInternal } from "@/lib/public-forms";
+import { recordDiscountRedemption } from "@/lib/store-discounts";
+import { signOrderConfirmToken, verifyOrderConfirmToken } from "@/lib/order-confirm-token";
 import type { AdminInquiryChannel, AdminInquiryRecord, AdminInquiryStatus } from "@/lib/admin-types";
 
 const ORDER_SEQUENCE_KEY = "manual_orders";
 const ORDER_PREFIX = "PUL-";
+
+function isTransientD1Error(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /D1_ERROR|exceeded timeout|storage operation/i.test(message);
+}
+
+// D1's underlying Durable Object occasionally pays a multi-second "cold
+// start" tax after a period of low traffic - most requests are ~100ms, but
+// periodically one stalls for several seconds and, rarely, actually times
+// out ("D1 DB storage operation exceeded timeout"). That's the exact failure
+// a real checkout hit inside getNextOrderNumber. Retrying a couple of times
+// with a short backoff gives the object time to wake up rather than hard
+// failing the customer's order on what's usually a transient stall.
+async function withD1Retry<T>(fn: () => Promise<T>, attempts = 3, baseDelayMs = 300): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      if (!isTransientD1Error(error) || attempt === attempts - 1) throw error;
+      await new Promise((resolve) => setTimeout(resolve, baseDelayMs * (attempt + 1)));
+    }
+  }
+  throw lastError;
+}
 const CONTACT_CHANNELS = ["formulario", "whatsapp", "instagram", "email"] as const;
-const ORDER_STATUSES = ["new", "follow_up", "quoted", "closed", "cancelled"] as const;
+const ORDER_STATUSES = ["pending_contact", "new", "follow_up", "quoted", "closed", "cancelled"] as const;
 const FULFILLMENT_METHODS = ["pickup", "delivery"] as const;
 
 const shippingAddressSchema = z.object({
@@ -31,6 +63,7 @@ const manualOrderSchema = z.object({
   customerName: z.string().trim().min(2).max(120),
   customerPhone: z.string().trim().min(7).max(40),
   discountCode: z.string().trim().max(20).optional().default(""),
+  discountToken: z.string().trim().optional().default(""),
   fulfillmentMethod: z.enum(FULFILLMENT_METHODS).default("pickup"),
   lines: z.array(manualOrderLineSchema).min(1),
   notes: z.string().trim().max(1200).optional().default(""),
@@ -102,6 +135,7 @@ type CanonicalManualOrderLine = {
 
 type WorkerEnv = {
   DB?: D1Database;
+  ORDER_CONFIRM_SECRET?: string;
   ORDER_NOTIFICATION_EMAIL?: string;
   PUBLIC_SUPPORT_EMAIL?: string;
   RESEND_API_KEY?: string;
@@ -116,6 +150,7 @@ type OrderEmailState = {
 
 type InquiryRow = {
   channel: string;
+  contact_confirmed_at: string | null;
   created_at: string;
   customer_email: string;
   customer_name: string | null;
@@ -316,22 +351,43 @@ async function getEmailConfig() {
   };
 }
 
-async function buildCanonicalLines(lines: ManualOrderInput["lines"], enforceStock = true) {
+async function getOrderConfirmSecret() {
+  const workerEnv = await getWorkerEnv();
+  return workerEnv.ORDER_CONFIRM_SECRET ?? process.env.ORDER_CONFIRM_SECRET ?? "";
+}
+
+async function buildCanonicalLines(
+  lines: ManualOrderInput["lines"],
+  enforceStock = true,
+  previousLines: CanonicalManualOrderLine[] = [],
+) {
   const consolidated = new Map<string, number>();
 
   for (const line of lines) {
     consolidated.set(line.variantId, (consolidated.get(line.variantId) ?? 0) + line.quantity);
   }
 
+  const previousByVariant = new Map(previousLines.map((line) => [line.variantId, line]));
+
   const resolved = await Promise.all(
     Array.from(consolidated.entries()).map(async ([variantId, quantity]) => ({
       canonical: await getCatalogVariantByIdInternal(variantId),
+      previous: previousByVariant.get(variantId),
       quantity,
     })),
   );
 
-  return resolved.map(({ canonical, quantity }) => {
+  return resolved.map(({ canonical, previous, quantity }) => {
     if (!canonical) {
+      // The product/variant this line pointed to was deleted or regenerated
+      // after the order was placed - the order itself is still valid, so
+      // keep whatever was already recorded for this line instead of
+      // blocking every future edit (even a plain status change) on a
+      // catalog lookup that can never succeed again. Only a genuinely new
+      // line with no history to fall back on gets rejected.
+      if (previous) {
+        return { ...previous, quantity };
+      }
       throw new Error("Uno de los productos ya no existe.");
     }
 
@@ -412,7 +468,8 @@ function buildInquiryRecord(input: {
 async function ensureOrderStorageReady(db: D1Database) {
   if (!orderStorageReadyPromise) {
     orderStorageReadyPromise = (async () => {
-      await db.exec(`
+      await db.exec(
+        `
         CREATE TABLE IF NOT EXISTS inquiries (
           id TEXT PRIMARY KEY,
           request_number TEXT NOT NULL UNIQUE,
@@ -442,7 +499,19 @@ async function ensureOrderStorageReady(db: D1Database) {
           current_value INTEGER NOT NULL DEFAULT -1,
           updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
-      `);
+
+        CREATE TABLE IF NOT EXISTS order_rate_limits (
+          id TEXT PRIMARY KEY,
+          ip TEXT NOT NULL DEFAULT '',
+          email TEXT NOT NULL DEFAULT '',
+          created_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS order_rate_limits_ip ON order_rate_limits (ip);
+        CREATE INDEX IF NOT EXISTS order_rate_limits_email ON order_rate_limits (email);
+        CREATE INDEX IF NOT EXISTS order_rate_limits_created_at ON order_rate_limits (created_at);
+      `.replace(/\n/g, " "),
+      );
 
       try {
         await db.exec(`ALTER TABLE inquiries ADD COLUMN items_json TEXT NOT NULL DEFAULT '[]';`);
@@ -455,6 +524,7 @@ async function ensureOrderStorageReady(db: D1Database) {
         "ALTER TABLE inquiries ADD COLUMN shipping_line1 TEXT;",
         "ALTER TABLE inquiries ADD COLUMN shipping_city TEXT;",
         "ALTER TABLE inquiries ADD COLUMN shipping_province TEXT;",
+        "ALTER TABLE inquiries ADD COLUMN contact_confirmed_at TEXT;",
       ]) {
         try {
           await db.exec(statement);
@@ -474,10 +544,43 @@ async function ensureOrderStorageReady(db: D1Database) {
         .bind(ORDER_SEQUENCE_KEY)
         .run();
 
-      const countRow = await db.prepare("SELECT COUNT(*) AS count FROM inquiries").first<{ count: number }>();
-      if ((countRow?.count ?? 0) === 0) {
-        const seedOrders = getMockOrders();
-        const insertInquiry = db.prepare(`
+      await db.exec(
+        `
+        CREATE TABLE IF NOT EXISTS app_settings (
+          key TEXT PRIMARY KEY,
+          value_json TEXT NOT NULL,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      `.replace(/\n/g, " "),
+      );
+
+      // Seed the mock orders exactly once, ever. Re-checking COUNT(*) here
+      // would re-insert every mock order the moment an admin deletes all of
+      // them (count back to 0), undoing real deletions on the next cold
+      // isolate. A persisted marker means "seeded" is a one-way door.
+      const seededRow = await db
+        .prepare("SELECT value_json FROM app_settings WHERE key = ?")
+        .bind("orders_seeded")
+        .first<{ value_json: string }>();
+
+      if (!seededRow) {
+        const markSeeded = () =>
+          db
+            .prepare(
+              "INSERT INTO app_settings (key, value_json) VALUES (?, ?) ON CONFLICT(key) DO NOTHING",
+            )
+            .bind("orders_seeded", JSON.stringify({ seededAt: new Date().toISOString() }))
+            .run();
+
+        const countRow = await db.prepare("SELECT COUNT(*) AS count FROM inquiries").first<{ count: number }>();
+        if ((countRow?.count ?? 0) > 0) {
+          // A database that already has orders but no marker predates this
+          // marker: it was already seeded (or has real data) before this code
+          // existed. Record the marker without re-inserting.
+          await markSeeded();
+        } else {
+          const seedOrders = getMockOrders();
+          const insertInquiry = db.prepare(`
           INSERT INTO inquiries (
             id,
             request_number,
@@ -500,48 +603,51 @@ async function ensureOrderStorageReady(db: D1Database) {
             items_json,
             created_at
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'DOP', ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'DOP', ?, ?, ?, ?, ?, ?, ?)
         `);
 
-        await db.batch(
-          seedOrders.map((order) =>
-            insertInquiry.bind(
-              order.id,
-              order.requestNumber,
-              order.customerEmail,
-              order.customerName,
-              order.customerPhone,
-              order.status,
-              order.channel,
-              order.fulfillmentMethod,
-              toCents(order.subtotal),
-              toCents(order.shipping),
-              toCents(order.discount),
-              toCents(order.total),
-              order.paymentStatus,
-              order.shippingAddress.line1,
-              order.shippingAddress.city,
-              order.shippingAddress.province,
-              order.notes,
-              serializeRecordLines(order.lines),
-              order.createdAt,
+          await db.batch(
+            seedOrders.map((order) =>
+              insertInquiry.bind(
+                order.id,
+                order.requestNumber,
+                order.customerEmail,
+                order.customerName,
+                order.customerPhone,
+                order.status,
+                order.channel,
+                order.fulfillmentMethod,
+                toCents(order.subtotal),
+                toCents(order.shipping),
+                toCents(order.discount),
+                toCents(order.total),
+                order.paymentStatus,
+                order.shippingAddress.line1,
+                order.shippingAddress.city,
+                order.shippingAddress.province,
+                order.notes,
+                serializeRecordLines(order.lines),
+                order.createdAt,
+              ),
             ),
-          ),
-        );
+          );
 
-        const maxSequence = seedOrders.reduce(
-          (max, order) => Math.max(max, parseOrderSequence(order.requestNumber)),
-          -1,
-        );
+          const maxSequence = seedOrders.reduce(
+            (max, order) => Math.max(max, parseOrderSequence(order.requestNumber)),
+            -1,
+          );
 
-        await db
-          .prepare(`
+          await db
+            .prepare(`
             UPDATE order_sequences
             SET current_value = ?, updated_at = CURRENT_TIMESTAMP
             WHERE key = ?
           `)
-          .bind(maxSequence, ORDER_SEQUENCE_KEY)
-          .run();
+            .bind(maxSequence, ORDER_SEQUENCE_KEY)
+            .run();
+
+          await markSeeded();
+        }
       }
     })().catch((error) => {
       orderStorageReadyPromise = null;
@@ -580,6 +686,14 @@ async function createOrderInDatabase(input: OrderWriteInput, lines: CanonicalMan
     return null;
   }
 
+  return withD1Retry(() => createOrderInDatabaseAttempt(db, input, lines));
+}
+
+async function createOrderInDatabaseAttempt(
+  db: D1Database,
+  input: OrderWriteInput,
+  lines: CanonicalManualOrderLine[],
+) {
   await ensureOrderStorageReady(db);
   const id = crypto.randomUUID();
   const requestNumber = await getNextOrderNumber(db);
@@ -624,7 +738,7 @@ async function createOrderInDatabase(input: OrderWriteInput, lines: CanonicalMan
           notes,
           items_json
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'DOP', ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'DOP', ?, ?, ?, ?, ?, ?)
       `,
     )
     .bind(
@@ -649,12 +763,17 @@ async function createOrderInDatabase(input: OrderWriteInput, lines: CanonicalMan
     )
     .run();
 
-  if (record.status !== "cancelled") {
+  // Stock is only consumed once an order is "closed" (see
+  // buildOrderInventoryImpact) - a freshly created order is essentially
+  // always pending_contact/new, so this is normally a no-op, but stays
+  // consistent with that rule if an order is ever created already closed.
+  const createdImpact = buildOrderInventoryImpact(record.lines, record.status);
+  if (createdImpact.size > 0) {
     await adjustCatalogVariantInventoryInternal(
-      record.lines.map((line) => ({ delta: -line.quantity, variantId: line.variantId })),
+      Array.from(createdImpact.entries()).map(([variantId, quantity]) => ({ delta: -quantity, variantId })),
       {
         source: "order",
-        reason: "Reserva automatica al crear el pedido",
+        reason: "Pedido creado como cerrado",
         referenceId: record.requestNumber,
       },
     );
@@ -684,12 +803,13 @@ async function createOrderInMemory(input: OrderWriteInput, lines: CanonicalManua
   });
 
   memoryOrders.set(record.id, cloneInquiry(record));
-  if (record.status !== "cancelled") {
+  const createdImpact = buildOrderInventoryImpact(record.lines, record.status);
+  if (createdImpact.size > 0) {
     await adjustCatalogVariantInventoryInternal(
-      record.lines.map((line) => ({ delta: -line.quantity, variantId: line.variantId })),
+      Array.from(createdImpact.entries()).map(([variantId, quantity]) => ({ delta: -quantity, variantId })),
       {
         source: "order",
-        reason: "Reserva automatica al crear el pedido",
+        reason: "Pedido creado como cerrado",
         referenceId: record.requestNumber,
       },
     );
@@ -773,8 +893,13 @@ async function listOrdersInternal() {
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.requestNumber.localeCompare(a.requestNumber));
 }
 
+// Stock is only actually consumed once an order is "closed" (fulfilled) -
+// every other status (including a brand-new order) is just a request being
+// worked, not a completed sale, so it holds no inventory. This is why
+// creating/editing an order never touches stock below except on the
+// transition into or out of "closed".
 function buildOrderInventoryImpact(lines: AdminInquiryRecord["lines"], status: AdminInquiryStatus) {
-  if (status === "cancelled") {
+  if (status !== "closed") {
     return new Map<string, number>();
   }
 
@@ -789,15 +914,18 @@ async function ensureInventoryChangesAvailable(changes: Array<{ delta: number; v
   for (const change of changes) {
     if (change.delta >= 0) continue;
     const canonical = await getCatalogVariantByIdInternal(change.variantId);
-    const available = Math.max(0, canonical?.variant.quantityAvailable ?? 0);
-    if (!canonical || available < Math.abs(change.delta)) {
+    // The variant no longer resolves (deleted/regenerated product) - there's
+    // no live stock to check against, and nothing useful to block. Just skip
+    // this line rather than erroring on a lookup that can never succeed.
+    if (!canonical) continue;
+    const available = Math.max(0, canonical.variant.quantityAvailable ?? 0);
+    if (available < Math.abs(change.delta)) {
       throw new Error(`No hay suficiente stock para actualizar la variante ${change.variantId}.`);
     }
   }
 }
 
 async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>) {
-  const canonicalLines = await buildCanonicalLines(input.lines, false);
   const db = await getDatabase();
   if (!db) {
     const current = memoryOrders.get(input.id);
@@ -805,6 +933,7 @@ async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>
       throw new Error("La orden no existe.");
     }
 
+    const canonicalLines = await buildCanonicalLines(input.lines, false, current.lines);
     const next = cloneInquiry({
       ...buildInquiryRecord({
         channel: input.channel,
@@ -884,24 +1013,6 @@ async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>
   }
 
   const shipping = fromCents(existing.shipping_cents);
-  const nextRecord = buildInquiryRecord({
-    channel: input.channel,
-    createdAt: existing.created_at,
-    customerEmail: input.customerEmail,
-    customerName: input.customerName,
-    customerPhone: input.customerPhone,
-    discount: input.discount,
-    fulfillmentMethod: input.fulfillmentMethod,
-    id: existing.id,
-    lines: canonicalLines,
-    notes: input.notes,
-    paymentStatus: input.paymentStatus,
-    requestNumber: existing.request_number,
-    shipping: input.shipping ?? shipping,
-    shippingAddress: input.shippingAddress,
-    status: input.status,
-  });
-
   const previousRecord = buildInquiryRecord({
     channel: normalizeOrderChannel(existing.channel),
     createdAt: existing.created_at,
@@ -925,6 +1036,25 @@ async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>
       province: existing.shipping_province ?? "",
     },
     status: normalizeOrderStatus(existing.status),
+  });
+
+  const canonicalLines = await buildCanonicalLines(input.lines, false, previousRecord.lines);
+  const nextRecord = buildInquiryRecord({
+    channel: input.channel,
+    createdAt: existing.created_at,
+    customerEmail: input.customerEmail,
+    customerName: input.customerName,
+    customerPhone: input.customerPhone,
+    discount: input.discount,
+    fulfillmentMethod: input.fulfillmentMethod,
+    id: existing.id,
+    lines: canonicalLines,
+    notes: input.notes,
+    paymentStatus: input.paymentStatus,
+    requestNumber: existing.request_number,
+    shipping: input.shipping ?? shipping,
+    shippingAddress: input.shippingAddress,
+    status: input.status,
   });
 
   const previousImpact = buildOrderInventoryImpact(previousRecord.lines, previousRecord.status);
@@ -1007,8 +1137,11 @@ async function getAdminOrderSnapshotInternal(limit = 4) {
     const inquiries = Array.from(memoryOrders.values()).map(cloneInquiry);
     return {
       inquiryCount: inquiries.length,
-      openInquiryCount: inquiries.filter((inquiry) => inquiry.status !== "closed" && inquiry.status !== "cancelled").length,
+      openInquiryCount: inquiries.filter(
+        (inquiry) => !["closed", "cancelled", "pending_contact"].includes(inquiry.status),
+      ).length,
       recentInquiries: inquiries
+        .filter((inquiry) => inquiry.status !== "pending_contact")
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.requestNumber.localeCompare(a.requestNumber))
         .slice(0, limit),
     };
@@ -1021,7 +1154,7 @@ async function getAdminOrderSnapshotInternal(limit = 4) {
       `
         SELECT
           COUNT(*) AS inquiry_count,
-          SUM(CASE WHEN status NOT IN ('closed', 'cancelled') THEN 1 ELSE 0 END) AS open_inquiry_count
+          SUM(CASE WHEN status NOT IN ('closed', 'cancelled', 'pending_contact') THEN 1 ELSE 0 END) AS open_inquiry_count
         FROM inquiries
       `,
     )
@@ -1051,6 +1184,7 @@ async function getAdminOrderSnapshotInternal(limit = 4) {
           items_json,
           created_at
         FROM inquiries
+        WHERE status <> 'pending_contact'
         ORDER BY created_at DESC, request_number DESC
         LIMIT ?
       `,
@@ -1211,15 +1345,14 @@ function buildOrderSummary(record: AdminInquiryRecord) {
     "Productos:",
     ...lines,
     "",
-    `Subtotal de referencia: ${formatPrice(record.subtotal)}`,
+    `Subtotal: ${formatPrice(record.subtotal)}`,
     record.discount > 0 ? `Descuento aplicado: -${formatPrice(record.discount)}` : "",
-    record.shipping > 0 ? `Envio de referencia: ${formatPrice(record.shipping)}` : "",
-    `Total de referencia: ${formatPrice(record.total)}`,
+    record.shipping > 0 ? `Envio: ${formatPrice(record.shipping)}` : "",
+    `Total: ${formatPrice(record.total)}`,
     `Entrega: ${record.fulfillmentMethod === "delivery" ? "Delivery" : "Recoger"}`,
     record.fulfillmentMethod === "delivery" && record.shippingAddress.line1
       ? `Direccion: ${record.shippingAddress.line1}, ${record.shippingAddress.city}, ${record.shippingAddress.province}`
       : "",
-    "Siguiente paso: escribe por WhatsApp con tu numero de orden para confirmar disponibilidad, envio y cierre manual.",
     record.notes ? `Notas del cliente: ${record.notes}` : "",
   ]
     .filter(Boolean)
@@ -1255,64 +1388,272 @@ async function sendEmailViaResend(input: {
   return response.ok;
 }
 
-async function sendOrderEmails(record: AdminInquiryRecord): Promise<OrderEmailState> {
-  const config = await getEmailConfig();
-  const settings = await getStorefrontSettingsInternal();
-  if (!config.apiKey || !config.from) {
-    return {
-      configured: false,
-      customerSent: false,
-      teamSent: false,
-    };
+async function buildVariantImageMap(lines: AdminInquiryRecord["lines"]) {
+  const products = await listStorefrontCatalogProductsInternal();
+  const variantIds = new Set(lines.map((line) => line.variantId));
+  const map = new Map<string, { url: string; altText: string | null }>();
+
+  for (const product of products) {
+    for (const variant of product.variants) {
+      if (!variantIds.has(variant.id)) continue;
+      const image = variant.image ?? product.featuredImage;
+      if (image) map.set(variant.id, image);
+    }
   }
 
-  const summary = buildOrderSummary(record);
-  const customerText = [
-    `Recibimos tu pedido ${record.requestNumber}.`,
+  return map;
+}
+
+async function sendCustomerInvoiceEmail(record: AdminInquiryRecord): Promise<boolean> {
+  const config = await getEmailConfig();
+  if (!config.apiKey || !config.from) return false;
+
+  const settings = await getStorefrontSettingsInternal();
+  const secret = await getOrderConfirmSecret();
+  const imageMap = await buildVariantImageMap(record.lines);
+
+  const confirmUrl = secret
+    ? `https://pulpinastore.com/pedido/confirmar?order=${encodeURIComponent(record.id)}&token=${encodeURIComponent(
+        await signOrderConfirmToken(record.id, secret),
+      )}`
+    : `https://wa.me/${settings.whatsappNumber}`;
+
+  const rows = record.lines
+    .map((line) => {
+      const image = imageMap.get(line.variantId);
+      const imageCell = image
+        ? `<img src="${escapeHtml(image.url)}" alt="${escapeHtml(image.altText ?? line.productName)}" width="72" height="72" style="width:72px;height:72px;object-fit:cover;border:1px solid #231717;border-radius:12px;display:block" />`
+        : `<div style="width:72px;height:72px;border:1px solid #231717;border-radius:12px;background:#f7f2ec"></div>`;
+
+      return `
+        <tr>
+          <td style="padding:12px 0;border-bottom:1px solid rgba(35,23,23,0.12)">${imageCell}</td>
+          <td style="padding:12px 16px;border-bottom:1px solid rgba(35,23,23,0.12);color:#231717">
+            <div style="font-weight:700">${escapeHtml(line.productName)}</div>
+            <div style="font-size:13px;color:#6b5a55">${escapeHtml(line.variantLabel)} &middot; x${line.quantity}</div>
+          </td>
+          <td style="padding:12px 0;border-bottom:1px solid rgba(35,23,23,0.12);color:#231717;text-align:right;white-space:nowrap">
+            ${escapeHtml(formatPrice(line.unitPrice * line.quantity))}
+          </td>
+        </tr>`;
+    })
+    .join("");
+
+  const totalsRows = [
+    ["Subtotal", formatPrice(record.subtotal)],
+    ...(record.discount > 0 ? [["Descuento", `-${formatPrice(record.discount)}`]] : []),
+    ...(record.shipping > 0 ? [["Envio", formatPrice(record.shipping)]] : []),
+  ]
+    .map(
+      ([label, value]) => `
+        <tr>
+          <td style="padding:4px 0;color:#6b5a55" colspan="2">${label}</td>
+          <td style="padding:4px 0;text-align:right;color:#231717">${value}</td>
+        </tr>`,
+    )
+    .join("");
+
+  const html = `
+    <div style="background:#fbf4e8;padding:32px 16px;font-family:Arial,sans-serif">
+      <div style="max-width:560px;margin:auto;background:#ffffff;border:1px solid #231717;border-radius:20px;padding:32px">
+        <p style="letter-spacing:.18em;text-transform:uppercase;color:#6b5a55;font-size:12px;margin:0 0 4px">Pulpiña RD</p>
+        <h1 style="font-size:26px;margin:0 0 8px;color:#231717">Pedido ${escapeHtml(record.requestNumber)}</h1>
+        <p style="font-size:14px;line-height:1.6;color:#231717;margin:0 0 20px">
+          Recibimos tu pedido. Para completarlo, confirma por WhatsApp con el boton de abajo.
+        </p>
+        <table style="width:100%;border-collapse:collapse">${rows}</table>
+        <table style="width:100%;border-collapse:collapse;margin-top:12px">
+          ${totalsRows}
+          <tr>
+            <td colspan="2" style="padding:10px 0 0;font-weight:700;color:#231717;border-top:1px solid #231717">Total</td>
+            <td style="padding:10px 0 0;text-align:right;font-weight:700;color:#231717;border-top:1px solid #231717">${escapeHtml(formatPrice(record.total))}</td>
+          </tr>
+        </table>
+        <div style="text-align:center;margin-top:28px">
+          <a href="${confirmUrl}" style="display:inline-block;background:#25D366;color:#ffffff;text-decoration:none;font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:13px;padding:14px 28px;border-radius:999px">
+            Confirmar por WhatsApp
+          </a>
+        </div>
+        <p style="font-size:12px;line-height:1.6;color:#6b5a55;text-align:center;margin-top:16px">
+          Este paso es necesario para confirmar disponibilidad, envio y pago.
+        </p>
+      </div>
+    </div>`;
+
+  const text = [
+    `Pedido ${record.requestNumber}`,
     "",
-    "Proximo paso:",
-    `Escribenos por WhatsApp al ${settings.whatsappLabel} y comparte este numero de orden para confirmar tu compra.`,
+    ...record.lines.map(
+      (line) => `- ${line.productName} (${line.variantLabel}) x${line.quantity} - ${formatPrice(line.unitPrice * line.quantity)}`,
+    ),
     "",
-    summary,
+    `Total: ${formatPrice(record.total)}`,
+    "",
+    "Confirma por WhatsApp para completar tu pedido:",
+    confirmUrl,
   ].join("\n");
 
-  const teamText = [
-    "Nuevo pedido manual recibido.",
+  return sendEmailViaResend({
+    html,
+    subject: `Tu pedido ${record.requestNumber} - ${settings.businessName}`,
+    text,
+    to: record.customerEmail,
+  });
+}
+
+function toWhatsappDigits(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length === 10) return `1${digits}`;
+  return digits;
+}
+
+async function sendTeamOrderNotificationEmail(record: AdminInquiryRecord): Promise<boolean> {
+  const config = await getEmailConfig();
+  if (!config.apiKey || !config.from) return false;
+
+  const imageMap = await buildVariantImageMap(record.lines);
+  const customerDigits = toWhatsappDigits(record.customerPhone);
+  const whatsappMessage = `¡Hola ${record.customerName}! 🐙 Somos Pulpiña RD. Vimos tu pedido ${record.requestNumber} y queremos confirmar disponibilidad, envío y forma de pago contigo. ¿Nos cuentas cuándo te viene bien?`;
+  const whatsappUrl = customerDigits
+    ? `https://wa.me/${customerDigits}?text=${encodeURIComponent(whatsappMessage)}`
+    : "";
+
+  const rows = record.lines
+    .map((line) => {
+      const image = imageMap.get(line.variantId);
+      const imageCell = image
+        ? `<img src="${escapeHtml(image.url)}" alt="${escapeHtml(image.altText ?? line.productName)}" width="72" height="72" style="width:72px;height:72px;object-fit:cover;border:1px solid #231717;border-radius:12px;display:block" />`
+        : `<div style="width:72px;height:72px;border:1px solid #231717;border-radius:12px;background:#f7f2ec"></div>`;
+
+      return `
+        <tr>
+          <td style="padding:12px 0;border-bottom:1px solid rgba(35,23,23,0.12)">${imageCell}</td>
+          <td style="padding:12px 16px;border-bottom:1px solid rgba(35,23,23,0.12);color:#231717">
+            <div style="font-weight:700">${escapeHtml(line.productName)}</div>
+            <div style="font-size:13px;color:#6b5a55">${escapeHtml(line.variantLabel)} &middot; x${line.quantity}</div>
+          </td>
+          <td style="padding:12px 0;border-bottom:1px solid rgba(35,23,23,0.12);color:#231717;text-align:right;white-space:nowrap">
+            ${escapeHtml(formatPrice(line.unitPrice * line.quantity))}
+          </td>
+        </tr>`;
+    })
+    .join("");
+
+  const totalsRows = [
+    ["Subtotal", formatPrice(record.subtotal)],
+    ...(record.discount > 0 ? [["Descuento", `-${formatPrice(record.discount)}`]] : []),
+    ...(record.shipping > 0 ? [["Envio", formatPrice(record.shipping)]] : []),
+  ]
+    .map(
+      ([label, value]) => `
+        <tr>
+          <td style="padding:4px 0;color:#6b5a55" colspan="2">${label}</td>
+          <td style="padding:4px 0;text-align:right;color:#231717">${value}</td>
+        </tr>`,
+    )
+    .join("");
+
+  const addressLine =
+    record.fulfillmentMethod === "delivery" && record.shippingAddress.line1
+      ? `${record.shippingAddress.line1}, ${record.shippingAddress.city}, ${record.shippingAddress.province}`
+      : "";
+
+  const html = `
+    <div style="background:#fbf4e8;padding:32px 16px;font-family:Arial,sans-serif">
+      <div style="max-width:560px;margin:auto;background:#ffffff;border:1px solid #231717;border-radius:20px;padding:32px">
+        <p style="letter-spacing:.18em;text-transform:uppercase;color:#6b5a55;font-size:12px;margin:0 0 4px">Pulpiña RD</p>
+        <h1 style="font-size:26px;margin:0 0 8px;color:#231717">Nuevo pedido confirmado</h1>
+        <p style="font-size:14px;line-height:1.6;color:#231717;margin:0 0 4px">
+          <strong>${escapeHtml(record.requestNumber)}</strong> &middot; ${escapeHtml(record.customerName)}
+        </p>
+        <p style="font-size:13px;line-height:1.6;color:#6b5a55;margin:0 0 20px">
+          ${escapeHtml(record.customerEmail)} &middot; ${escapeHtml(record.customerPhone)}
+        </p>
+        <table style="width:100%;border-collapse:collapse">${rows}</table>
+        <table style="width:100%;border-collapse:collapse;margin-top:12px">
+          ${totalsRows}
+          <tr>
+            <td colspan="2" style="padding:10px 0 0;font-weight:700;color:#231717;border-top:1px solid #231717">Total</td>
+            <td style="padding:10px 0 0;text-align:right;font-weight:700;color:#231717;border-top:1px solid #231717">${escapeHtml(formatPrice(record.total))}</td>
+          </tr>
+        </table>
+        <p style="font-size:13px;line-height:1.6;color:#231717;margin-top:16px">
+          Entrega: ${record.fulfillmentMethod === "delivery" ? "Delivery" : "Recoger"}${addressLine ? ` — ${escapeHtml(addressLine)}` : ""}
+        </p>
+        ${record.notes ? `<p style="font-size:13px;line-height:1.6;color:#231717;margin-top:4px">Notas: ${escapeHtml(record.notes)}</p>` : ""}
+        ${
+          whatsappUrl
+            ? `<div style="text-align:center;margin-top:24px">
+          <a href="${whatsappUrl}" style="display:inline-block;background:#25D366;color:#ffffff;text-decoration:none;font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:13px;padding:14px 28px;border-radius:999px">
+            Contactar por WhatsApp
+          </a>
+        </div>`
+            : ""
+        }
+      </div>
+    </div>`;
+
+  const text = [
+    `Nuevo pedido confirmado: ${record.requestNumber}`,
+    `Cliente: ${record.customerName}`,
+    `Email: ${record.customerEmail}`,
+    `Telefono: ${record.customerPhone}`,
     "",
-    summary,
-  ].join("\n");
+    ...record.lines.map(
+      (line) => `- ${line.productName} (${line.variantLabel}) x${line.quantity} - ${formatPrice(line.unitPrice * line.quantity)}`,
+    ),
+    "",
+    `Subtotal: ${formatPrice(record.subtotal)}`,
+    record.discount > 0 ? `Descuento: -${formatPrice(record.discount)}` : "",
+    record.shipping > 0 ? `Envio: ${formatPrice(record.shipping)}` : "",
+    `Total: ${formatPrice(record.total)}`,
+    whatsappUrl ? `Contactar por WhatsApp: ${whatsappUrl}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 
-  const customerHtml = `
-    <p>Recibimos tu pedido <strong>${escapeHtml(record.requestNumber)}</strong>.</p>
-    <p>Escribenos por WhatsApp al <strong>${escapeHtml(settings.whatsappLabel)}</strong> y comparte ese numero para confirmar disponibilidad, envio y cierre manual.</p>
-    <pre>${escapeHtml(summary)}</pre>
-  `;
+  return sendEmailViaResend({
+    html,
+    subject: `Nuevo pedido confirmado ${record.requestNumber}`,
+    text,
+    to: config.supportEmail,
+  });
+}
 
-  const teamHtml = `
-    <p>Nuevo pedido manual recibido: <strong>${escapeHtml(record.requestNumber)}</strong></p>
-    <pre>${escapeHtml(summary)}</pre>
-  `;
+const ORDER_RATE_LIMIT_MAX_PER_DAY = 3;
+const ORDER_RATE_LIMIT_BURST_MS = 20_000;
 
-  const [customerSent, teamSent] = await Promise.all([
-    sendEmailViaResend({
-      html: customerHtml,
-      subject: `Confirmacion de pedido ${record.requestNumber} - ${settings.businessName}`,
-      text: customerText,
-      to: record.customerEmail,
-    }),
-    sendEmailViaResend({
-      html: teamHtml,
-      subject: `Nuevo pedido manual ${record.requestNumber}`,
-      text: teamText,
-      to: config.supportEmail,
-    }),
-  ]);
+async function checkOrderRateLimit(db: D1Database, ip: string, email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
 
-  return {
-    configured: true,
-    customerSent,
-    teamSent,
-  };
+  const lastRow = await db
+    .prepare("SELECT created_at FROM order_rate_limits WHERE ip = ? OR email = ? ORDER BY created_at DESC LIMIT 1")
+    .bind(ip, normalizedEmail)
+    .first<{ created_at: string }>();
+  if (lastRow) {
+    const elapsedMs = Date.now() - new Date(lastRow.created_at).getTime();
+    if (elapsedMs >= 0 && elapsedMs < ORDER_RATE_LIMIT_BURST_MS) {
+      return "Estas enviando pedidos demasiado rapido. Espera unos segundos e intenta de nuevo.";
+    }
+  }
+
+  const dayStartIso = getDominicanDayStartIso(getDominicanDateParts().dateKey);
+  const countRow = await db
+    .prepare("SELECT COUNT(*) as count FROM order_rate_limits WHERE created_at >= ? AND (ip = ? OR email = ?)")
+    .bind(dayStartIso, ip, normalizedEmail)
+    .first<{ count: number }>();
+  if ((countRow?.count ?? 0) >= ORDER_RATE_LIMIT_MAX_PER_DAY) {
+    return "Llegaste al limite de pedidos por hoy. Escribenos por WhatsApp si necesitas hacer otro.";
+  }
+
+  return null;
+}
+
+async function recordOrderRateLimit(db: D1Database, ip: string, email: string) {
+  await db
+    .prepare("INSERT INTO order_rate_limits (id, ip, email, created_at) VALUES (?, ?, ?, ?)")
+    .bind(crypto.randomUUID(), ip, email.trim().toLowerCase(), new Date().toISOString())
+    .run();
 }
 
 export const submitManualOrder = createServerFn({ method: "POST" })
@@ -1328,10 +1669,25 @@ export const submitManualOrder = createServerFn({ method: "POST" })
     });
 
     if (!verification.success) {
+      console.error("[submitManualOrder] turnstile verification failed", {
+        errors: verification.errors,
+        skipped: verification.skipped,
+        tokenLength: data.turnstileToken?.length ?? 0,
+      });
       return {
         message: "La verificacion anti-spam fallo. Intentalo otra vez.",
         ok: false as const,
       };
+    }
+
+    const rateLimitIp = getRequestHeader("cf-connecting-ip") ?? "";
+    const rateLimitDb = await getDatabase();
+    if (rateLimitDb) {
+      await ensureOrderStorageReady(rateLimitDb);
+      const rateLimitMessage = await checkOrderRateLimit(rateLimitDb, rateLimitIp, data.customerEmail);
+      if (rateLimitMessage) {
+        return { message: rateLimitMessage, ok: false as const };
+      }
     }
 
     let canonicalLines: CanonicalManualOrderLine[];
@@ -1350,17 +1706,20 @@ export const submitManualOrder = createServerFn({ method: "POST" })
     );
     let discount = 0;
     let discountCode = "";
+    let discountKind: "birthday" | "general" | null = null;
     if (data.discountCode.trim()) {
-      const validation = await validateBirthdayCouponInternal({
+      const validation = await validateDiscountCodeInternal({
         code: data.discountCode,
         email: data.customerEmail,
         subtotal: canonicalSubtotal,
+        token: data.discountToken,
       });
       if (!validation.ok) {
         return { message: validation.message, ok: false as const };
       }
       discount = validation.discount;
       discountCode = validation.code;
+      discountKind = validation.kind;
     }
 
     const db = await getDatabase();
@@ -1376,21 +1735,47 @@ export const submitManualOrder = createServerFn({ method: "POST" })
         ...data,
         discount,
         notes: discountCode
-          ? `${data.notes}${data.notes ? "\n" : ""}Código de cumpleaños: ${discountCode}`
+          ? `${data.notes}${data.notes ? "\n" : ""}Código de descuento: ${discountCode}`
           : data.notes,
+        status: "pending_contact",
       };
       const record = db
         ? (await createOrderInDatabase(orderInput, canonicalLines)) ?? (await createOrderInMemory(orderInput, canonicalLines))
         : await createOrderInMemory(orderInput, canonicalLines);
-      if (discountCode) {
-        await redeemBirthdayCouponInternal(discountCode, data.customerEmail);
+
+      if (discountCode && discountKind === "general") {
+        try {
+          await recordDiscountRedemption(discountCode, data.customerEmail, record.id);
+        } catch (error) {
+          console.error("[submitManualOrder] failed to record discount redemption", discountCode, error);
+        }
       }
-      const emailState = await sendOrderEmails(record);
+      if (db) {
+        try {
+          await recordOrderRateLimit(db, rateLimitIp, data.customerEmail);
+        } catch (error) {
+          console.error("[submitManualOrder] failed to record order rate limit entry", error);
+        }
+      }
+      const config = await getEmailConfig();
+      let customerSent = false;
+      if (config.apiKey && config.from) {
+        try {
+          customerSent = await sendCustomerInvoiceEmail(record);
+        } catch (error) {
+          console.error("sendCustomerInvoiceEmail failed", error);
+        }
+      }
+      const emailState: OrderEmailState = {
+        configured: Boolean(config.apiKey && config.from),
+        customerSent,
+        teamSent: false,
+      };
 
       return {
         emailState,
         message: emailState.configured
-          ? "Pedido creado y correos de confirmacion procesados."
+          ? "Pedido creado. Revisa tu correo para confirmar por WhatsApp."
           : "Pedido creado. Falta configurar el proveedor de correo para enviar confirmaciones automaticas.",
         ok: true as const,
         order: {
@@ -1407,7 +1792,8 @@ export const submitManualOrder = createServerFn({ method: "POST" })
           total: record.total,
         },
       };
-    } catch {
+    } catch (error) {
+      console.error("submitManualOrder failed", error);
       return {
         message: "No se pudo crear el pedido ahora mismo.",
         ok: false as const,
@@ -1428,7 +1814,13 @@ export const createAdminManualOrder = createServerFn({ method: "POST" })
       (await createOrderInDatabase(data, lines)) ??
       (await createOrderInMemory(data, lines));
 
-    const emailState = data.sendEmails ? await sendOrderEmails(record) : null;
+    const emailState: OrderEmailState | null = data.sendEmails
+      ? {
+          configured: true,
+          customerSent: await sendCustomerInvoiceEmail(record),
+          teamSent: await sendTeamOrderNotificationEmail(record),
+        }
+      : null;
 
     return {
       ...record,
@@ -1475,3 +1867,121 @@ export const deleteAdminOrder = createServerFn({ method: "POST" })
 
     return deleteOrderInternal(data.id);
   });
+
+export const resendAdminOrderConfirmation = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string }) => z.object({ id: z.string().trim().min(1) }).parse(data))
+  .handler(async ({ data }) => {
+    const { setResponseHeader } = await import("@tanstack/react-start/server");
+    await enforceAdminAccess();
+
+    setResponseHeader("Cache-Control", "private, no-store");
+
+    const orders = await listOrdersInternal();
+    const record = orders.find((order) => order.id === data.id);
+    if (!record) {
+      return { ok: false as const, message: "El pedido ya no existe." };
+    }
+
+    try {
+      const sent = await sendCustomerInvoiceEmail(record);
+      return sent
+        ? { ok: true as const, message: `Correo reenviado a ${record.customerEmail}.` }
+        : { ok: false as const, message: "El envio de correos no esta configurado ahora mismo." };
+    } catch (error) {
+      console.error("[resendAdminOrderConfirmation] send failed", data.id, error);
+      return { ok: false as const, message: "No se pudo reenviar el correo ahora mismo." };
+    }
+  });
+
+function buildWhatsappRedirectUrl(whatsappNumber: string, requestNumber?: string) {
+  const base = `https://wa.me/${whatsappNumber}`;
+  if (!requestNumber) return base;
+  return `${base}?text=${encodeURIComponent(`Hola, quiero completar el pedido ${requestNumber}.`)}`;
+}
+
+export async function maybeHandleOrderConfirmRequest(request: Request): Promise<Response | null> {
+  const url = new URL(request.url);
+  if (url.pathname !== "/pedido/confirmar") return null;
+
+  const settings = await getStorefrontSettingsInternal();
+  const fallbackRedirect = buildWhatsappRedirectUrl(settings.whatsappNumber);
+  const orderId = url.searchParams.get("order") ?? "";
+  const token = url.searchParams.get("token") ?? "";
+  const secret = await getOrderConfirmSecret();
+
+  if (!orderId || !secret || !(await verifyOrderConfirmToken(orderId, token, secret))) {
+    return Response.redirect(fallbackRedirect, 302);
+  }
+
+  const db = await getDatabase();
+  if (!db) {
+    const record = memoryOrders.get(orderId);
+    if (!record) return Response.redirect(fallbackRedirect, 302);
+    if (record.status === "pending_contact") {
+      const confirmed = { ...record, status: "new" as const };
+      memoryOrders.set(orderId, confirmed);
+      await sendTeamOrderNotificationEmail(confirmed);
+      return Response.redirect(buildWhatsappRedirectUrl(settings.whatsappNumber, confirmed.requestNumber), 302);
+    }
+    return Response.redirect(buildWhatsappRedirectUrl(settings.whatsappNumber, record.requestNumber), 302);
+  }
+
+  await ensureOrderStorageReady(db);
+  const existing = await db
+    .prepare(
+      `
+        SELECT
+          id, request_number, customer_name, customer_email, customer_phone,
+          status, channel, fulfillment_method, subtotal_cents, shipping_cents,
+          discount_cents, total_cents, payment_status, shipping_line1,
+          shipping_city, shipping_province, notes, items_json, created_at
+        FROM inquiries
+        WHERE id = ?
+        LIMIT 1
+      `,
+    )
+    .bind(orderId)
+    .first<InquiryRow>();
+
+  if (!existing) {
+    return Response.redirect(fallbackRedirect, 302);
+  }
+
+  if (existing.status !== "pending_contact") {
+    return Response.redirect(buildWhatsappRedirectUrl(settings.whatsappNumber, existing.request_number), 302);
+  }
+
+  await db
+    .prepare(`UPDATE inquiries SET status = 'new', contact_confirmed_at = ? WHERE id = ?`)
+    .bind(new Date().toISOString(), orderId)
+    .run();
+
+  const confirmedRecord = buildInquiryRecord({
+    channel: normalizeOrderChannel(existing.channel),
+    createdAt: existing.created_at,
+    customerEmail: existing.customer_email,
+    customerName: existing.customer_name ?? "",
+    customerPhone: existing.customer_phone ?? "",
+    discount: fromCents(existing.discount_cents),
+    fulfillmentMethod: normalizeFulfillmentMethod(existing.fulfillment_method),
+    id: existing.id,
+    lines: deserializeInquiryLines(existing.items_json),
+    notes: existing.notes ?? "",
+    paymentStatus:
+      existing.payment_status === "confirmed" || existing.payment_status === "cancelled"
+        ? existing.payment_status
+        : "pending",
+    requestNumber: existing.request_number,
+    shipping: fromCents(existing.shipping_cents),
+    shippingAddress: {
+      line1: existing.shipping_line1 ?? "",
+      city: existing.shipping_city ?? "",
+      province: existing.shipping_province ?? "",
+    },
+    status: "new",
+  });
+
+  await sendTeamOrderNotificationEmail(confirmedRecord);
+
+  return Response.redirect(buildWhatsappRedirectUrl(settings.whatsappNumber, existing.request_number), 302);
+}

@@ -17,7 +17,6 @@ dist-ssr
 *.local
 output/
 docs/*
-!docs/d1-commerce-schema.sql
 
 # Wrangler / Cloudflare
 .wrangler/
@@ -25,6 +24,14 @@ docs/*
 .env
 .env.*
 !.env.example
+!.env.production
+
+# Playwright MCP test artifacts
+.playwright-mcp/
+
+# AI/agent tooling - not part of the site
+.cursor/
+.mcp.json
 
 # Editor directories and files
 .vscode/*

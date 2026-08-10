@@ -1,20 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { AdminPanel, AdminShell, AdminTag } from "@/components/admin/AdminShell";
-import {
-  AdminButton,
+import {  AdminButton,
   AdminCheckbox,
   AdminEmptyState,
   AdminField,
   AdminInput,
   AdminPagination,
+  AdminSectionLabel,
   AdminSelect,
   AdminToast,
+  type AdminToastTone,
   AdminTextarea,
   confirmAdminDestructiveAction,
   getAdminVibeButtonClassName,
 } from "@/components/admin/AdminControls";
+import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
+import { getAdminErrorMessage } from "@/lib/admin-errors";
+import { matchesAdminSearch } from "@/lib/admin-search";
 import {
   deleteAdminCollection,
   getAdminCategories,
@@ -43,7 +47,6 @@ function createBlankCollection(): AdminCollectionRecord {
     description: "",
     vibe: "store",
     published: true,
-    featured: false,
     showOnHome: false,
     homeOrder: 0,
     categoryIds: [],
@@ -55,7 +58,7 @@ function getResolvedCollectionCount(collection: AdminCollectionRecord, products:
   const scopedProducts =
     collection.vibe === "store"
       ? products
-      : products.filter((product) => product.vibe === collection.vibe);
+      : products.filter((product) => product.vibe === collection.vibe || product.secondaryVibe === collection.vibe);
   const explicitIds = collection.productIds;
   const categoryIds = new Set(collection.categoryIds);
   return scopedProducts.filter((product) => {
@@ -67,12 +70,12 @@ function getResolvedCollectionCount(collection: AdminCollectionRecord, products:
 export const Route = createFileRoute("/admin/colecciones")({
   beforeLoad: () => enforceAdminAccess(),
   loader: async () => {
-    const products = await getAdminCatalogProducts();
-    return {
-      categories: await getAdminCategories(),
-      collections: await getAdminCollections(),
-      products,
-    };
+    const [products, categories, collections] = await Promise.all([
+      getAdminCatalogProducts(),
+      getAdminCategories(),
+      getAdminCollections(),
+    ]);
+    return { categories, collections, products };
   },
   head: () => ({ meta: [{ title: "Admin - Colecciones" }] }),
   component: AdminCollectionsPage,
@@ -87,15 +90,21 @@ function AdminCollectionsPage() {
   const [selectedId, setSelectedId] = useState(collections[0]?.id ?? "");
   const [draft, setDraft] = useState<AdminCollectionRecord | null>(collections[0] ? cloneCollection(collections[0]) : null);
   const [saveMessage, setSaveMessage] = useState("");
+  const [saveTone, setSaveTone] = useState<AdminToastTone>("info");
+  const showSaveMessage = (text: string, tone: AdminToastTone = "info") => {
+    setSaveMessage(text);
+    setSaveTone(tone);
+  };
   const [isDeleting, setIsDeleting] = useState(false);
   const [productQuery, setProductQuery] = useState("");
 
   const filtered = useMemo(() => {
-    const lowered = query.trim().toLowerCase();
     return rows.filter((collection) => {
       const matchesScope = scope === "all" || collection.vibe === scope;
-      const haystack = `${collection.name} ${collection.description}`.toLowerCase();
-      return matchesScope && haystack.includes(lowered);
+      return (
+        matchesScope &&
+        matchesAdminSearch([collection.name, collection.description, collection.id, collection.slug], query)
+      );
     });
   }, [rows, query, scope]);
 
@@ -106,15 +115,14 @@ function AdminCollectionsPage() {
 
   const assignableProducts = useMemo(() => {
     if (!draft) return [];
-    return products.filter((product) => draft.vibe === "store" || product.vibe === draft.vibe);
+    return products.filter(
+      (product) => draft.vibe === "store" || product.vibe === draft.vibe || product.secondaryVibe === draft.vibe,
+    );
   }, [draft, products]);
   const filteredAssignableProducts = useMemo(() => {
-    const lowered = productQuery.trim().toLowerCase();
-    return assignableProducts.filter((product) => {
-      if (!lowered) return true;
-      const haystack = `${product.name} ${product.id} ${product.slug} ${product.tags.join(" ")}`.toLowerCase();
-      return haystack.includes(lowered);
-    });
+    return assignableProducts.filter((product) =>
+      matchesAdminSearch([product.name, product.id, product.slug, ...product.tags], productQuery),
+    );
   }, [assignableProducts, productQuery]);
 
   useEffect(() => {
@@ -176,42 +184,55 @@ function AdminCollectionsPage() {
     setRows((current) => [blank, ...current]);
     setSelectedId(blank.id);
     setDraft(blank);
-    setSaveMessage("Nueva coleccion draft creada.");
+    showSaveMessage("Nueva coleccion draft creada.", "success");
   };
+
+  const performSave = (value: AdminCollectionRecord, options: { silent?: boolean } = {}) => {
+    const normalized = {
+      ...value,
+      slug: value.name.trim().toLowerCase().replace(/\s+/g, "-"),
+      name: value.name.trim(),
+      description: value.description.trim(),
+    };
+
+    return saveAdminCollection({ data: normalized }).then((saved) => {
+      setRows((current) => {
+        const exists = current.some((collection) => collection.id === value.id || collection.id === saved.id);
+        if (!exists) return [saved, ...current];
+        return current.map((collection) =>
+          collection.id === value.id || collection.id === saved.id ? saved : collection,
+        );
+      });
+      if (saved.id !== value.id) setSelectedId(saved.id);
+      setDraft((current) => (current && current.id === value.id ? cloneCollection(saved) : current));
+      if (!options.silent) showSaveMessage("Coleccion guardada.", "success");
+    });
+  };
+
+  const autosave = useAdminAutosave(draft, (value) => performSave(value, { silent: true }), {
+    resetKey: selectedId,
+  });
 
   const handleSave = () => {
     if (!draft) return;
-
-    const normalized = {
-      ...draft,
-      slug: draft.name.trim().toLowerCase().replace(/\s+/g, "-"),
-      name: draft.name.trim(),
-      description: draft.description.trim(),
-    };
-
-    void saveAdminCollection({ data: normalized })
-      .then((saved) => {
-        setRows((current) => {
-          const exists = current.some((collection) => collection.id === draft.id || collection.id === saved.id);
-          if (!exists) return [saved, ...current];
-          return current.map((collection) =>
-            collection.id === draft.id || collection.id === saved.id ? saved : collection,
-          );
-        });
-        setSelectedId(saved.id);
-        setDraft(cloneCollection(saved));
-        setSaveMessage("Coleccion guardada.");
-      })
-      .catch(() => {
-        setSaveMessage("No se pudo guardar la coleccion ahora mismo.");
-      });
+    void performSave(draft).catch((error) => {
+      showSaveMessage(getAdminErrorMessage(error, "No se pudo guardar la coleccion ahora mismo."), "error");
+    });
   };
 
   const handleDelete = () => {
     if (!draft) return;
+
+    const productCount = getResolvedCollectionCount(draft, products);
+    const warnings = [
+      productCount > 0 ? `tiene ${productCount} producto(s) asignado(s)` : null,
+      draft.showOnHome ? "se muestra actualmente en el inicio" : null,
+    ].filter((entry): entry is string => Boolean(entry));
+    const warningText = warnings.length > 0 ? ` Esta coleccion ${warnings.join(" y ")}.` : "";
+
     if (
       !confirmAdminDestructiveAction(
-        `Vas a eliminar la coleccion ${draft.name || draft.id}. Esta accion no se puede deshacer. ¿Quieres continuar?`,
+        `Vas a eliminar la coleccion ${draft.name || draft.id}.${warningText} Esta accion no se puede deshacer. ¿Quieres continuar?`,
       )
     ) {
       return;
@@ -219,7 +240,7 @@ function AdminCollectionsPage() {
 
     if (draft.id.startsWith("draft-collection-")) {
       setRows((current) => current.filter((collection) => collection.id !== draft.id));
-      setSaveMessage("Coleccion draft eliminada.");
+      showSaveMessage("Coleccion draft eliminada.", "success");
       return;
     }
 
@@ -228,10 +249,10 @@ function AdminCollectionsPage() {
     void deleteAdminCollection({ data: { id: draft.id } })
       .then(() => {
         setRows((current) => current.filter((collection) => collection.id !== draft.id));
-        setSaveMessage("Coleccion eliminada.");
+        showSaveMessage("Coleccion eliminada.", "success");
       })
       .catch((error) => {
-        setSaveMessage(error instanceof Error ? error.message : "No se pudo eliminar la coleccion.");
+        showSaveMessage(getAdminErrorMessage(error, "No se pudo eliminar la coleccion."), "error");
       })
       .finally(() => {
         setIsDeleting(false);
@@ -248,7 +269,7 @@ function AdminCollectionsPage() {
         </AdminButton>
       }
     >
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(460px,0.95fr)]">
+      <div className="grid grid-cols-1 gap-4">
         <AdminPanel
           title="Colecciones"
           actions={
@@ -311,7 +332,6 @@ function AdminCollectionsPage() {
                       </div>
                       <div className="flex flex-wrap justify-end gap-1">
                         {collection.published ? <AdminTag tone="dark">Publica</AdminTag> : <AdminTag tone="warn">Oculta</AdminTag>}
-                        {collection.featured ? <AdminTag tone="dark">Destacada</AdminTag> : null}
                         {collection.showOnHome ? <AdminTag tone="soft">Inicio #{collection.homeOrder}</AdminTag> : null}
                       </div>
                     </div>
@@ -338,8 +358,7 @@ function AdminCollectionsPage() {
               </AdminButton>
               <AdminButton tone="primary" onClick={handleSave} disabled={!draft || isDeleting}>
                 Guardar
-              </AdminButton>
-            </div>
+              </AdminButton>            </div>
           }
         >
           {draft ? (
@@ -360,13 +379,9 @@ function AdminCollectionsPage() {
               </AdminField>
               <AdminCheckbox
                 label="Publicar coleccion"
+                hint="Si esta apagada, la pagina de la coleccion no existe y no aparece en el sitemap."
                 checked={draft.published}
                 onCheckedChange={(checked) => setDraft((current) => (current ? { ...current, published: checked } : current))}
-              />
-              <AdminCheckbox
-                label="Coleccion destacada"
-                checked={draft.featured}
-                onCheckedChange={(checked) => setDraft((current) => (current ? { ...current, featured: checked } : current))}
               />
               <AdminCheckbox
                 label="Mostrar en inicio"
@@ -401,7 +416,7 @@ function AdminCollectionsPage() {
               </AdminField>
 
               <div>
-                <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">Categorias destacadas</div>
+                <AdminSectionLabel>Categorias destacadas</AdminSectionLabel>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {categories.map((category) => {
                     const active = draft.categoryIds.includes(category.id);
@@ -423,7 +438,7 @@ function AdminCollectionsPage() {
 
               <div>
                 <div className="flex items-center justify-between gap-3">
-                  <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">Productos incluidos</div>
+                  <AdminSectionLabel>Productos incluidos</AdminSectionLabel>
                   <div className="text-xs font-semibold text-[#6b5a55]">{draft.productIds.length} seleccionados</div>
                 </div>
                 <div className="mt-2">
@@ -435,7 +450,16 @@ function AdminCollectionsPage() {
                 </div>
                 <div className="mt-2 grid max-h-[320px] gap-2 overflow-y-auto pr-1">
                   {filteredAssignableProducts.map((product) => {
-                    const active = draft.productIds.includes(product.id);
+                    // A product is "in" the collection either because it was
+                    // explicitly picked, or because its category matches the
+                    // collection's categoryIds (same rule the storefront uses
+                    // to resolve membership - see mergeCollectionProductIds).
+                    // Checking only productIds here made every category-matched
+                    // product look deselected even though it's really included.
+                    const active =
+                      draft.productIds.includes(product.id) ||
+                      (draft.categoryIds.length > 0 &&
+                        product.categories.some((category) => draft.categoryIds.includes(category)));
                     return (
                       <label
                         key={product.id}
@@ -474,7 +498,7 @@ function AdminCollectionsPage() {
           )}
         </AdminPanel>
       </div>
-      <AdminToast message={saveMessage} />
+      <AdminToast message={saveMessage} tone={saveTone} />
     </AdminShell>
   );
 }

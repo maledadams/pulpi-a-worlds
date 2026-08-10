@@ -12,37 +12,29 @@
   "triggers": {
     "crons": ["5 12 * * *"]
   },
-  // Bindings go here once you create real resources.
   // Keep secrets out of this file and use `wrangler secret put`.
-  //
-  // "vars": {
-  //   "CF_ACCESS_TEAM_DOMAIN": "https://your-team.cloudflareaccess.com",
-  //   "CF_ACCESS_AUD": "your-access-app-aud",
-  //   "R2_PUBLIC_BASE_URL": "https://assets.example.com",
-  //   "ORDER_NOTIFICATION_EMAIL": "pedidos@example.com",
-  //   "RESEND_FROM_EMAIL": "Pulpiña RD <pedidos@example.com>"
-  // },
-  // "d1_databases": [
-  //   {
-  //     "binding": "DB",
-  //     "database_name": "pulpi-local",
-  //     "database_id": "replace-with-real-d1-id"
-  //   }
-  // ],
-  // "r2_buckets": [
-  //   {
-  //     "binding": "PUBLIC_MEDIA",
-  //     "bucket_name": "pulpi-local-public"
-  //   }
-  // ],
-  // "env": {
-  //   "staging": {
-  //     "name": "tanstack-start-app-staging"
-  //   },
-  //   "production": {
-  //     "name": "tanstack-start-app-production"
-  //   }
-  // }
+  "vars": {
+    "ADMIN_ALLOWED_HOSTS": "localhost,pulpinastore.com,www.pulpinastore.com",
+    "ADMIN_ALLOWED_EMAILS": "maledadams@gmail.com,pulpinard@gmail.com",
+    "R2_PUBLIC_BASE_URL": "https://pub-72ed85dd58ca47b88e2ad8e4427a381b.r2.dev",
+    "ORDER_NOTIFICATION_EMAIL": "pulpinard@gmail.com",
+    "RESEND_FROM_EMAIL": "Pulpiña RD <pedidos@pulpinastore.com>",
+    "CF_ACCESS_TEAM_DOMAIN": "https://raspy-dew-414c.cloudflareaccess.com",
+    "CF_ACCESS_AUD": "a3b9f2de9d9477c0239bf676fa5f869178525536e8727482688cdc795643aa7e"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "pulpi-production",
+      "database_id": "087ecbfd-db34-423a-904c-b024381e4338"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "PUBLIC_MEDIA",
+      "bucket_name": "pulpi-production-public"
+    }
+  ],
   "env": {
     "production": {
       "name": "tanstack-start-app-production",
@@ -55,18 +47,66 @@
           "pattern": "www.pulpinastore.com",
           "custom_domain": true
         }
-      ]
+      ],
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "pulpi-production",
+          "database_id": "087ecbfd-db34-423a-904c-b024381e4338"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "PUBLIC_MEDIA",
+          "bucket_name": "pulpi-production-public"
+        }
+      ],
+      "vars": {
+        "ADMIN_ALLOWED_HOSTS": "localhost,pulpinastore.com,www.pulpinastore.com",
+        "ADMIN_ALLOWED_EMAILS": "maledadams@gmail.com,pulpinard@gmail.com",
+        "R2_PUBLIC_BASE_URL": "https://pub-72ed85dd58ca47b88e2ad8e4427a381b.r2.dev",
+        "ORDER_NOTIFICATION_EMAIL": "pulpinard@gmail.com",
+        "RESEND_FROM_EMAIL": "Pulpiña RD <pedidos@pulpinastore.com>",
+        "CF_ACCESS_TEAM_DOMAIN": "https://raspy-dew-414c.cloudflareaccess.com",
+        "CF_ACCESS_AUD": "a3b9f2de9d9477c0239bf676fa5f869178525536e8727482688cdc795643aa7e"
+      }
     },
-    // Noindex-able portfolio demo. Separate Worker name and zero secrets/
-    // bindings/cron of its own — it can never read production keys or
-    // touch the real store's data, and it always noindexes every page.
+    // Noindex-able portfolio demo, deployed only from the pulpina-portfolio
+    // branch. Every binding/var below is spelled out explicitly rather than
+    // left to inherit from the top level - Cloudflare's named-environment
+    // rules merge `vars` per-key and only fully replace binding arrays
+    // (d1_databases/r2_buckets) when the env defines that key itself, so an
+    // omitted key here would otherwise silently inherit production's real
+    // database/bucket/admin credentials. This env has its own isolated D1
+    // database (pulpi-portfolio, kept in sync via
+    // scripts/sync-portfolio-db.mjs - never a live connection to
+    // pulpi-production), no R2 binding at all (product photos load from
+    // R2_PUBLIC_BASE_URL's public URL, which needs no binding), and every
+    // admin/access var blanked out - see IS_PORTFOLIO_DEPLOY in
+    // src/lib/admin-access.ts for the hard code-level lockout this backs up.
     "portfolio": {
       "name": "pulpi-a-worlds-portfolio",
       "triggers": {
         "crons": []
       },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "pulpi-portfolio",
+          "database_id": "607f157b-e11b-49a4-9ff2-3b6818e1d7be"
+        }
+      ],
+      "r2_buckets": [],
       "vars": {
-        "PORTFOLIO_NOINDEX_ALL": "true"
+        "PORTFOLIO_NOINDEX_ALL": "true",
+        "IS_PORTFOLIO_DEPLOY": "true",
+        "R2_PUBLIC_BASE_URL": "https://pub-72ed85dd58ca47b88e2ad8e4427a381b.r2.dev",
+        "ADMIN_ALLOWED_HOSTS": "",
+        "ADMIN_ALLOWED_EMAILS": "",
+        "ORDER_NOTIFICATION_EMAIL": "",
+        "RESEND_FROM_EMAIL": "",
+        "CF_ACCESS_TEAM_DOMAIN": "",
+        "CF_ACCESS_AUD": ""
       },
       "routes": [
         {

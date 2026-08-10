@@ -1,18 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { AdminPanel, AdminShell, AdminTag } from "@/components/admin/AdminShell";
-import {
-  AdminButton,
+import {  AdminButton,
   AdminCheckbox,
   AdminEmptyState,
   AdminField,
   AdminInput,
   AdminPagination,
+  AdminSectionLabel,
   AdminSelect,
+  AdminToast,
+  type AdminToastTone,
   confirmAdminDestructiveAction,
   getAdminVibeButtonClassName,
 } from "@/components/admin/AdminControls";
+import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
+import { getAdminErrorMessage } from "@/lib/admin-errors";
+import { matchesAdminSearch } from "@/lib/admin-search";
+import { compressImageForUpload } from "@/lib/image-resize";
 import {
   deleteAdminCategoryImage,
   deleteAdminCategory,
@@ -60,11 +66,14 @@ function createBlankCategory(): AdminCategoryRecord {
 
 export const Route = createFileRoute("/admin/categorias")({
   beforeLoad: () => enforceAdminAccess(),
-  loader: async () => ({
-    categories: await getAdminCategories(),
-    products: await getAdminCatalogProducts(),
-    sizeFormats: await getAdminSizeFormats(),
-  }),
+  loader: async () => {
+    const [categories, products, sizeFormats] = await Promise.all([
+      getAdminCategories(),
+      getAdminCatalogProducts(),
+      getAdminSizeFormats(),
+    ]);
+    return { categories, products, sizeFormats };
+  },
   head: () => ({ meta: [{ title: "Admin - Categorias" }] }),
   component: AdminCategoriesPage,
 });
@@ -77,11 +86,15 @@ function AdminCategoriesPage() {
   const [selectedId, setSelectedId] = useState(categories[0]?.id ?? "");
   const [page, setPage] = useState(0);
   const [draft, setDraft] = useState<AdminCategoryRecord | null>(categories[0] ? cloneCategory(categories[0]) : null);
-  const [saveMessage, setSaveMessage] = useState("");
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastTone, setToastTone] = useState<AdminToastTone>("info");
+  const showToast = (text: string, tone: AdminToastTone = "info") => {
+    setToastMessage(text);
+    setToastTone(tone);
+  };
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteReplacementId, setDeleteReplacementId] = useState("");
   const [selectedFormatId, setSelectedFormatId] = useState<AdminSizeFormatRecord["id"]>(initialSizeFormats[0]?.id ?? "standard");
-  const [formatMessage, setFormatMessage] = useState("");
   const [newSize, setNewSize] = useState("");
   const [selectedCategoryFiles, setSelectedCategoryFiles] = useState<
     Partial<Record<SubstoreVibe, File | null>>
@@ -89,11 +102,9 @@ function AdminCategoriesPage() {
   const [uploadingVibe, setUploadingVibe] = useState<SubstoreVibe | null>(null);
 
   const filtered = useMemo(() => {
-    const lowered = query.trim().toLowerCase();
-    return rows.filter((category) => {
-      const haystack = `${category.label} ${category.id} ${category.vibes.join(" ")} ${category.sizeFormat}`.toLowerCase();
-      return haystack.includes(lowered);
-    });
+    return rows.filter((category) =>
+      matchesAdminSearch([category.label, category.id, ...category.vibes, category.sizeFormat], query),
+    );
   }, [rows, query]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -140,6 +151,12 @@ function AdminCategoriesPage() {
     setSelectedCategoryFiles({});
   }, [selected]);
 
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timeout = window.setTimeout(() => setToastMessage(""), 2600);
+    return () => window.clearTimeout(timeout);
+  }, [toastMessage]);
+
   const toggleVibe = (vibe: SubstoreVibe) => {
     setDraft((current) => {
       if (!current) return current;
@@ -166,20 +183,23 @@ function AdminCategoriesPage() {
   const handleUploadCategoryImage = (vibe: SubstoreVibe) => {
     if (!draft || draft.id.startsWith("draft-category-") || !selectedCategoryFiles[vibe]) return;
     setUploadingVibe(vibe);
-    setSaveMessage("");
-    const formData = new FormData();
-    formData.set("categoryId", draft.id);
-    formData.set("vibe", vibe);
-    formData.set("file", selectedCategoryFiles[vibe]!);
+    setToastMessage("");
 
-    void uploadAdminCategoryImage({ data: formData })
+    void compressImageForUpload(selectedCategoryFiles[vibe]!)
+      .then((file) => {
+        const formData = new FormData();
+        formData.set("categoryId", draft.id);
+        formData.set("vibe", vibe);
+        formData.set("file", file);
+        return uploadAdminCategoryImage({ data: formData });
+      })
       .then((saved) => {
         updateSavedCategory(saved);
         setSelectedCategoryFiles((current) => ({ ...current, [vibe]: null }));
-        setSaveMessage(`Imagen de ${getVibeLabel(vibe)} guardada.`);
+        showToast(`Imagen de ${getVibeLabel(vibe)} guardada.`, "success");
       })
       .catch((error) => {
-        setSaveMessage(error instanceof Error ? error.message : "No se pudo subir la imagen.");
+        showToast(getAdminErrorMessage(error, "No se pudo subir la imagen."), "error");
       })
       .finally(() => setUploadingVibe(null));
   };
@@ -190,14 +210,14 @@ function AdminCategoriesPage() {
       return;
     }
     setUploadingVibe(vibe);
-    setSaveMessage("");
+    setToastMessage("");
     void deleteAdminCategoryImage({ data: { categoryId: draft.id, vibe } })
       .then((saved) => {
         updateSavedCategory(saved);
-        setSaveMessage(`Imagen de ${getVibeLabel(vibe)} eliminada.`);
+        showToast(`Imagen de ${getVibeLabel(vibe)} eliminada.`, "success");
       })
       .catch((error) => {
-        setSaveMessage(error instanceof Error ? error.message : "No se pudo quitar la imagen.");
+        showToast(getAdminErrorMessage(error, "No se pudo quitar la imagen."), "error");
       })
       .finally(() => setUploadingVibe(null));
   };
@@ -207,35 +227,47 @@ function AdminCategoriesPage() {
     setRows((current) => [blank, ...current]);
     setSelectedId(blank.id);
     setDraft(blank);
-    setSaveMessage("Nueva categoria draft creada.");
+    showToast("Nueva categoria draft creada.", "success");
   };
+
+  const performSave = (value: AdminCategoryRecord, options: { silent?: boolean } = {}) => {
+    const normalized = {
+      ...value,
+      previousId: value.id.startsWith("draft-category-") ? undefined : selected?.id ?? value.previousId,
+      label: value.label.trim(),
+      id: value.id.startsWith("draft-category-")
+        ? value.label.trim().toLowerCase().replace(/\s+/g, "-") || value.id
+        : value.id,
+    };
+
+    return saveAdminCategory({ data: normalized }).then((saved) => {
+      setRows((current) => {
+        const exists = current.some((category) => category.id === value.id || category.id === saved.id);
+        if (!exists) return [saved, ...current];
+        return current.map((category) => (category.id === value.id || category.id === saved.id ? saved : category));
+      });
+      if (saved.id !== value.id) setSelectedId(saved.id);
+      setDraft((current) => (current && current.id === value.id ? cloneCategory(saved) : current));
+      if (!options.silent) showToast("Categoria guardada.", "success");
+    });
+  };
+
+  // While a category is still a fresh draft, its id gets derived from
+  // whatever the label reads at the moment of the FIRST save (see
+  // performSave above) - same as products, which only lock in a slug once
+  // saved. If autosave fired mid-typing it would freeze that id to a
+  // half-typed label instead of the finished one, so autosave stays off
+  // until the admin explicitly saves once and the category gets a real id.
+  const autosave = useAdminAutosave(draft, (value) => performSave(value, { silent: true }), {
+    resetKey: selectedId,
+    enabled: Boolean(draft && !draft.id.startsWith("draft-category-")),
+  });
 
   const handleSave = () => {
     if (!draft) return;
-
-    const normalized = {
-      ...draft,
-      previousId: draft.id.startsWith("draft-category-") ? undefined : selected?.id ?? draft.previousId,
-      label: draft.label.trim(),
-      id: draft.id.startsWith("draft-category-")
-        ? draft.label.trim().toLowerCase().replace(/\s+/g, "-") || draft.id
-        : draft.id,
-    };
-
-    void saveAdminCategory({ data: normalized })
-      .then((saved) => {
-        setRows((current) => {
-          const exists = current.some((category) => category.id === draft.id || category.id === saved.id);
-          if (!exists) return [saved, ...current];
-          return current.map((category) => (category.id === draft.id || category.id === saved.id ? saved : category));
-        });
-        setSelectedId(saved.id);
-        setDraft(cloneCategory(saved));
-        setSaveMessage("Categoria guardada.");
-      })
-      .catch(() => {
-        setSaveMessage("No se pudo guardar la categoria ahora mismo.");
-      });
+    void performSave(draft).catch((error) => {
+      showToast(getAdminErrorMessage(error, "No se pudo guardar la categoria ahora mismo."), "error");
+    });
   };
 
   const handleDelete = () => {
@@ -250,19 +282,19 @@ function AdminCategoriesPage() {
 
     if (draft.id.startsWith("draft-category-")) {
       setRows((current) => current.filter((category) => category.id !== draft.id));
-      setSaveMessage("Categoria draft eliminada.");
+      showToast("Categoria draft eliminada.", "success");
       return;
     }
 
     setIsDeleting(true);
-    setSaveMessage("");
+    setToastMessage("");
     void deleteAdminCategory({ data: { id: draft.id, replacementCategoryId: deleteReplacementId || undefined } })
       .then(() => {
         setRows((current) => current.filter((category) => category.id !== draft.id));
-        setSaveMessage("Categoria eliminada.");
+        showToast("Categoria eliminada.", "success");
       })
       .catch((error) => {
-        setSaveMessage(error instanceof Error ? error.message : "No se pudo eliminar la categoria.");
+        showToast(getAdminErrorMessage(error, "No se pudo eliminar la categoria."), "error");
       })
       .finally(() => {
         setIsDeleting(false);
@@ -287,12 +319,11 @@ function AdminCategoriesPage() {
       };
     });
     setNewSize("");
-    setFormatMessage("");
   };
 
   const handleRemoveSize = (size: string) => {
     if (usedSizesForSelectedFormat.has(size)) {
-      setFormatMessage("No puedes quitar una talla que ya esta en uso en productos guardados.");
+      showToast("No puedes quitar una talla que ya esta en uso en productos guardados.", "error");
       return;
     }
     if (!confirmAdminDestructiveAction(`Vas a quitar la talla ${size} de este formato. ¿Quieres continuar?`)) {
@@ -306,23 +337,23 @@ function AdminCategoriesPage() {
         sizes: current.sizes.filter((entry) => entry !== size),
       };
     });
-    setFormatMessage("");
   };
 
-  const handleSaveFormat = () => {
-    const payload = {
-      ...selectedFormat,
-      sizes: selectedFormat.sizes,
-    };
+  const performSaveFormat = (value: AdminSizeFormatRecord, options: { silent?: boolean } = {}) => {
+    return saveAdminSizeFormat({ data: { ...value, sizes: value.sizes } }).then((saved) => {
+      setSizeFormats((current) => current.map((format) => (format.id === saved.id ? cloneSizeFormat(saved) : format)));
+      if (!options.silent) showToast("Formato guardado.", "success");
+    });
+  };
 
-    void saveAdminSizeFormat({ data: payload })
-      .then((saved) => {
-        setSizeFormats((current) => current.map((format) => (format.id === saved.id ? cloneSizeFormat(saved) : format)));
-        setFormatMessage("Formato guardado.");
-      })
-      .catch(() => {
-        setFormatMessage("No se pudo guardar el formato de tallas.");
-      });
+  const formatAutosave = useAdminAutosave(selectedFormat, (value) => performSaveFormat(value, { silent: true }), {
+    resetKey: selectedFormatId,
+  });
+
+  const handleSaveFormat = () => {
+    void performSaveFormat(selectedFormat).catch((error) => {
+      showToast(getAdminErrorMessage(error, "No se pudo guardar el formato de tallas."), "error");
+    });
   };
 
   return (
@@ -335,7 +366,8 @@ function AdminCategoriesPage() {
         </AdminButton>
       }
     >
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.1fr)_430px]">
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.1fr)_430px]">
+        <div className="grid gap-4">
         <AdminPanel>
           <div className="mb-4 flex flex-col gap-3 md:flex-row">
             <AdminInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nombre o id" />
@@ -408,9 +440,82 @@ function AdminCategoriesPage() {
           )}
         </AdminPanel>
 
-        <div className="grid gap-4">
-          <AdminPanel
-            title={draft?.label || "Editor"}
+        <AdminPanel
+          title="Formatos de talla"
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              <AdminButton tone="primary" onClick={handleSaveFormat}>
+                Guardar formato
+              </AdminButton>            </div>
+          }
+        >
+          <div className="grid gap-4">
+            <div className="flex flex-wrap gap-2">
+              {sizeFormats.map((format) => (
+                <AdminButton
+                  key={format.id}
+                  tone={selectedFormatId === format.id ? "active" : "ghost"}
+                  onClick={() => {
+                    setSelectedFormatId(format.id);
+                    setNewSize("");
+                  }}
+                >
+                  {format.label}
+                </AdminButton>
+              ))}
+            </div>
+
+            <AdminField label="Nombre del formato">
+              <AdminInput
+                value={selectedFormat.label}
+                onChange={(event) => {
+                  const nextLabel = event.target.value;
+                  updateSelectedFormat((current) => ({ ...current, label: nextLabel }));
+                }}
+              />
+            </AdminField>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <AdminSectionLabel>Tallas disponibles</AdminSectionLabel>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {selectedFormat.sizes.map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => handleRemoveSize(size)}
+                      disabled={usedSizesForSelectedFormat.has(size)}
+                      className={`rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] transition ${
+                        usedSizesForSelectedFormat.has(size)
+                          ? "cursor-not-allowed border-[#231717]/10 bg-[#efebe7] text-[#a08f87]"
+                          : "border-[#231717]/15 bg-[#faf6f0] text-[#5f4941] hover:border-[#231717] hover:bg-[#f3eadf]"
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-3 content-start">
+                <AdminField label="Agregar talla nueva">
+                  <AdminInput
+                    value={newSize}
+                    onChange={(event) => setNewSize(event.target.value)}
+                    placeholder={selectedFormat.id === "shoes" ? "Ej: 47" : "Ej: 7XL"}
+                  />
+                </AdminField>
+                <AdminButton tone="secondary" onClick={handleAddSize}>
+                  Agregar talla
+                </AdminButton>
+              </div>
+            </div>
+          </div>
+        </AdminPanel>
+        </div>
+
+        <AdminPanel
+          title={draft?.label || "Editor"}
             className="self-start"
             actions={
               <div className="flex flex-wrap gap-2">
@@ -419,18 +524,11 @@ function AdminCategoriesPage() {
                 </AdminButton>
                 <AdminButton tone="primary" onClick={handleSave} disabled={!draft || isDeleting}>
                   Guardar
-                </AdminButton>
-              </div>
+                </AdminButton>              </div>
             }
           >
             {draft ? (
               <div className="grid content-start gap-4">
-                {saveMessage ? (
-                  <div className="rounded-2xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2 text-xs font-semibold text-[#5f4941]">
-                    {saveMessage}
-                  </div>
-                ) : null}
-
                 <AdminField label="Nombre visible">
                   <AdminInput value={draft.label} onChange={(event) => setDraft((current) => (current ? { ...current, label: event.target.value } : current))} />
                 </AdminField>
@@ -445,7 +543,7 @@ function AdminCategoriesPage() {
                 />
 
                 <div>
-                  <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">Subtiendas activas</div>
+                  <AdminSectionLabel>Subtiendas activas</AdminSectionLabel>
                   <div className="mt-2 grid gap-2 sm:grid-cols-3">
                     {(["moon", "sunshine", "men"] as const).map((vibe) => {
                       const active = draft.vibes.includes(vibe);
@@ -464,9 +562,7 @@ function AdminCategoriesPage() {
                 </div>
 
                 <div>
-                  <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">
-                    Imagen por subtienda
-                  </div>
+                  <AdminSectionLabel>Imagen por subtienda</AdminSectionLabel>
                   <p className="mt-1 text-xs leading-5 text-[#6b5a55]">
                     Cada imagen se usa sobre el nombre de esta categoria en el subnav de su subtienda.
                   </p>
@@ -478,7 +574,7 @@ function AdminCategoriesPage() {
                         const isUploading = uploadingVibe === vibe;
                         const canUpload = !draft.id.startsWith("draft-category-");
                         return (
-                          <div key={vibe} className="border border-[#231717]/12 bg-[#faf6f0] p-3">
+                          <div key={vibe} className="rounded-xl bg-[#faf6f0] p-3">
                           <div className="grid gap-3 sm:grid-cols-[88px_minmax(0,1fr)]">
                             <div className="flex h-[88px] w-[88px] items-center justify-center overflow-hidden bg-[#f1e7dc]">
                               {image ? (
@@ -581,89 +677,8 @@ function AdminCategoriesPage() {
               />
             )}
           </AdminPanel>
-
-          <AdminPanel
-            title="Formatos de talla"
-            className="h-full"
-            actions={
-              <AdminButton tone="primary" onClick={handleSaveFormat}>
-                Guardar formato
-              </AdminButton>
-            }
-          >
-              <div className="grid h-full content-start gap-4">
-              {formatMessage ? (
-                <div className="rounded-2xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2 text-xs font-semibold text-[#5f4941]">
-                  {formatMessage}
-                </div>
-              ) : null}
-
-              <div className="flex flex-wrap gap-2">
-                {sizeFormats.map((format) => (
-                  <AdminButton
-                    key={format.id}
-                    tone={selectedFormatId === format.id ? "active" : "ghost"}
-                    onClick={() => {
-                      setSelectedFormatId(format.id);
-                      setFormatMessage("");
-                      setNewSize("");
-                    }}
-                  >
-                    {format.label}
-                  </AdminButton>
-                ))}
-              </div>
-
-              <AdminField label="Nombre del formato">
-                <AdminInput
-                  value={selectedFormat.label}
-                  onChange={(event) => {
-                    const nextLabel = event.target.value;
-                    updateSelectedFormat((current) => ({ ...current, label: nextLabel }));
-                  }}
-                />
-              </AdminField>
-
-              <div>
-                <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">Tallas disponibles</div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {selectedFormat.sizes.map((size) => (
-                    <button
-                      key={size}
-                      type="button"
-                      onClick={() => handleRemoveSize(size)}
-                      disabled={usedSizesForSelectedFormat.has(size)}
-                      className={`rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] transition ${
-                        usedSizesForSelectedFormat.has(size)
-                          ? "cursor-not-allowed border-[#231717]/10 bg-[#efebe7] text-[#a08f87]"
-                          : "border-[#231717]/15 bg-[#faf6f0] text-[#5f4941] hover:border-[#231717] hover:bg-[#f3eadf]"
-                      }`}
-                    >
-                      {size}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
-                <AdminField label="Agregar talla nueva">
-                  <AdminInput
-                    value={newSize}
-                    onChange={(event) => setNewSize(event.target.value)}
-                    placeholder={selectedFormat.id === "shoes" ? "Ej: 47" : "Ej: 7XL"}
-                  />
-                </AdminField>
-                <div className="flex items-end">
-                  <AdminButton tone="secondary" onClick={handleAddSize}>
-                    Agregar talla
-                  </AdminButton>
-                </div>
-              </div>
-
-            </div>
-          </AdminPanel>
-        </div>
       </div>
+      <AdminToast message={toastMessage} tone={toastTone} />
     </AdminShell>
   );
 }

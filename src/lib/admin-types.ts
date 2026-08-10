@@ -9,11 +9,13 @@ export type AdminSection =
   | "colecciones"
   | "pedidos"
   | "descuentos"
+  | "cumpleanos"
   | "configuracion";
 
 export type AdminInquiryChannel = "formulario" | "whatsapp" | "instagram" | "email";
 
 export type AdminInquiryStatus =
+  | "pending_contact"
   | "new"
   | "follow_up"
   | "quoted"
@@ -41,6 +43,7 @@ export type AdminProductRecord = {
   slug: string;
   name: string;
   vibe: Vibe;
+  secondaryVibe: SubstoreVibe | null;
   sortOrder: number;
   categories: string[];
   primaryCategory: string;
@@ -83,7 +86,6 @@ export type AdminCollectionRecord = {
   description: string;
   vibe: Vibe | "store";
   published: boolean;
-  featured: boolean;
   showOnHome: boolean;
   homeOrder: number;
   categoryIds: string[];
@@ -127,12 +129,16 @@ export type AdminInquiryRecord = {
 
 export type AdminDiscountRecord = {
   id: string;
+  kind: "code" | "promotion";
   code: string;
   label: string;
   type: "percentage" | "fixed";
   value: number;
   active: boolean;
   scope: "store" | Vibe;
+  categoryIds: string[];
+  maxRedemptions: number | null;
+  onePerCustomer: boolean;
 };
 
 export type AdminAnnouncementRecord = {

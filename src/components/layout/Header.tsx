@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { ShoppingBag, Search, Menu, X } from "lucide-react";
+import { ShoppingBag, Search, Menu, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MegaPortal } from "./MegaPortal";
 import { StorePineapple } from "@/components/branding/StorePineapple";
@@ -68,13 +68,28 @@ function initials(v: string) {
     .join("");
 }
 
+function hashSeed(value: string) {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash * 31 + value.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+}
+
+// Picks a stable "random" product to represent a category circle - stable
+// meaning the same pick for every visitor on every request, not just cached
+// per-browser, and it never changes on its own over time. The seed is built
+// from the exact set of matching product ids, so the pick only changes when
+// a product is actually added to or removed from the category (never just
+// because time passed or someone reloaded the page), and it deliberately
+// does not favor whichever product happens to be newest.
 function getCategoryPreviewProduct(pool: Product[], categoryId: string) {
-  return (
-    pool.find((p) => p.featured && getProductCategories(p).includes(categoryId)) ??
-    pool.find((p) => p.newArrival && getProductCategories(p).includes(categoryId)) ??
-    pool.find((p) => getProductCategories(p).includes(categoryId)) ??
-    null
-  );
+  const matches = pool
+    .filter((p) => getProductCategories(p).includes(categoryId))
+    .sort((a, b) => a.id.localeCompare(b.id));
+  if (matches.length === 0) return null;
+  const seed = `${categoryId}:${matches.map((p) => p.id).join(",")}`;
+  return matches[hashSeed(seed) % matches.length]!;
 }
 
 /* ── quick-link children ───────────────────────── */
@@ -217,6 +232,8 @@ function CategoryCircle({
           <img
             src={image.url}
             alt={image.altText ?? item.label}
+            loading="lazy"
+            decoding="async"
             className="ui-circle h-full w-full object-cover"
           />
         ) : (
@@ -296,20 +313,20 @@ function AnnouncementBar({ announcements, theme }: { announcements: StoreAnnounc
     return null;
   }
 
+  // Only the active announcement is ever in the DOM - stacking every
+  // announcement in the same grid cell (even hidden ones) made the bar's
+  // height match whichever announcement was tallest, so a one-line message
+  // still reserved two lines of space whenever any other rotating message
+  // wrapped to two lines. Rendering just the active one lets the bar's
+  // height follow its own line count instead.
+  const active = announcements[activeIndex] ?? announcements[0]!;
+
   return (
     <div className={`px-4 py-2 ${theme.background} ${theme.border} ${theme.text}`}>
-      <div className="mx-auto grid max-w-7xl text-center">
-        {announcements.map((announcement, index) => (
-          <div
-            key={announcement.id}
-            aria-hidden={index !== activeIndex}
-            className={`col-start-1 row-start-1 font-body text-sm leading-5 transition-opacity duration-300 sm:text-[0.95rem] ${
-              index === activeIndex ? "opacity-100" : "pointer-events-none opacity-0"
-            }`}
-          >
-            {announcement.text}
-          </div>
-        ))}
+      <div className="mx-auto max-w-7xl text-center">
+        <div key={active.id} className="announcement-fade font-body text-sm leading-5 sm:text-[0.95rem]">
+          {active.text}
+        </div>
       </div>
     </div>
   );
@@ -339,7 +356,12 @@ export function Header({
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
   const [activeMega, setActiveMega] = useState<MegaKey | null>(null);
   const [renderedMega, setRenderedMega] = useState<MegaKey | null>(null);
+  const [categoryPage, setCategoryPage] = useState(0);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setCategoryPage(0);
+  }, [renderedMega]);
 
   const headerRef = useRef<HTMLElement | null>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -376,6 +398,18 @@ export function Header({
     }
   }, [activeMega]);
 
+  /* block page scroll while the mega dropdown is open/hovered, so it stays put */
+  useEffect(() => {
+    if (!activeMega) return;
+    const preventScroll = (event: WheelEvent | TouchEvent) => event.preventDefault();
+    window.addEventListener("wheel", preventScroll, { passive: false });
+    window.addEventListener("touchmove", preventScroll, { passive: false });
+    return () => {
+      window.removeEventListener("wheel", preventScroll);
+      window.removeEventListener("touchmove", preventScroll);
+    };
+  }, [activeMega]);
+
   const navItems = useMemo<NavItem[]>(() => {
     const buildChildren = (to: string, label: string, vibe?: Vibe) => [
       { to, label },
@@ -403,9 +437,9 @@ export function Header({
   /* build mega sections */
   const megaSections = useMemo<Record<MegaKey, MegaSection>>(() => {
     const publicProducts = catalogProducts;
-    const moonPool = publicProducts.filter((p) => p.vibe === "moon");
-    const sunPool = publicProducts.filter((p) => p.vibe === "sunshine");
-    const menPool = publicProducts.filter((p) => p.vibe === "men");
+    const moonPool = publicProducts.filter((p) => p.vibe === "moon" || p.secondaryVibe === "moon");
+    const sunPool = publicProducts.filter((p) => p.vibe === "sunshine" || p.secondaryVibe === "sunshine");
+    const menPool = publicProducts.filter((p) => p.vibe === "men" || p.secondaryVibe === "men");
     const newPool = publicProducts.filter((p) => p.newArrival);
     const salePool = publicProducts.filter((p) => !!p.salePrice);
 
@@ -427,6 +461,7 @@ export function Header({
       categories: cats.map((c) => ({
         to,
         label: c.label,
+        hash: "shop",
         search:
           key === "tienda" ? getCategoryLinkSearch(c.id)
           : key === "moon" || key === "sunshine" || key === "men"
@@ -619,6 +654,8 @@ export function Header({
                     <img
                       src={vs.logo}
                       alt={currentMega.label}
+                      loading="lazy"
+                      decoding="async"
                       className={`max-h-[180px] w-auto max-w-full object-contain drop-shadow-2xl ${vs.logoBlend}`}
                     />
                   </div>
@@ -659,21 +696,56 @@ export function Header({
 
                 {/* 3 — Categories */}
                 <div>
-                  <div className="mb-3 flex items-center">
-                    <span className={`text-xs font-black uppercase tracking-wider ${mutedCls}`}>
-                      Categorías
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-6 gap-4">
-                    {currentMega.categories.slice(0, 12).map((item) => (
-                      <CategoryCircle
-                        key={`${currentMega.key}-${item.label}`}
-                        item={item}
-                        textCls={textCls}
-                        isVibe={!!vs}
-                      />
-                    ))}
-                  </div>
+                  {(() => {
+                    const CATEGORY_PAGE_SIZE = 12;
+                    const totalPages = Math.max(1, Math.ceil(currentMega.categories.length / CATEGORY_PAGE_SIZE));
+                    const safePage = Math.min(categoryPage, totalPages - 1);
+                    const paged = currentMega.categories.slice(
+                      safePage * CATEGORY_PAGE_SIZE,
+                      safePage * CATEGORY_PAGE_SIZE + CATEGORY_PAGE_SIZE,
+                    );
+                    return (
+                      <>
+                        <div className="mb-3 flex items-center justify-between">
+                          <span className={`text-xs font-black uppercase tracking-wider ${mutedCls}`}>
+                            Categorías
+                          </span>
+                          {totalPages > 1 ? (
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                aria-label="Categorías anteriores"
+                                onClick={() => setCategoryPage((p) => Math.max(0, p - 1))}
+                                disabled={safePage === 0}
+                                className={`rounded-full p-1 transition disabled:cursor-not-allowed disabled:opacity-30 ${mutedCls}`}
+                              >
+                                <ChevronLeft className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                aria-label="Más categorías"
+                                onClick={() => setCategoryPage((p) => Math.min(totalPages - 1, p + 1))}
+                                disabled={safePage >= totalPages - 1}
+                                className={`rounded-full p-1 transition disabled:cursor-not-allowed disabled:opacity-30 ${mutedCls}`}
+                              >
+                                <ChevronRight className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className="grid grid-cols-6 gap-4">
+                          {paged.map((item) => (
+                            <CategoryCircle
+                              key={`${currentMega.key}-${item.label}`}
+                              item={item}
+                              textCls={textCls}
+                              isVibe={!!vs}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

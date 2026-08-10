@@ -36,6 +36,7 @@ export function toAdminProductRecord(product: Product): AdminProductRecord {
     slug: product.slug,
     name: product.name,
     vibe: product.vibe,
+    secondaryVibe: product.secondaryVibe ?? null,
     sortOrder: product.sortOrder ?? 0,
     categories,
     primaryCategory: product.category,
@@ -91,7 +92,6 @@ export function buildAdminCollections(products: AdminProductRecord[]) {
       description: "Rail principal del inicio para las piezas mas nuevas.",
       vibe: "store",
       published: true,
-      featured: true,
       showOnHome: true,
       homeOrder: 0,
       categoryIds: [],
@@ -104,7 +104,6 @@ export function buildAdminCollections(products: AdminProductRecord[]) {
       description: "Curaduria editable del inicio para destacar piezas clave.",
       vibe: "store",
       published: true,
-      featured: true,
       showOnHome: true,
       homeOrder: 1,
       categoryIds: [],
@@ -117,7 +116,6 @@ export function buildAdminCollections(products: AdminProductRecord[]) {
       description: "Drop principal de Moon con vestidos, lenceria y piezas oscuras.",
       vibe: "moon",
       published: true,
-      featured: true,
       showOnHome: false,
       homeOrder: 10,
       categoryIds: ["dresses", "lingerie", "kinkwear"],
@@ -130,7 +128,6 @@ export function buildAdminCollections(products: AdminProductRecord[]) {
       description: "Cosplay, full body y accesorios glossy de Sunshine.",
       vibe: "sunshine",
       published: true,
-      featured: true,
       showOnHome: false,
       homeOrder: 11,
       categoryIds: ["cosplay", "full-body", "accessories"],
@@ -143,7 +140,6 @@ export function buildAdminCollections(products: AdminProductRecord[]) {
       description: "Seleccion compacta de outerwear, tops y bottoms de Men.",
       vibe: "men",
       published: true,
-      featured: true,
       showOnHome: false,
       homeOrder: 12,
       categoryIds: ["outerwear", "tops", "bottoms"],
@@ -363,21 +359,29 @@ export const ADMIN_INQUIRIES: AdminInquiryRecord[] = [
 export const ADMIN_DISCOUNTS: AdminDiscountRecord[] = [
   {
     id: "discount-new10",
+    kind: "code",
     code: "NEW10",
     label: "Bienvenida general",
     type: "percentage",
     value: 10,
     active: true,
     scope: "store",
+    categoryIds: [],
+    maxRedemptions: null,
+    onePerCustomer: true,
   },
   {
     id: "discount-moon500",
-    code: "MOON500",
+    kind: "promotion",
+    code: "PROMO-DISCOUNT-MOON500",
     label: "Drop Moon",
     type: "fixed",
     value: 500,
     active: false,
     scope: "moon",
+    categoryIds: [],
+    maxRedemptions: null,
+    onePerCustomer: false,
   },
 ];
 
@@ -437,7 +441,7 @@ const DEFAULT_LEGAL_SECTIONS: AdminLegalSectionRecord[] = [
     id: "identidad",
     title: "1. Identidad del responsable",
     body:
-      "Marca comercial: Pulpiña RD.\nCanales publicados: hola@pulpinastore.com, Instagram @pulpinard y atencion desde Santo Domingo, Republica Dominicana.\nAntes del lanzamiento comercial debes completar razon social, RNC, domicilio legal y telefono empresarial oficial.",
+      "Marca comercial: Pulpiña RD.\nCanales publicados: hola@pulpinastore.com, Instagram @pulpinard y atencion desde Santo Domingo, Republica Dominicana.",
   },
   {
     id: "alcance",
@@ -449,19 +453,19 @@ const DEFAULT_LEGAL_SECTIONS: AdminLegalSectionRecord[] = [
     id: "datos",
     title: "3. Datos que recopilamos",
     body:
-      "Podemos recopilar nombre, correo, telefono, mensaje y datos de pedido que compartas voluntariamente.\nTambien podemos registrar IP, navegador, fechas, resultados anti-bot y registros de acceso administrativo cuando sea necesario para seguridad y operacion.",
+      "Podemos recopilar nombre, correo, telefono, mensaje, fecha de nacimiento (solo si te suscribes al descuento de cumpleanos) y datos de pedido como direccion de envio, productos y monto de referencia.\nTambien podemos registrar IP, navegador, fechas, resultados anti-bot y registros de acceso administrativo cuando sea necesario para seguridad y operacion.",
   },
   {
     id: "finalidades",
     title: "4. Finalidades del tratamiento",
     body:
-      "Usamos los datos para responder consultas, generar numeros de orden, coordinar disponibilidad, preparar cotizaciones, atender soporte, prevenir abuso tecnico y proteger la integridad del sitio.\nSi te suscribes al newsletter, usaremos tu correo para enviarte novedades y promociones hasta que te des de baja.",
+      "Usamos los datos para responder consultas, generar numeros de orden, coordinar disponibilidad, preparar cotizaciones, atender soporte, prevenir abuso tecnico y proteger la integridad del sitio.\nSi te suscribes con tu fecha de nacimiento, usaremos tu correo unicamente para enviarte un codigo de descuento el dia de tu cumpleanos; puedes darte de baja en cualquier momento.",
   },
   {
     id: "seguridad-proveedores",
     title: "5. Seguridad, cookies y proveedores",
     body:
-      "Este sitio usa Cloudflare para hosting, seguridad y funciones de infraestructura.\nLos formularios publicos usan Cloudflare Turnstile para reducir abuso automatizado.\nEl carrito usa almacenamiento local del navegador. Si lo desactivas, algunas funciones pueden dejar de operar correctamente.",
+      "Este sitio usa Cloudflare para hosting, base de datos, almacenamiento de imagenes, seguridad y funciones de infraestructura.\nLos correos transaccionales (confirmacion de pedido, cumpleanos) se envian a traves de Resend, un proveedor externo de envio de correo.\nLos formularios publicos usan Cloudflare Turnstile para reducir abuso automatizado.\nEl navegador guarda localmente el contenido de tu carrito y, si aplica, el codigo de descuento de cumpleanos activo. Si lo desactivas, algunas funciones pueden dejar de operar correctamente.",
   },
   {
     id: "marketing",
@@ -538,7 +542,7 @@ export const ADMIN_SETTINGS: AdminSettingsRecord = {
   vibeCatalogHeading: "Toda la Linea",
   productDetailsTitle: "Detalles",
   productDetailsBody:
-    "Diseno exclusivo Pulpiña RD. Edicion limitada, hecha en Republica Dominicana.",
+    "Seleccion exclusiva Pulpiña RD. Edicion limitada, disponible en Republica Dominicana.",
   productCareTitle: "Cuidado",
   productCareBody: "Lavar a mano con agua fria. No usar secadora.",
   productShippingTitle: "Envio",
@@ -586,7 +590,8 @@ export function getAdminDashboardSnapshot(): AdminDashboardSnapshot {
 
 export function formatAdminInquiryStatus(status: AdminInquiryStatus) {
   return {
-    new: "Nueva",
+    pending_contact: "Pendiente de contacto",
+    new: "Nuevo",
     follow_up: "Seguimiento",
     quoted: "Cotizada",
     closed: "Cerrada",

@@ -31,6 +31,20 @@ const HELP_LINKS = [
   { to: "/politicas", label: "Politicas y privacidad" },
 ] as const;
 
+const SALE_LINKS = [
+  { to: "/tienda", label: "Ofertas generales", search: { sale: "1" }, hash: "shop" },
+  { to: "/moon", label: "Ofertas Moon", search: { sale: "1" }, hash: "shop" },
+  { to: "/sunshine", label: "Ofertas Sunshine", search: { sale: "1" }, hash: "shop" },
+  { to: "/men", label: "Ofertas Men", search: { sale: "1" }, hash: "shop" },
+] as const;
+
+const NEW_IN_LINKS = [
+  { to: "/tienda", label: "New In General", search: { fresh: "1" }, hash: "shop" },
+  { to: "/moon", label: "New In Moon", search: { fresh: "1" }, hash: "shop" },
+  { to: "/sunshine", label: "New In Sunshine", search: { fresh: "1" }, hash: "shop" },
+  { to: "/men", label: "New In Men", search: { fresh: "1" }, hash: "shop" },
+] as const;
+
 const FOOTER_THEMES: Record<
   FooterTheme,
   {
@@ -135,9 +149,9 @@ export function Footer({
     .replace("{year}", String(new Date().getFullYear()));
   return (
     <footer className={`${theme.spacing} overflow-hidden border-t-2 ${theme.border} ${theme.bg} ${theme.text}`}>
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 md:grid-cols-4 min-[1440px]:translate-x-5">
-        <div data-footer-brand>
-          <div className="flex h-full min-h-[7.875rem] items-center gap-4 overflow-hidden min-[1440px]:w-[20.5rem] min-[1440px]:-translate-x-10">
+      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 md:grid-cols-[auto_1fr_auto]">
+        <div data-footer-brand className="min-w-max">
+          <div className="flex h-full min-h-[7.875rem] items-center gap-4">
             <div className="flex h-[5.5rem] w-[5.5rem] shrink-0 items-center justify-center overflow-hidden" data-footer-logo-slot>
               <img
                 src={theme.logo}
@@ -145,7 +159,10 @@ export function Footer({
                 className={`${themeKey === "store" ? "h-20 w-20" : "h-full w-full"} object-contain`}
               />
             </div>
-            <div className="flex h-[5.5rem] min-w-0 flex-1 items-center overflow-hidden" data-footer-wordmark-slot>
+            {/* No overflow-hidden here - this gothic display face has decorative
+                overshoot past the letterforms' nominal box (most visible on the
+                "D"), and clipping it made the wordmark misread as "Rl". */}
+            <div className="flex h-[5.5rem] items-center pr-2" data-footer-wordmark-slot>
               <div className="brand-wordmark whitespace-nowrap font-display text-[2.075rem] leading-none min-[1440px]:text-[2.5rem]">
                 {footerHeading}
               </div>
@@ -153,32 +170,61 @@ export function Footer({
           </div>
         </div>
 
-        <div className="min-[1440px]:translate-x-[7.25rem]" data-footer-store>
-          <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Store</div>
-          <ul className="space-y-1.5 text-sm">
-            {resolvedSettings.footerShopLinks.map((link) => (
-              <li key={link.label}>
-                <Link to={link.to} className="transition hover:underline">
-                  {link.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div>
-          <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Ayuda</div>
-          <ul className="space-y-1.5 text-sm">
-            {resolvedSettings.footerHelpLinks
-              .filter((link) => link.to !== "/solicitud")
-              .map((link) => (
+        {/* Centered as a group in the space between the logo and Redes - not each column centered on its own. */}
+        <div className="flex flex-wrap justify-center gap-8 md:gap-12">
+          <div data-footer-store>
+            <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Store</div>
+            <ul className="space-y-1.5 text-sm">
+              {resolvedSettings.footerShopLinks.map((link) => (
                 <li key={link.label}>
                   <Link to={link.to} className="transition hover:underline">
                     {link.label}
                   </Link>
                 </li>
               ))}
-          </ul>
+            </ul>
+          </div>
+
+          <div>
+            <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Nuevo</div>
+            <ul className="space-y-1.5 text-sm">
+              {NEW_IN_LINKS.map((link) => (
+                <li key={link.label}>
+                  <Link to={link.to} search={link.search} hash={link.hash} className="transition hover:underline">
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Ofertas</div>
+            <ul className="space-y-1.5 text-sm">
+              {SALE_LINKS.map((link) => (
+                <li key={link.label}>
+                  <Link to={link.to} search={link.search} hash={link.hash} className="transition hover:underline">
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Ayuda</div>
+            <ul className="space-y-1.5 text-sm">
+              {resolvedSettings.footerHelpLinks
+                .filter((link) => link.to !== "/solicitud")
+                .map((link) => (
+                  <li key={link.label}>
+                    <Link to={link.to} className="transition hover:underline">
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+            </ul>
+          </div>
         </div>
 
         <div>

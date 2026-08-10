@@ -1,24 +1,35 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AdminPanel, AdminShell, AdminTag } from "@/components/admin/AdminShell";
-import {
-  AdminButton,
+import {  AdminButton,
   AdminEmptyState,
   AdminField,
   AdminInput,
   AdminPagination,
   AdminSelect,
+  AdminToast,
+  type AdminToastTone,
   AdminTextarea,
   confirmAdminDestructiveAction,
+  downloadAdminCsv,
 } from "@/components/admin/AdminControls";
+import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
+import { getAdminErrorMessage } from "@/lib/admin-errors";
+import { matchesAdminSearch } from "@/lib/admin-search";
 import { getAdminCatalogProducts } from "@/lib/catalog";
 import { formatPrice } from "@/data/products";
 import { formatAdminInquiryChannel, formatAdminInquiryStatus } from "@/lib/admin-service";
-import { createAdminManualOrder, deleteAdminOrder, getAdminOrders, updateAdminOrder } from "@/lib/manual-orders";
+import {
+  createAdminManualOrder,
+  deleteAdminOrder,
+  getAdminOrders,
+  resendAdminOrderConfirmation,
+  updateAdminOrder,
+} from "@/lib/manual-orders";
 import type { AdminInquiryChannel, AdminInquiryRecord, AdminInquiryStatus, AdminProductRecord } from "@/lib/admin-types";
 
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 12;
 
 type DraftOrderLine = {
   key: string;
@@ -52,6 +63,7 @@ function cloneInquiry(inquiry: AdminInquiryRecord): AdminInquiryRecord {
 }
 
 function statusTone(status: AdminInquiryStatus) {
+  if (status === "pending_contact") return "info";
   if (status === "new") return "warn";
   if (status === "closed") return "success";
   if (status === "cancelled") return "danger";
@@ -96,10 +108,16 @@ function buildCreateState(products: AdminProductRecord[]): OrderFormState {
 }
 
 function buildEditableLines(inquiry: AdminInquiryRecord, products: AdminProductRecord[]): DraftOrderLine[] {
-  return inquiry.lines.map((line) => {
+  // The key must be deterministic (not crypto.randomUUID()) - this function
+  // runs once from the initial useState() and again from the effect that
+  // resyncs on selection change, including on mount. A random key would make
+  // those two calls produce "different" data for the exact same order, which
+  // fools the autosave hook's change-detection into firing on a page load
+  // where nothing was actually edited.
+  return inquiry.lines.map((line, index) => {
     const product = products.find((entry) => entry.id === line.productId);
     return {
-      key: crypto.randomUUID(),
+      key: `${line.variantId || line.productId || "line"}-${index}`,
       productId: line.productId,
       productQuery: product?.name ?? line.productName,
       quantity: line.quantity,
@@ -120,13 +138,8 @@ function ProductSearchField({
   onQueryChange: (value: string) => void;
 }) {
   const matches = useMemo(() => {
-    const lowered = line.productQuery.trim().toLowerCase();
     return products
-      .filter((entry) => {
-        if (!lowered) return true;
-        const haystack = `${entry.name} ${entry.id} ${entry.slug}`.toLowerCase();
-        return haystack.includes(lowered);
-      })
+      .filter((entry) => matchesAdminSearch([entry.name, entry.id, entry.slug], line.productQuery))
       .slice(0, 6);
   }, [line.productQuery, products]);
 
@@ -160,10 +173,10 @@ function ProductSearchField({
 
 export const Route = createFileRoute("/admin/pedidos")({
   beforeLoad: () => enforceAdminAccess(),
-  loader: async () => ({
-    inquiries: await getAdminOrders(),
-    products: await getAdminCatalogProducts(),
-  }),
+  loader: async () => {
+    const [inquiries, products] = await Promise.all([getAdminOrders(), getAdminCatalogProducts()]);
+    return { inquiries, products };
+  },
   head: () => ({ meta: [{ title: "Admin - Pedidos" }] }),
   component: AdminOrdersPage,
 });
@@ -175,29 +188,55 @@ function AdminOrdersPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | AdminInquiryStatus>("all");
   const [page, setPage] = useState(0);
   const [selectedId, setSelectedId] = useState(inquiries[0]?.id ?? "");
+  const activeOrderIdRef = useRef(selectedId);
+  activeOrderIdRef.current = selectedId;
   const [draft, setDraft] = useState<AdminInquiryRecord | null>(inquiries[0] ? cloneInquiry(inquiries[0]) : null);
   const [draftLines, setDraftLines] = useState<DraftOrderLine[]>(() => inquiries[0] ? buildEditableLines(inquiries[0], products) : []);
-  const [saveMessage, setSaveMessage] = useState("");
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastTone, setToastTone] = useState<AdminToastTone>("info");
+  const showToast = (text: string, tone: AdminToastTone = "info") => {
+    setToastMessage(text);
+    setToastTone(tone);
+  };
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [resending, setResending] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [createMessage, setCreateMessage] = useState("");
   const [creating, setCreating] = useState(false);
   const [newOrder, setNewOrder] = useState<OrderFormState>(() => buildCreateState(products));
 
   const filtered = useMemo(() => {
-    const lowered = query.trim().toLowerCase();
     return rows.filter((inquiry) => {
-      const matchesStatus = statusFilter === "all" || inquiry.status === statusFilter;
-      const haystack = `${inquiry.requestNumber} ${inquiry.customerName} ${inquiry.customerEmail} ${inquiry.customerPhone}`.toLowerCase();
-      return matchesStatus && haystack.includes(lowered);
+      const matchesStatus =
+        statusFilter === "all" ? inquiry.status !== "pending_contact" : inquiry.status === statusFilter;
+      return (
+        matchesStatus &&
+        matchesAdminSearch(
+          [inquiry.requestNumber, inquiry.id, inquiry.customerName, inquiry.customerEmail, inquiry.customerPhone],
+          query,
+        )
+      );
     });
   }, [rows, query, statusFilter]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pages - 1);
   const paged = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
-  const selected = rows.find((inquiry) => inquiry.id === selectedId) ?? null;
+
+  // Sets selectedId together with draft/draftLines in the same event, rather
+  // than changing selectedId and letting a separate effect catch up on the
+  // next render. That one-render lag meant the autosave hook's resetKey
+  // (selectedId) briefly pointed at the new order while its value
+  // (draft/draftLines) still held the previous order's data, so it baselined
+  // against the wrong record and then "saw" a change worth saving as soon as
+  // draft/draftLines caught up - firing a real save nobody asked for on a
+  // plain row click.
+  const selectOrder = (id: string) => {
+    setSelectedId(id);
+    const match = rows.find((inquiry) => inquiry.id === id) ?? null;
+    setDraft(match ? cloneInquiry(match) : null);
+    setDraftLines(match ? buildEditableLines(match, products) : []);
+  };
 
   useEffect(() => {
     setPage(0);
@@ -205,27 +244,21 @@ function AdminOrdersPage() {
 
   useEffect(() => {
     if (!filtered.length) {
-      setSelectedId("");
-      setDraft(null);
-      setDraftLines([]);
+      if (selectedId) selectOrder("");
       return;
     }
 
     if (!filtered.some((inquiry) => inquiry.id === selectedId)) {
-      setSelectedId(filtered[0]!.id);
+      selectOrder(filtered[0]!.id);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtered, selectedId]);
 
   useEffect(() => {
-    if (!selected) {
-      setDraft(null);
-      setDraftLines([]);
-      return;
-    }
-
-    setDraft(cloneInquiry(selected));
-    setDraftLines(buildEditableLines(selected, products));
-  }, [selected, products]);
+    if (!toastMessage) return;
+    const timeout = window.setTimeout(() => setToastMessage(""), 2600);
+    return () => window.clearTimeout(timeout);
+  }, [toastMessage]);
 
   const updateDraftLine = (key: string, updater: (line: DraftOrderLine) => DraftOrderLine) => {
     setDraftLines((current) => current.map((line) => (line.key === key ? updater(line) : line)));
@@ -265,44 +298,57 @@ function AdminOrdersPage() {
     [newOrder.lines, newOrder.shipping, products],
   );
 
-  const handleSave = () => {
-    if (!draft) return;
-    setSaving(true);
-    setSaveMessage("");
-
-    void updateAdminOrder({
+  const performSave = (
+    value: { draft: AdminInquiryRecord; draftLines: DraftOrderLine[] },
+    options: { silent?: boolean } = {},
+  ) => {
+    return updateAdminOrder({
       data: {
-        channel: draft.channel,
-        customerEmail: draft.customerEmail,
-        customerName: draft.customerName,
-        customerPhone: draft.customerPhone,
-        fulfillmentMethod: draft.fulfillmentMethod,
-        id: draft.id,
-        lines: draftLines.map((line) => ({
+        channel: value.draft.channel,
+        customerEmail: value.draft.customerEmail,
+        customerName: value.draft.customerName,
+        customerPhone: value.draft.customerPhone,
+        fulfillmentMethod: value.draft.fulfillmentMethod,
+        id: value.draft.id,
+        lines: value.draftLines.map((line) => ({
           quantity: line.quantity,
           variantId: line.variantId,
         })),
-        notes: draft.notes,
-        paymentStatus: draft.paymentStatus,
-        shipping: draft.shipping,
-        shippingAddress: draft.shippingAddress,
-        status: draft.status,
+        notes: value.draft.notes,
+        paymentStatus: value.draft.paymentStatus,
+        shipping: value.draft.shipping,
+        shippingAddress: value.draft.shippingAddress,
+        status: value.draft.status,
       },
-    })
-      .then((updated) => {
-        const next = cloneInquiry(updated);
-        setRows((current) => current.map((inquiry) => (inquiry.id === next.id ? next : inquiry)));
-        setDraft(next);
+    }).then((updated) => {
+      const next = cloneInquiry(updated);
+      setRows((current) => current.map((inquiry) => (inquiry.id === next.id ? next : inquiry)));
+      setDraft((current) => (current && current.id === value.draft.id ? next : current));
+      if (activeOrderIdRef.current === value.draft.id) {
         setDraftLines(buildEditableLines(next, products));
-        setSaveMessage("Pedido guardado.");
-      })
-      .catch(() => setSaveMessage("No se pudo guardar el pedido."))
+      }
+      if (!options.silent) showToast("Pedido guardado.", "success");
+    });
+  };
+
+  const autosave = useAdminAutosave(
+    draft ? { draft, draftLines } : null,
+    (value) => performSave(value, { silent: true }),
+    { resetKey: selectedId },
+  );
+
+  const handleSave = () => {
+    if (!draft) return;
+    setSaving(true);
+    setToastMessage("");
+    void performSave({ draft, draftLines })
+      .catch(() => showToast("No se pudo guardar el pedido.", "error"))
       .finally(() => setSaving(false));
   };
 
   const handleCreateOrder = () => {
     setCreating(true);
-    setCreateMessage("");
+    setToastMessage("");
 
     void createAdminManualOrder({
       data: {
@@ -330,11 +376,11 @@ function AdminOrdersPage() {
         setDraft(next);
         setDraftLines(buildEditableLines(next, products));
         setNewOrder(buildCreateState(products));
-        setCreateMessage("Pedido manual creado.");
+        showToast("Pedido manual creado.", "success");
         setIsCreating(false);
       })
       .catch((error) => {
-        setCreateMessage(error instanceof Error ? error.message : "No se pudo crear el pedido manual.");
+        showToast(getAdminErrorMessage(error, "No se pudo crear el pedido manual."), "error");
       })
       .finally(() => setCreating(false));
   };
@@ -350,16 +396,26 @@ function AdminOrdersPage() {
     }
 
     setDeleting(true);
-    setSaveMessage("");
+    setToastMessage("");
     void deleteAdminOrder({ data: { id: draft.id } })
       .then(() => {
         setRows((current) => current.filter((inquiry) => inquiry.id !== draft.id));
-        setSaveMessage("Pedido eliminado.");
+        showToast("Pedido eliminado.", "success");
       })
       .catch((error) => {
-        setSaveMessage(error instanceof Error ? error.message : "No se pudo eliminar el pedido.");
+        showToast(getAdminErrorMessage(error, "No se pudo eliminar el pedido."), "error");
       })
       .finally(() => setDeleting(false));
+  };
+
+  const handleResendConfirmation = () => {
+    if (!draft) return;
+    setResending(true);
+    setToastMessage("");
+    void resendAdminOrderConfirmation({ data: { id: draft.id } })
+      .then((result) => showToast(result.message, result.ok ? "success" : "error"))
+      .catch(() => showToast("No se pudo reenviar el correo ahora mismo.", "error"))
+      .finally(() => setResending(false));
   };
 
   const renderLinesEditor = (
@@ -374,7 +430,7 @@ function AdminOrdersPage() {
         const variants = getAvailableVariants(product);
 
         return (
-          <div key={line.key} className="rounded-2xl border border-[#231717]/10 bg-[#faf6f0] p-4">
+          <div key={line.key} className="rounded-2xl bg-[#faf6f0] p-4">
             <div className="grid gap-3">
               <ProductSearchField
                 line={line}
@@ -439,22 +495,52 @@ function AdminOrdersPage() {
     </div>
   );
 
+  const handleExportCsv = () => {
+    downloadAdminCsv(
+      `pedidos-${new Date().toISOString().slice(0, 10)}.csv`,
+      ["Numero", "Fecha", "Cliente", "Correo", "Telefono", "Canal", "Entrega", "Provincia", "Ciudad", "Estado", "Pago", "Subtotal", "Descuento", "Envio", "Total", "Notas"],
+      filtered.map((inquiry) => [
+        inquiry.requestNumber,
+        new Date(inquiry.createdAt).toLocaleDateString("es-DO"),
+        inquiry.customerName,
+        inquiry.customerEmail,
+        inquiry.customerPhone,
+        formatAdminInquiryChannel(inquiry.channel),
+        inquiry.fulfillmentMethod === "delivery" ? "Delivery" : "Recoger",
+        inquiry.shippingAddress.province,
+        inquiry.shippingAddress.city,
+        formatAdminInquiryStatus(inquiry.status),
+        inquiry.paymentStatus,
+        inquiry.subtotal,
+        inquiry.discount,
+        inquiry.shipping,
+        inquiry.total,
+        inquiry.notes,
+      ]),
+    );
+  };
+
   return (
     <AdminShell
       section="pedidos"
       title="Pedidos"
       actions={
-        <AdminButton tone={isCreating ? "active" : "secondary"} onClick={() => setIsCreating((current) => !current)}>
-          {isCreating ? "Cerrar manual" : "Nuevo pedido manual"}
-        </AdminButton>
+        <>
+          <AdminButton tone="ghost" onClick={handleExportCsv} disabled={filtered.length === 0}>
+            Exportar CSV
+          </AdminButton>
+          <AdminButton tone={isCreating ? "active" : "secondary"} onClick={() => setIsCreating((current) => !current)}>
+            {isCreating ? "Cerrar manual" : "Nuevo pedido manual"}
+          </AdminButton>
+        </>
       }
     >
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_460px]">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.2fr)_460px]">
         <AdminPanel
           title="Ordenes"
           actions={
             <div className="flex flex-wrap gap-2">
-              {(["all", "new", "follow_up", "quoted", "closed", "cancelled"] as const).map((entry) => (
+              {(["all", "pending_contact", "new", "follow_up", "quoted", "closed", "cancelled"] as const).map((entry) => (
                 <AdminButton key={entry} tone={statusFilter === entry ? "active" : "ghost"} onClick={() => setStatusFilter(entry)}>
                   {entry === "all" ? "Todas" : formatAdminInquiryStatus(entry)}
                 </AdminButton>
@@ -462,6 +548,7 @@ function AdminOrdersPage() {
             </div>
           }
         >
+          <div className="flex h-full flex-col">
           <div className="mb-4 flex flex-col gap-3 md:flex-row">
             <AdminInput
               value={query}
@@ -480,7 +567,7 @@ function AdminOrdersPage() {
             />
           ) : (
             <>
-              <div className="overflow-x-auto">
+              <div className="flex-1 overflow-x-auto">
                 <table className="min-w-full text-left text-sm">
                   <thead className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">
                     <tr>
@@ -495,7 +582,7 @@ function AdminOrdersPage() {
                     {paged.map((inquiry) => (
                       <tr
                         key={inquiry.id}
-                        onClick={() => setSelectedId(inquiry.id)}
+                        onClick={() => selectOrder(inquiry.id)}
                         className={`cursor-pointer border-t border-[#231717]/10 align-top transition-colors ${
                           selectedId === inquiry.id ? "bg-[#f7f2ec]" : "hover:bg-[#faf6f0]"
                         }`}
@@ -523,6 +610,7 @@ function AdminOrdersPage() {
               </div>
             </>
           )}
+          </div>
         </AdminPanel>
 
         <div className="grid gap-4">
@@ -536,12 +624,6 @@ function AdminOrdersPage() {
               }
             >
               <div className="grid gap-4">
-                {createMessage ? (
-                  <div className="rounded-2xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2 text-xs font-semibold text-[#5f4941]">
-                    {createMessage}
-                  </div>
-                ) : null}
-
                 <div className="grid gap-3 md:grid-cols-2">
                   <AdminField label="Nombre">
                     <AdminInput value={newOrder.customerName} onChange={(event) => setNewOrder((current) => ({ ...current, customerName: event.target.value }))} />
@@ -583,7 +665,7 @@ function AdminOrdersPage() {
                   </AdminField>
                   <AdminField label="Estado">
                     <AdminSelect value={newOrder.status} onChange={(event) => setNewOrder((current) => ({ ...current, status: event.target.value as AdminInquiryStatus }))}>
-                      <option value="new">Nueva</option>
+                      <option value="new">Nuevo</option>
                       <option value="follow_up">Seguimiento</option>
                       <option value="quoted">Cotizada</option>
                       <option value="closed">Cerrada</option>
@@ -672,22 +754,18 @@ function AdminOrdersPage() {
               title={draft.requestNumber}
               actions={
                 <div className="flex items-center gap-2">
+                  <AdminButton tone="ghost" onClick={handleResendConfirmation} disabled={resending || saving || deleting}>
+                    {resending ? "Enviando..." : "Reenviar"}
+                  </AdminButton>
                   <AdminButton tone="danger" onClick={handleDeleteOrder} disabled={saving || deleting}>
                     {deleting ? "Eliminando..." : "Eliminar"}
                   </AdminButton>
                   <AdminButton tone="primary" onClick={handleSave} disabled={saving || deleting}>
                     {saving ? "Guardando..." : "Guardar"}
-                  </AdminButton>
-                </div>
+                  </AdminButton>                </div>
               }
             >
               <div className="grid gap-4">
-                {saveMessage ? (
-                  <div className="rounded-2xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2 text-xs font-semibold text-[#5f4941]">
-                    {saveMessage}
-                  </div>
-                ) : null}
-
                 <div className="grid gap-3 md:grid-cols-2">
                   <AdminField label="Nombre">
                     <AdminInput value={draft.customerName} onChange={(event) => setDraft((current) => (current ? { ...current, customerName: event.target.value } : current))} />
@@ -733,7 +811,7 @@ function AdminOrdersPage() {
                   </AdminField>
                   <AdminField label="Estado">
                     <AdminSelect value={draft.status} onChange={(event) => setDraft((current) => (current ? { ...current, status: event.target.value as AdminInquiryStatus } : current))}>
-                      <option value="new">Nueva</option>
+                      <option value="new">Nuevo</option>
                       <option value="follow_up">Seguimiento</option>
                       <option value="quoted">Cotizada</option>
                       <option value="closed">Cerrada</option>
@@ -751,7 +829,7 @@ function AdminOrdersPage() {
                     </AdminSelect>
                   </AdminField>
                   <AdminField label="Costo envio">
-                    <AdminInput type="number" value={draft.shipping} onChange={(event) => setDraft((current) => (current ? { ...current, shipping: Math.max(0, Number(event.target.value) || 0) } : current))} />
+                    <AdminInput type="number" value={draft.shipping === 0 ? "" : draft.shipping} onChange={(event) => setDraft((current) => (current ? { ...current, shipping: event.target.value === "" ? 0 : Math.max(0, Number(event.target.value) || 0) } : current))} />
                   </AdminField>
                 </div>
 
@@ -829,6 +907,7 @@ function AdminOrdersPage() {
           )}
         </div>
       </div>
+      <AdminToast message={toastMessage} tone={toastTone} />
     </AdminShell>
   );
 }

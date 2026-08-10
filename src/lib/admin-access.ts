@@ -123,10 +123,10 @@ async function getAccessJwks(teamDomain: string) {
   return next;
 }
 
-async function verifyAccessJwt(token: string, expectedEmail: string) {
+async function verifyAccessJwtAndGetEmail(token: string): Promise<string | null> {
   const { aud, teamDomain } = getAccessVerificationConfig();
   if (!aud || !teamDomain) {
-    return false;
+    return null;
   }
 
   try {
@@ -136,15 +136,34 @@ async function verifyAccessJwt(token: string, expectedEmail: string) {
       issuer: teamDomain,
     });
 
-    const jwtEmail =
-      typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
-    return !jwtEmail || jwtEmail === expectedEmail;
+    const jwtEmail = typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
+    return jwtEmail || null;
   } catch {
-    return false;
+    return null;
   }
 }
 
+function getCookieValue(cookieHeader: string | null | undefined, name: string) {
+  if (!cookieHeader) return "";
+  for (const part of cookieHeader.split(";")) {
+    const separatorIndex = part.indexOf("=");
+    if (separatorIndex === -1) continue;
+    if (part.slice(0, separatorIndex).trim() === name) {
+      return part.slice(separatorIndex + 1).trim();
+    }
+  }
+  return "";
+}
+
 const assertAdminAccess = createServerFn({ method: "GET" }).handler(async () => {
+  // Hard, unconditional lockout for the portfolio deployment - independent
+  // of and in addition to every check below. This isn't relying on the
+  // portfolio env's blanked-out CF Access/allowlist vars happening to fail
+  // closed; even if those were ever misconfigured, this still blocks admin.
+  if (getServerEnv("IS_PORTFOLIO_DEPLOY") === "true") {
+    throw notFound();
+  }
+
   const { getRequestHeader, getRequestHost, setResponseHeader } = await import("@tanstack/react-start/server");
 
   setResponseHeader("Cache-Control", "private, no-store");
@@ -155,24 +174,56 @@ const assertAdminAccess = createServerFn({ method: "GET" }).handler(async () => 
 
   const allowedHosts = new Set(parseServerAllowedHosts());
   if (allowedHosts.size > 0 && !allowedHosts.has(host)) {
+    console.error("[assertAdminAccess] rejected: host not in ADMIN_ALLOWED_HOSTS", host);
     throw notFound();
   }
 
-  const email = getRequestHeader(ACCESS_EMAIL_HEADER)?.trim().toLowerCase();
-  const accessJwt = getRequestHeader(ACCESS_JWT_HEADER);
-  if (!email || !accessJwt) {
+  // Cloudflare only injects the Cf-Access-* identity headers on requests to
+  // paths the Access Application itself protects. This app's client-side
+  // data fetching (TanStack Start server functions) goes through a shared
+  // /_serverFn/* path that isn't necessarily covered by that path pattern,
+  // so those requests may arrive with the CF_Authorization cookie but not
+  // the header. The cookie carries the identical JWT (Cloudflare's own
+  // docs treat header and cookie as equivalent sources), so accept either
+  // and verify the JWT ourselves rather than trusting header presence.
+  const emailHeader = getRequestHeader(ACCESS_EMAIL_HEADER)?.trim().toLowerCase();
+  const jwtFromHeader = getRequestHeader(ACCESS_JWT_HEADER);
+  const jwtFromCookie = getCookieValue(getRequestHeader("cookie"), "CF_Authorization");
+  const accessJwt = jwtFromHeader || jwtFromCookie;
+  if (!accessJwt) {
+    console.error(
+      "[assertAdminAccess] rejected: no JWT in header or cookie",
+      "hasEmailHeader:", Boolean(emailHeader),
+      "cookieHeaderPresent:", Boolean(getRequestHeader("cookie")),
+    );
     throw notFound();
   }
 
-  if (!(await verifyAccessJwt(accessJwt, email))) {
+  const verifiedEmail = await verifyAccessJwtAndGetEmail(accessJwt);
+  if (!verifiedEmail) {
+    const { aud, teamDomain } = getAccessVerificationConfig();
+    console.error(
+      "[assertAdminAccess] rejected: JWT verification failed",
+      "source:", jwtFromHeader ? "header" : "cookie",
+      "hasAud:", Boolean(aud),
+      "hasTeamDomain:", Boolean(teamDomain),
+    );
     throw notFound();
   }
+
+  if (emailHeader && emailHeader !== verifiedEmail) {
+    console.error("[assertAdminAccess] rejected: header/JWT email mismatch", emailHeader, verifiedEmail);
+    throw notFound();
+  }
+
+  const email = verifiedEmail;
 
   const persistedAllowedEmails = await getPersistedAdminAllowedEmails();
   const allowedEmails = new Set([...parseServerAllowedEmails(), ...persistedAllowedEmails]);
   const allowedDomains = parseServerAllowedEmailDomains();
   const hasAppAllowlist = allowedEmails.size > 0 || allowedDomains.length > 0;
   if (hasAppAllowlist && !emailMatchesAllowlist(email, allowedEmails, allowedDomains)) {
+    console.error("[assertAdminAccess] rejected: email not in allowlist", email);
     throw notFound();
   }
 });

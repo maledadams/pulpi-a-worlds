@@ -1,22 +1,31 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { AdminPanel, AdminShell, AdminTag } from "@/components/admin/AdminShell";
-import {
-  AdminButton,
+import {  AdminButton,
   AdminCheckbox,
   AdminEmptyState,
   AdminField,
   AdminInput,
+  AdminSectionLabel,
   AdminSelect,
+  AdminToast,
+  type AdminToastTone,
   confirmAdminDestructiveAction,
 } from "@/components/admin/AdminControls";
+import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
-import { deleteAdminDiscount, getAdminDiscounts, saveAdminDiscount } from "@/lib/admin-content";
+import { getAdminErrorMessage } from "@/lib/admin-errors";
+import { matchesAdminSearch } from "@/lib/admin-search";
+import { deleteAdminDiscount, getAdminCategories, getAdminDiscounts, saveAdminDiscount } from "@/lib/admin-content";
 import { getVibeLabel } from "@/lib/admin-service";
-import type { AdminDiscountRecord } from "@/lib/admin-types";
+import type { AdminCategoryRecord, AdminDiscountRecord } from "@/lib/admin-types";
 
 function cloneDiscount(discount: AdminDiscountRecord): AdminDiscountRecord {
-  return { ...discount };
+  return { ...discount, categoryIds: [...discount.categoryIds] };
+}
+
+function discountTitle(discount: AdminDiscountRecord) {
+  return discount.kind === "code" ? discount.code || "Sin codigo" : discount.label || "Sin nombre";
 }
 
 function sortDiscounts(discounts: AdminDiscountRecord[]) {
@@ -25,42 +34,53 @@ function sortDiscounts(discounts: AdminDiscountRecord[]) {
       return a.active ? -1 : 1;
     }
 
-    return a.code.localeCompare(b.code);
+    return discountTitle(a).localeCompare(discountTitle(b));
   });
 }
 
 function createBlankDiscount(): AdminDiscountRecord {
   return {
     id: `draft-discount-${Date.now()}`,
+    kind: "code",
     code: "",
     label: "",
     type: "percentage",
     value: 10,
     active: false,
     scope: "store",
+    categoryIds: [],
+    maxRedemptions: null,
+    onePerCustomer: false,
   };
 }
 
 export const Route = createFileRoute("/admin/descuentos")({
   beforeLoad: () => enforceAdminAccess(),
-  loader: async () => ({ discounts: await getAdminDiscounts() }),
+  loader: async () => {
+    const [discounts, categories] = await Promise.all([getAdminDiscounts(), getAdminCategories()]);
+    return { discounts, categories };
+  },
   head: () => ({ meta: [{ title: "Admin - Promociones" }] }),
   component: AdminDiscountsPage,
 });
 
 function AdminDiscountsPage() {
-  const { discounts } = Route.useLoaderData();
+  const { discounts, categories } = Route.useLoaderData();
   const [rows, setRows] = useState(() => sortDiscounts(discounts.map(cloneDiscount)));
   const [selectedId, setSelectedId] = useState(discounts[0]?.id ?? "");
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState<AdminDiscountRecord | null>(discounts[0] ? cloneDiscount(discounts[0]) : null);
   const [saveMessage, setSaveMessage] = useState("");
+  const [saveTone, setSaveTone] = useState<AdminToastTone>("info");
+  const showSaveMessage = (text: string, tone: AdminToastTone = "info") => {
+    setSaveMessage(text);
+    setSaveTone(tone);
+  };
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const filtered = useMemo(() => {
-    const lowered = query.trim().toLowerCase();
-    return rows.filter((discount) => `${discount.code} ${discount.label}`.toLowerCase().includes(lowered));
+    return rows.filter((discount) => matchesAdminSearch([discount.code, discount.label, discount.id], query));
   }, [rows, query]);
 
   const selected = rows.find((discount) => discount.id === selectedId) ?? null;
@@ -85,30 +105,43 @@ function AdminDiscountsPage() {
     setDraft(cloneDiscount(selected));
   }, [selected]);
 
+  useEffect(() => {
+    if (!saveMessage) return;
+    const timeout = window.setTimeout(() => setSaveMessage(""), 2600);
+    return () => window.clearTimeout(timeout);
+  }, [saveMessage]);
+
   const handleCreate = () => {
     const blank = createBlankDiscount();
     setRows((current) => [blank, ...current]);
     setSelectedId(blank.id);
     setDraft(blank);
-    setSaveMessage("Nueva promoción draft creada.");
+    showSaveMessage("Nuevo descuento draft creado.", "success");
   };
+
+  const performSave = (value: AdminDiscountRecord, options: { silent?: boolean } = {}) => {
+    return saveAdminDiscount({ data: value }).then((saved) => {
+      setRows((current) => sortDiscounts([
+        saved,
+        ...current.filter((discount) => discount.id !== value.id && discount.id !== saved.id),
+      ]));
+      if (saved.id !== value.id) setSelectedId(saved.id);
+      setDraft((current) => (current && current.id === value.id ? cloneDiscount(saved) : current));
+      if (!options.silent) showSaveMessage("Descuento guardado.", "success");
+    });
+  };
+
+  const autosave = useAdminAutosave(draft, (value) => performSave(value, { silent: true }), {
+    resetKey: selectedId,
+  });
 
   const handleSave = () => {
     if (!draft) return;
     setIsSaving(true);
     setSaveMessage("");
-    void saveAdminDiscount({ data: draft })
-      .then((saved) => {
-        setRows((current) => sortDiscounts([
-          saved,
-          ...current.filter((discount) => discount.id !== draft.id && discount.id !== saved.id),
-        ]));
-        setSelectedId(saved.id);
-        setDraft(cloneDiscount(saved));
-        setSaveMessage("Promoción guardada.");
-      })
+    void performSave(draft)
       .catch((error) => {
-        setSaveMessage(error instanceof Error ? error.message : "No se pudo guardar la promoción ahora mismo.");
+        showSaveMessage(getAdminErrorMessage(error, "No se pudo guardar el descuento ahora mismo."), "error");
       })
       .finally(() => {
         setIsSaving(false);
@@ -119,7 +152,7 @@ function AdminDiscountsPage() {
     if (!draft) return;
     if (
       !confirmAdminDestructiveAction(
-        `Vas a eliminar la promoción ${draft.code || draft.id}. Esta acción no se puede deshacer. ¿Quieres continuar?`,
+        `Vas a eliminar ${discountTitle(draft)}. Esta acción no se puede deshacer. ¿Quieres continuar?`,
       )
     ) {
       return;
@@ -129,14 +162,27 @@ function AdminDiscountsPage() {
     void deleteAdminDiscount({ data: { id: draft.id } })
       .then(() => {
         setRows((current) => current.filter((discount) => discount.id !== draft.id));
-        setSaveMessage("Promoción eliminada.");
+        showSaveMessage("Descuento eliminado.", "success");
       })
       .catch((error) => {
-        setSaveMessage(error instanceof Error ? error.message : "No se pudo eliminar la promoción ahora mismo.");
+        showSaveMessage(getAdminErrorMessage(error, "No se pudo eliminar el descuento ahora mismo."), "error");
       })
       .finally(() => {
         setIsDeleting(false);
       });
+  };
+
+  const toggleCategory = (categoryId: string) => {
+    setDraft((current) => {
+      if (!current) return current;
+      const active = current.categoryIds.includes(categoryId);
+      return {
+        ...current,
+        categoryIds: active
+          ? current.categoryIds.filter((entry) => entry !== categoryId)
+          : [...current.categoryIds, categoryId],
+      };
+    });
   };
 
   return (
@@ -145,12 +191,12 @@ function AdminDiscountsPage() {
       title="Promociones"
       actions={
         <AdminButton tone="primary" onClick={handleCreate}>
-          Nueva promoción
+          Nuevo descuento
         </AdminButton>
       }
     >
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
-        <AdminPanel title="Promociones">
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
+        <AdminPanel title="Descuentos">
           <div className="mb-4 flex flex-col gap-3 md:flex-row">
             <AdminInput
               value={query}
@@ -158,17 +204,17 @@ function AdminDiscountsPage() {
               placeholder="Buscar por codigo o nombre"
             />
             <div className="shrink-0 rounded-xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2.5 text-sm font-semibold">
-              {filtered.length} promociones
+              {filtered.length} descuentos
             </div>
           </div>
 
           {!filtered.length ? (
             <AdminEmptyState
-              title="No hay promociones"
-              body="Prueba otra búsqueda o crea una nueva promoción."
+              title="No hay descuentos"
+              body="Prueba otra búsqueda o crea un nuevo descuento."
               action={
                 <AdminButton tone="primary" onClick={handleCreate}>
-                  Crear promoción
+                  Crear descuento
                 </AdminButton>
               }
             />
@@ -187,16 +233,26 @@ function AdminDiscountsPage() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-sm font-black">{discount.code || "Sin codigo"}</div>
-                      <div className="mt-1 text-xs text-[#6b5a55]">{discount.label || "Sin nombre"}</div>
+                      <div className="text-sm font-black">{discountTitle(discount)}</div>
+                      <div className="mt-1 text-xs text-[#6b5a55]">
+                        {discount.kind === "code" ? discount.label || "Sin nombre" : "Promoción automática"}
+                      </div>
                     </div>
                     <AdminTag tone={discount.active ? "dark" : "soft"}>{discount.active ? "Activo" : "Pausado"}</AdminTag>
                   </div>
                   <div className="mt-4 text-2xl font-black">
                     {discount.type === "percentage" ? `${discount.value}%` : `RD$${discount.value}`}
                   </div>
-                  <div className="mt-2 text-xs uppercase tracking-[0.16em] text-[#7c665f]">
-                    {getVibeLabel(discount.scope)}
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.16em] text-[#7c665f]">
+                    <AdminTag tone="info">{discount.kind === "code" ? "Código" : "Promoción"}</AdminTag>
+                    {discount.kind === "promotion" ? <span>{getVibeLabel(discount.scope)}</span> : null}
+                    {discount.kind === "promotion" && discount.categoryIds.length > 0 ? (
+                      <AdminTag tone="info">{discount.categoryIds.length} categorías</AdminTag>
+                    ) : null}
+                    {discount.kind === "code" && discount.onePerCustomer ? <AdminTag tone="info">1 x cliente</AdminTag> : null}
+                    {discount.kind === "code" && discount.maxRedemptions !== null ? (
+                      <AdminTag tone="info">Limite {discount.maxRedemptions}</AdminTag>
+                    ) : null}
                   </div>
                 </button>
               ))}
@@ -205,7 +261,7 @@ function AdminDiscountsPage() {
         </AdminPanel>
 
         <AdminPanel
-          title={draft?.code || "Editor"}
+          title={draft ? discountTitle(draft) : "Editor"}
           actions={
             <div className="flex flex-wrap gap-2">
               <AdminButton tone="danger" onClick={handleDelete} disabled={!draft || isDeleting || isSaving}>
@@ -213,22 +269,42 @@ function AdminDiscountsPage() {
               </AdminButton>
               <AdminButton tone="primary" onClick={handleSave} disabled={!draft || isSaving || isDeleting}>
                 {isSaving ? "Guardando..." : "Guardar"}
-              </AdminButton>
-            </div>
+              </AdminButton>            </div>
           }
         >
           {draft ? (
             <div className="grid gap-4">
-              {saveMessage ? (
-                <div className="rounded-2xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2 text-xs font-semibold text-[#5f4941]">
-                  {saveMessage}
-                </div>
+              <AdminField
+                label="Tipo de descuento"
+                hint={
+                  draft.kind === "code"
+                    ? "El cliente escribe este codigo en el checkout. No cambia los precios mostrados en la tienda."
+                    : "Se aplica automaticamente al precio mostrado, sin codigo. Eliges a que aplica abajo."
+                }
+              >
+                <AdminSelect
+                  value={draft.kind}
+                  onChange={(event) =>
+                    setDraft((current) =>
+                      current ? { ...current, kind: event.target.value as AdminDiscountRecord["kind"] } : current,
+                    )
+                  }
+                >
+                  <option value="code">Código (checkout)</option>
+                  <option value="promotion">Promoción (precio mostrado)</option>
+                </AdminSelect>
+              </AdminField>
+
+              {draft.kind === "code" ? (
+                <AdminField label="Codigo">
+                  <AdminInput
+                    value={draft.code}
+                    onChange={(event) => setDraft((current) => (current ? { ...current, code: event.target.value } : current))}
+                  />
+                </AdminField>
               ) : null}
 
-              <AdminField label="Codigo">
-                <AdminInput value={draft.code} onChange={(event) => setDraft((current) => (current ? { ...current, code: event.target.value } : current))} />
-              </AdminField>
-              <AdminField label="Nombre interno">
+              <AdminField label={draft.kind === "code" ? "Nombre interno" : "Nombre"}>
                 <AdminInput value={draft.label} onChange={(event) => setDraft((current) => (current ? { ...current, label: event.target.value } : current))} />
               </AdminField>
               <div className="grid gap-3 md:grid-cols-2">
@@ -239,19 +315,76 @@ function AdminDiscountsPage() {
                   </AdminSelect>
                 </AdminField>
                 <AdminField label="Valor">
-                  <AdminInput type="number" value={draft.value} onChange={(event) => setDraft((current) => (current ? { ...current, value: Number(event.target.value) } : current))} />
+                  <AdminInput type="number" value={draft.value === 0 ? "" : draft.value} onChange={(event) => setDraft((current) => (current ? { ...current, value: event.target.value === "" ? 0 : Number(event.target.value) } : current))} />
                 </AdminField>
               </div>
-              <AdminField label="Aplica a">
-                <AdminSelect value={draft.scope} onChange={(event) => setDraft((current) => (current ? { ...current, scope: event.target.value as AdminDiscountRecord["scope"] } : current))}>
-                  <option value="store">General</option>
-                  <option value="moon">Moon</option>
-                  <option value="sunshine">Sunshine</option>
-                  <option value="men">Men</option>
-                </AdminSelect>
-              </AdminField>
+
+              {draft.kind === "promotion" ? (
+                <>
+                  <AdminField label="Aplica a" hint="Que tienda ve el precio con descuento.">
+                    <AdminSelect value={draft.scope} onChange={(event) => setDraft((current) => (current ? { ...current, scope: event.target.value as AdminDiscountRecord["scope"] } : current))}>
+                      <option value="store">General (toda la tienda)</option>
+                      <option value="moon">Moon</option>
+                      <option value="sunshine">Sunshine</option>
+                      <option value="men">Men</option>
+                    </AdminSelect>
+                  </AdminField>
+                  <div>
+                    <AdminSectionLabel>Categorías (opcional)</AdminSectionLabel>
+                    <p className="mt-1 text-xs text-[#8b756d]">
+                      Deja todas sin marcar para aplicar a todo lo de "{getVibeLabel(draft.scope)}". Marca solo las
+                      categorías donde quieres que aplique el descuento.
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {categories.map((category: AdminCategoryRecord) => {
+                        const active = draft.categoryIds.includes(category.id);
+                        return (
+                          <button
+                            key={category.id}
+                            type="button"
+                            onClick={() => toggleCategory(category.id)}
+                            className={`rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] transition ${
+                              active ? "border-[#231717] bg-[#231717] text-white" : "border-[#231717]/20 bg-[#faf6f0] text-[#5f4941]"
+                            }`}
+                          >
+                            {category.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <AdminField
+                    label="Limite de usos totales"
+                    hint="Dejar en blanco para uso ilimitado."
+                  >
+                    <AdminInput
+                      type="number"
+                      min={1}
+                      value={draft.maxRedemptions ?? ""}
+                      onChange={(event) =>
+                        setDraft((current) => {
+                          if (!current) return current;
+                          const raw = event.target.value.trim();
+                          return { ...current, maxRedemptions: raw ? Math.max(1, Number(raw)) : null };
+                        })
+                      }
+                    />
+                  </AdminField>
+                  <AdminCheckbox
+                    label="Solo un uso por cliente"
+                    hint="Impide que el mismo correo vuelva a usar este codigo en otro pedido."
+                    checked={draft.onePerCustomer}
+                    onCheckedChange={(checked) => setDraft((current) => (current ? { ...current, onePerCustomer: checked } : current))}
+                  />
+                </>
+              )}
+
               <AdminCheckbox
                 label="Descuento activo"
+                hint={draft.kind === "code" ? "El codigo se puede usar en el checkout." : "El precio con descuento se muestra en la tienda ahora mismo."}
                 checked={draft.active}
                 onCheckedChange={(checked) => setDraft((current) => (current ? { ...current, active: checked } : current))}
               />
@@ -259,7 +392,7 @@ function AdminDiscountsPage() {
           ) : (
             <AdminEmptyState
               title="Sin descuento seleccionado"
-              body="Selecciona una promocion de la lista o crea una nueva."
+              body="Selecciona un descuento de la lista o crea uno nuevo."
               action={
                 <AdminButton tone="primary" onClick={handleCreate}>
                   Crear descuento
@@ -269,6 +402,7 @@ function AdminDiscountsPage() {
           )}
         </AdminPanel>
       </div>
+      <AdminToast message={saveMessage} tone={saveTone} />
     </AdminShell>
   );
 }

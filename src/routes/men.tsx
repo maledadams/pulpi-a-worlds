@@ -13,6 +13,7 @@ export const Route = createFileRoute("/men")({
     pageName: "Men",
     path: "/men",
     description: loaderData?.settings.menPageIntro,
+    image: logo,
   }),
   component: MenPage,
 });

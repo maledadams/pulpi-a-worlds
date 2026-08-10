@@ -3,7 +3,24 @@ import { CatalogBrowser } from "@/components/catalog/CatalogBrowser";
 import { useCatalogProducts } from "@/context/catalog";
 import { getStorefrontCollectionBySlug } from "@/lib/admin-content";
 import { validateCatalogSearch } from "@/lib/store-filters";
-import { createSeoHead } from "@/lib/seo";
+import { buildBreadcrumbJsonLd, createSeoHead } from "@/lib/seo";
+import logoMoon from "@/assets/logo-moon.png";
+import logoSunshine from "@/assets/logo-sunshine.png";
+import logoMen from "@/assets/logo-men.png";
+
+const VIBE_LOGO: Partial<Record<string, string>> = {
+  moon: logoMoon,
+  sunshine: logoSunshine,
+  men: logoMen,
+};
+
+const VIBE_CRUMB: Record<string, { name: string; path: string }> = {
+  moon: { name: "Moon", path: "/moon" },
+  sunshine: { name: "Sunshine", path: "/sunshine" },
+  men: { name: "Men", path: "/men" },
+  store: { name: "Tienda", path: "/tienda" },
+  pulpina: { name: "Tienda", path: "/tienda" },
+};
 
 export const Route = createFileRoute("/coleccion/$slug")({
   validateSearch: validateCatalogSearch,
@@ -15,11 +32,28 @@ export const Route = createFileRoute("/coleccion/$slug")({
   head: ({ loaderData, params }) => {
     const collection = loaderData?.collection;
     if (!collection) return {};
-    return createSeoHead({
+    const seo = createSeoHead({
       pageName: collection.name,
       path: `/coleccion/${params.slug}`,
       description: collection.description || `Colección ${collection.name} de Pulpiña RD.`,
+      image: VIBE_LOGO[collection.vibe],
     });
+    const parentCrumb = VIBE_CRUMB[collection.vibe] ?? VIBE_CRUMB.store;
+    return {
+      ...seo,
+      scripts: [
+        {
+          type: "application/ld+json",
+          children: JSON.stringify(
+            buildBreadcrumbJsonLd([
+              { name: "Inicio", path: "/" },
+              parentCrumb,
+              { name: collection.name, path: `/coleccion/${params.slug}` },
+            ]),
+          ),
+        },
+      ],
+    };
   },
   component: CollectionPage,
 });

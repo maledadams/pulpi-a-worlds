@@ -1,6 +1,28 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Info, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import type { AdminAutosaveStatus } from "@/hooks/use-admin-autosave";
+
+function escapeCsvCell(value: string) {
+  if (/[",\n]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+export function downloadAdminCsv(filename: string, headers: string[], rows: Array<Array<string | number>>) {
+  const lines = [headers, ...rows].map((row) => row.map((cell) => escapeCsvCell(String(cell))).join(","));
+  // Leading BOM so accented characters (á, ñ, etc.) render correctly when opened in Excel.
+  const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
 
 type AdminButtonTone = "primary" | "secondary" | "ghost" | "danger" | "active" | "warning" | "custom";
 
@@ -67,6 +89,52 @@ export function AdminButton({
     >
       {children}
     </button>
+  );
+}
+
+export function AdminSectionLabel({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cn("text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]", className)}>
+      {children}
+    </div>
+  );
+}
+
+export function getAdminChipClassName(active: boolean, className?: string) {
+  return cn(
+    "rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] transition",
+    active ? "border-[#231717] bg-[#231717] text-white" : "border-[#231717]/20 bg-[#faf6f0] text-[#5f4941]",
+    className,
+  );
+}
+
+export function AdminTabs<T extends string>({
+  tabs,
+  active,
+  onChange,
+}: {
+  tabs: Array<{ id: T; label: string }>;
+  active: T;
+  onChange: (id: T) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2 border-b border-[#231717]/10 pb-3">
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          onClick={() => onChange(tab.id)}
+          className={cn(
+            "rounded-xl border border-[#231717] px-4 py-2 text-xs font-black uppercase tracking-[0.16em] transition",
+            active === tab.id
+              ? "bg-white text-[#231717]"
+              : "bg-[#231717] text-white hover:bg-[#3a2924]",
+          )}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -209,15 +277,65 @@ export function AdminPagination({
   );
 }
 
-export function AdminToast({ message }: { message: string }) {
+export type AdminToastTone = "success" | "error" | "info";
+
+export function AdminToast({ message, tone = "info" }: { message: string; tone?: AdminToastTone }) {
   if (!message) return null;
+
+  const Icon = tone === "success" ? CheckCircle2 : tone === "error" ? AlertCircle : Info;
 
   return (
     <div className="pointer-events-none fixed bottom-4 left-4 z-50 animate-in slide-in-from-bottom-3 fade-in duration-200">
-      <div className="rounded-xl border border-[#231717] bg-white px-4 py-3 text-sm font-semibold text-[#231717] shadow-[0_18px_40px_-18px_rgba(35,23,23,0.45)]">
+      <div
+        className={cn(
+          "flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-semibold shadow-[0_18px_40px_-18px_rgba(35,23,23,0.45)]",
+          tone === "success" && "border-emerald-600 text-emerald-800",
+          tone === "error" && "border-[#9a3423] text-[#7d291b]",
+          tone === "info" && "border-[#231717] text-[#231717]",
+        )}
+      >
+        <Icon className="h-4 w-4 shrink-0" />
         {message}
       </div>
     </div>
+  );
+}
+
+export function AdminAutosaveIndicator({
+  status,
+  errorMessage,
+}: {
+  status: AdminAutosaveStatus;
+  errorMessage?: string;
+}) {
+  if (status === "idle") return null;
+
+  if (status === "saving") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#f3eadf] px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-[#6b5a55]">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        Guardando...
+      </span>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#f7ddd4] px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-[#9a3423]"
+        title={errorMessage}
+      >
+        <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+        {errorMessage || "No se pudo guardar"}
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#e3f0e6] px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-emerald-700">
+      <CheckCircle2 className="h-3.5 w-3.5" />
+      Guardado
+    </span>
   );
 }
 

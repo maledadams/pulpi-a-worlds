@@ -159,6 +159,8 @@ const cartActionClassName =
                 <img
                   src={product.featuredImage.url}
                   alt={product.featuredImage.altText ?? product.name}
+                  loading="lazy"
+                  decoding="async"
                   className={`absolute inset-0 h-full w-full object-cover transition-transform duration-500 ${
                     soldOut ? "grayscale-[60%]" : "group-hover:scale-105"
                   }`}

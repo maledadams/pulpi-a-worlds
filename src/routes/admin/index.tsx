@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { MessageSquareMore, PackageSearch, ShieldCheck, TriangleAlert } from "lucide-react";
 import { useMemo, useState } from "react";
 import { AdminPanel, AdminShell, AdminStatCard, AdminTag } from "@/components/admin/AdminShell";
-import { AdminButton, getAdminButtonClassName } from "@/components/admin/AdminControls";
+import { AdminButton, AdminEmptyState, getAdminButtonClassName } from "@/components/admin/AdminControls";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { formatPrice } from "@/data/products";
 import { getAdminCatalogProducts } from "@/lib/catalog";
@@ -12,8 +12,10 @@ import type { AdminInquiryRecord } from "@/lib/admin-types";
 
 type SalesWindow = "all" | "year" | "month" | "week" | "day";
 
+const LOW_STOCK_THRESHOLD = 4;
+
 const SALES_WINDOWS: Array<{ id: SalesWindow; label: string }> = [
-  { id: "all", label: "Todo el tiempo" },
+  { id: "all", label: "Todo" },
   { id: "year", label: "Anual" },
   { id: "month", label: "Mensual" },
   { id: "week", label: "Semanal" },
@@ -22,10 +24,10 @@ const SALES_WINDOWS: Array<{ id: SalesWindow; label: string }> = [
 
 export const Route = createFileRoute("/admin/")({
   beforeLoad: () => enforceAdminAccess(),
-  loader: async () => ({
-    orders: await getAdminOrders(),
-    products: await getAdminCatalogProducts(),
-  }),
+  loader: async () => {
+    const [orders, products] = await Promise.all([getAdminOrders(), getAdminCatalogProducts()]);
+    return { orders, products };
+  },
   head: () => ({ meta: [{ title: "Admin - Resumen" }] }),
   component: AdminDashboardPage,
 });
@@ -77,11 +79,31 @@ function AdminDashboardPage() {
       0,
     );
 
-    const periodOrders = orders.filter((order) => isInWindow(order, salesWindow));
+    const stockAlerts = products
+      .filter((product) => !product.hidden)
+      .flatMap((product) =>
+        product.variants.map((variant) => ({
+          productId: product.id,
+          productName: product.name,
+          variantLabel: variant.title,
+          quantity: Math.max(0, variant.quantityAvailable ?? 0),
+        })),
+      )
+      .filter((entry) => entry.quantity <= LOW_STOCK_THRESHOLD)
+      .sort((a, b) => a.quantity - b.quantity);
+
+    const periodOrders = orders.filter((order) => isInWindow(order, salesWindow) && order.status !== "pending_contact");
     const gains = periodOrders
       .filter((order) => order.status === "closed")
       .reduce((sum, order) => sum + order.total, 0);
     const cancelledCount = periodOrders.filter((order) => order.status === "cancelled").length;
+    const statusBreakdown = {
+      new: periodOrders.filter((order) => order.status === "new").length,
+      follow_up: periodOrders.filter((order) => order.status === "follow_up").length,
+      quoted: periodOrders.filter((order) => order.status === "quoted").length,
+      closed: periodOrders.filter((order) => order.status === "closed").length,
+      cancelled: cancelledCount,
+    };
     return {
       gains,
       cancelledCount,
@@ -91,6 +113,8 @@ function AdminDashboardPage() {
       openInquiryCount: orders.filter((order) => order.status !== "closed" && order.status !== "cancelled").length,
       productCount: products.length,
       recentInquiries,
+      statusBreakdown,
+      stockAlerts,
     };
   }, [orders, products, salesWindow]);
 
@@ -110,27 +134,23 @@ function AdminDashboardPage() {
         </Link>
       }
     >
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <AdminStatCard label="Productos" value={String(snapshot.productCount)} icon={PackageSearch} iconClassName="bg-[#f5dce8] text-[#7b3551]" />
         <AdminStatCard label="Pedidos" value={String(snapshot.inquiryCount)} icon={MessageSquareMore} iconClassName="bg-[#dff3c7] text-[#45651f]" />
         <AdminStatCard label="Abiertas" value={String(snapshot.openInquiryCount)} icon={TriangleAlert} iconClassName="bg-[#ffe1c8] text-[#9a4a1d]" />
         <AdminStatCard label="Inventario" value={formatPrice(snapshot.inventoryBaseValue)} icon={ShieldCheck} iconClassName="bg-[#fde2bf] text-[#8a531b]" />
       </div>
 
-      <div className="mt-5 grid gap-4 xl:grid-cols-[1.2fr_1fr]">
+      <div className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_1fr]">
         <AdminPanel title="Pedidos recientes">
           {snapshot.recentInquiries.length > 0 ? (
-            <div className="grid gap-3">
+            <div className="grid gap-2.5">
               {snapshot.recentInquiries.map((inquiry) => (
-                <div key={inquiry.id} className="rounded-2xl border border-[#231717]/10 bg-[#faf6f0] p-3">
-                  <div className="min-w-0">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="text-sm font-black">{inquiry.requestNumber}</div>
-                          <div className="mt-1 text-xs text-[#6b5a55]">
-                            {inquiry.customerName} / {formatAdminInquiryChannel(inquiry.channel)}
-                          </div>
-                        </div>
+                <div key={inquiry.id} className="rounded-2xl border border-[#231717]/10 bg-[#faf6f0] p-3.5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-black">{inquiry.requestNumber}</span>
                         <AdminTag
                           tone={
                             inquiry.status === "new"
@@ -145,25 +165,33 @@ function AdminDashboardPage() {
                           {formatAdminInquiryStatus(inquiry.status)}
                         </AdminTag>
                       </div>
-                      {inquiry.lines[0] ? (
-                        <div className="mt-3 rounded-2xl border border-[#231717]/10 bg-white px-3 py-2">
-                          <div className="text-sm font-normal leading-normal">{inquiry.lines[0].productName}</div>
-                          <div className="mt-1 text-xs text-[#6b5a55]">
-                            {inquiry.lines[0].variantLabel} / Cantidad: {inquiry.lines[0].quantity}
-                          </div>
-                        </div>
-                      ) : null}
-                      <div className="mt-3 grid gap-1 text-xs text-[#6b5a55]">
-                        <div>Entrega: {inquiry.fulfillmentMethod === "delivery" ? "Delivery" : "Recoger"}</div>
-                        {inquiry.fulfillmentMethod === "delivery" && inquiry.shippingAddress.line1 ? (
-                          <div>
-                            Direccion: {inquiry.shippingAddress.line1}, {inquiry.shippingAddress.city}, {inquiry.shippingAddress.province}
-                          </div>
-                        ) : null}
+                      <div className="mt-1 truncate text-xs text-[#6b5a55]">
+                        {inquiry.customerName} · {formatAdminInquiryChannel(inquiry.channel)} ·{" "}
+                        {inquiry.fulfillmentMethod === "delivery" ? "Delivery" : "Recoger"}
                       </div>
-                      <div className="mt-3 text-sm text-[#5f4941]">{inquiry.notes || "Sin notas."}</div>
-                      <div className="mt-3 text-sm font-black">{formatPrice(inquiry.total)}</div>
+                    </div>
+                    <div className="shrink-0 text-sm font-black">{formatPrice(inquiry.total)}</div>
                   </div>
+
+                  {inquiry.lines[0] ? (
+                    <div className="mt-2.5 flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-xs">
+                      <span className="min-w-0 truncate font-semibold">{inquiry.lines[0].productName}</span>
+                      <span className="shrink-0 text-[#6b5a55]">
+                        {inquiry.lines[0].variantLabel} · x{inquiry.lines[0].quantity}
+                        {inquiry.lines.length > 1 ? ` · +${inquiry.lines.length - 1} mas` : ""}
+                      </span>
+                    </div>
+                  ) : null}
+
+                  {inquiry.fulfillmentMethod === "delivery" && inquiry.shippingAddress.line1 ? (
+                    <div className="mt-2 truncate text-xs text-[#6b5a55]">
+                      {inquiry.shippingAddress.line1}, {inquiry.shippingAddress.city}, {inquiry.shippingAddress.province}
+                    </div>
+                  ) : null}
+
+                  {inquiry.notes ? (
+                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-[#5f4941]">{inquiry.notes}</p>
+                  ) : null}
                 </div>
               ))}
             </div>
@@ -175,17 +203,22 @@ function AdminDashboardPage() {
         </AdminPanel>
 
         <AdminPanel
-          className="self-start"
+          title="Ventas"
           actions={
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-nowrap gap-1.5">
               {SALES_WINDOWS.map((entry) => (
-                <AdminButton
+                <button
                   key={entry.id}
-                  tone={salesWindow === entry.id ? "active" : "ghost"}
+                  type="button"
                   onClick={() => setSalesWindow(entry.id)}
+                  className={`whitespace-nowrap rounded-lg border px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.08em] transition ${
+                    salesWindow === entry.id
+                      ? "border-[#231717] bg-[#231717] text-white"
+                      : "border-[#231717]/15 bg-[#f2ede7] text-[#5f4941] hover:bg-[#ece4db]"
+                  }`}
                 >
                   {entry.label}
-                </AdminButton>
+                </button>
               ))}
             </div>
           }
@@ -194,17 +227,70 @@ function AdminDashboardPage() {
             <div className="border-b border-[#231717]/10 pb-4">
               <div className={`text-3xl font-black ${netTone}`}>{netLabel}</div>
             </div>
-            <div className="grid gap-2 text-sm text-[#5f4941]">
-              <div className="flex items-center justify-between rounded-2xl border border-[#231717]/10 bg-[#faf6f0] px-3 py-3">
+            <div className="grid gap-1 text-sm text-[#5f4941]">
+              <div className="flex items-center justify-between rounded-xl bg-[#faf6f0] px-3 py-2.5">
                 <span>Ventas cerradas</span>
                 <span className="font-black text-emerald-700">+{formatPrice(snapshot.gains)}</span>
               </div>
-              <div className="flex items-center justify-between rounded-2xl border border-[#231717]/10 bg-[#faf6f0] px-3 py-3">
+              <div className="flex items-center justify-between rounded-xl bg-[#faf6f0] px-3 py-2.5">
                 <span>Canceladas</span>
                 <span className="font-black text-[#7d291b]">{snapshot.cancelledCount}</span>
               </div>
             </div>
+            <div className="border-t border-[#231717]/10 pt-4">
+              <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">Pedidos por estado</div>
+              <div className="mt-2 grid gap-1 text-sm text-[#5f4941]">
+                {(["new", "follow_up", "quoted", "closed", "cancelled"] as const).map((status) => (
+                  <div key={status} className="flex items-center justify-between rounded-xl bg-[#faf6f0] px-3 py-2">
+                    <span>{formatAdminInquiryStatus(status)}</span>
+                    <span className="font-black">{snapshot.statusBreakdown[status]}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
+        </AdminPanel>
+      </div>
+
+      <div className="mt-4">
+        <AdminPanel
+          title="Stock bajo"
+          actions={
+            <Link to="/admin/stock" className={getAdminButtonClassName("secondary")}>
+              Ir a Stock
+            </Link>
+          }
+        >
+          {snapshot.stockAlerts.length === 0 ? (
+            <AdminEmptyState
+              title="Todo en niveles saludables"
+              body={`Ninguna variante tiene ${LOW_STOCK_THRESHOLD} unidades o menos ahora mismo.`}
+            />
+          ) : (
+            <>
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                {snapshot.stockAlerts.slice(0, 12).map((alert) => (
+                  <div
+                    key={`${alert.productId}-${alert.variantLabel}`}
+                    className="flex items-center justify-between gap-3 rounded-xl bg-[#faf6f0] px-3 py-2.5 text-sm"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate font-semibold">{alert.productName}</div>
+                      <div className="text-xs text-[#6b5a55]">{alert.variantLabel}</div>
+                    </div>
+                    <AdminTag tone={alert.quantity === 0 ? "danger" : "warn"}>
+                      {alert.quantity === 0 ? "Agotado" : `${alert.quantity} und.`}
+                    </AdminTag>
+                  </div>
+                ))}
+              </div>
+              {snapshot.stockAlerts.length > 12 ? (
+                <p className="mt-3 text-xs text-[#6b5a55]">
+                  +{snapshot.stockAlerts.length - 12} variante(s) mas con stock bajo.
+                </p>
+              ) : null}
+            </>
+          )}
         </AdminPanel>
       </div>
     </AdminShell>
