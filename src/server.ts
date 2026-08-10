@@ -70,8 +70,12 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 }
 
 function withRequestSeoHeaders(request: Request, response: Response) {
+  // The portfolio deployment noindexes every single page (it's a demo
+  // mirror, not a second real storefront Google should ever list) -
+  // everywhere else only admin/cart/checkout pages get noindexed.
+  const noindexEverything = typeof process !== "undefined" && process.env.PORTFOLIO_NOINDEX_ALL === "true";
   const pathname = new URL(request.url).pathname;
-  if (!/^\/(?:admin(?:\/|$)|acceso-admin$|carrito$|solicitud$)/.test(pathname)) {
+  if (!noindexEverything && !/^\/(?:admin(?:\/|$)|acceso-admin$|carrito$|solicitud$)/.test(pathname)) {
     return response;
   }
   const headers = new Headers(response.headers);

@@ -156,6 +156,14 @@ function getCookieValue(cookieHeader: string | null | undefined, name: string) {
 }
 
 const assertAdminAccess = createServerFn({ method: "GET" }).handler(async () => {
+  // Hard, unconditional lockout for the portfolio deployment - independent
+  // of and in addition to every check below. This isn't relying on the
+  // portfolio env's blanked-out CF Access/allowlist vars happening to fail
+  // closed; even if those were ever misconfigured, this still blocks admin.
+  if (getServerEnv("IS_PORTFOLIO_DEPLOY") === "true") {
+    throw notFound();
+  }
+
   const { getRequestHeader, getRequestHost, setResponseHeader } = await import("@tanstack/react-start/server");
 
   setResponseHeader("Cache-Control", "private, no-store");
