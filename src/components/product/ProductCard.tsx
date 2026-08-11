@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ShoppingBasket } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useCart } from "@/context/cart";
 import type { Product } from "@/data/products";
 import { formatPrice, isOnSale } from "@/data/products";
@@ -248,16 +249,19 @@ const cartActionClassName =
         )}
       </div>
 
-      {noticePhase ? (
-        <div
-          role="status"
-          className={`pointer-events-none fixed bottom-6 left-1/2 z-[80] w-max max-w-[min(calc(100vw-2rem),42rem)] -translate-x-1/2 whitespace-nowrap bg-white px-6 py-3 text-center text-sm font-semibold ${noticeTextClassName} transition-opacity duration-[1500ms] ease-out ${
-            noticePhase === "fading" ? "opacity-0" : "opacity-100"
-          }`}
-        >
-          {product.name} agregado al carrito
-        </div>
-      ) : null}
+      {noticePhase && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              role="status"
+              className={`pointer-events-none fixed bottom-6 left-1/2 z-[80] w-max max-w-[min(calc(100vw-2rem),42rem)] -translate-x-1/2 bg-white px-6 py-3 text-center text-sm font-semibold ${noticeTextClassName} transition-opacity duration-[1500ms] ease-out ${
+                noticePhase === "fading" ? "opacity-0" : "opacity-100"
+              }`}
+            >
+              {product.name} agregado al carrito
+            </div>,
+            document.body,
+          )
+        : null}
     </>
   );
 }
