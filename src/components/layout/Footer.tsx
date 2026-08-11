@@ -147,6 +147,52 @@ export function Footer({
     .replaceAll("(c)", "©")
     .replaceAll("Pulpina", "Pulpiña")
     .replace("{year}", String(new Date().getFullYear()));
+
+  // On mobile only, Ayuda and Redes trade places: Redes moves into the
+  // centered Store/Nuevo/Ofertas row (where Ayuda used to sit), and Ayuda
+  // moves down into Redes' old spot, left-aligned instead of centered.
+  // Defined once here and rendered twice below (one copy per breakpoint,
+  // toggled with hidden/md:hidden) so desktop's layout is untouched.
+  const ayudaContent = (
+    <>
+      <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Ayuda</div>
+      <ul className="space-y-1.5 text-sm">
+        {resolvedSettings.footerHelpLinks
+          .filter((link) => link.to !== "/solicitud")
+          .map((link) => (
+            <li key={link.label}>
+              <Link to={link.to} className="transition hover:underline">
+                {link.label}
+              </Link>
+            </li>
+          ))}
+      </ul>
+    </>
+  );
+  const redesContent = (
+    <>
+      <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Redes</div>
+      <div className="flex gap-2">
+        <Link
+          to="/contacto"
+          className="ui-circle bg-[linear-gradient(135deg,#4f5bd5,#d62976_52%,#feda75)] p-2 text-white transition hover:brightness-110"
+          aria-label="Instagram"
+        >
+          <Instagram className="h-5 w-5" />
+        </Link>
+        <Link
+          to="/contacto"
+          className="ui-circle bg-[linear-gradient(135deg,#25d366,#128c7e)] p-2 text-white transition hover:brightness-110"
+          aria-label="WhatsApp"
+        >
+          <WhatsAppIcon className="h-5 w-5" />
+        </Link>
+      </div>
+      <p className={`mt-4 text-xs ${theme.textSoft}`}>{resolvedSettings.footerAccent || theme.accent}</p>
+      <p className={`mt-2 text-xs ${theme.textSoft}`}>{footerCopyright}</p>
+    </>
+  );
+
   return (
     <footer className={`${theme.spacing} overflow-hidden border-t-2 ${theme.border} ${theme.bg} ${theme.text}`}>
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 md:grid-cols-[auto_1fr_auto]">
@@ -211,42 +257,13 @@ export function Footer({
             </ul>
           </div>
 
-          <div>
-            <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Ayuda</div>
-            <ul className="space-y-1.5 text-sm">
-              {resolvedSettings.footerHelpLinks
-                .filter((link) => link.to !== "/solicitud")
-                .map((link) => (
-                  <li key={link.label}>
-                    <Link to={link.to} className="transition hover:underline">
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-            </ul>
-          </div>
+          <div className="hidden md:block">{ayudaContent}</div>
+          <div className="md:hidden">{redesContent}</div>
         </div>
 
         <div>
-          <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Redes</div>
-          <div className="flex gap-2">
-            <Link
-              to="/contacto"
-              className="ui-circle bg-[linear-gradient(135deg,#4f5bd5,#d62976_52%,#feda75)] p-2 text-white transition hover:brightness-110"
-              aria-label="Instagram"
-            >
-              <Instagram className="h-5 w-5" />
-            </Link>
-            <Link
-              to="/contacto"
-              className="ui-circle bg-[linear-gradient(135deg,#25d366,#128c7e)] p-2 text-white transition hover:brightness-110"
-              aria-label="WhatsApp"
-            >
-              <WhatsAppIcon className="h-5 w-5" />
-            </Link>
-          </div>
-          <p className={`mt-4 text-xs ${theme.textSoft}`}>{resolvedSettings.footerAccent || theme.accent}</p>
-          <p className={`mt-2 text-xs ${theme.textSoft}`}>{footerCopyright}</p>
+          <div className="hidden md:block">{redesContent}</div>
+          <div className="md:hidden">{ayudaContent}</div>
         </div>
       </div>
     </footer>
