@@ -172,24 +172,28 @@ export function Footer({
   const redesContent = (
     <>
       <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Redes</div>
-      <div className="flex gap-2">
+      <div className="flex gap-3">
         <Link
           to="/contacto"
-          className="ui-circle bg-[linear-gradient(135deg,#4f5bd5,#d62976_52%,#feda75)] p-2 text-white transition hover:brightness-110"
+          className="ui-circle bg-[linear-gradient(135deg,#4f5bd5,#d62976_52%,#feda75)] p-3 text-white transition hover:brightness-110"
           aria-label="Instagram"
         >
-          <Instagram className="h-5 w-5" />
+          <Instagram className="h-6 w-6" />
         </Link>
         <Link
           to="/contacto"
-          className="ui-circle bg-[linear-gradient(135deg,#25d366,#128c7e)] p-2 text-white transition hover:brightness-110"
+          className="ui-circle bg-[linear-gradient(135deg,#25d366,#128c7e)] p-3 text-white transition hover:brightness-110"
           aria-label="WhatsApp"
         >
-          <WhatsAppIcon className="h-5 w-5" />
+          <WhatsAppIcon className="h-6 w-6" />
         </Link>
       </div>
-      <p className={`mt-4 text-xs ${theme.textSoft}`}>{resolvedSettings.footerAccent || theme.accent}</p>
-      <p className={`mt-2 text-xs ${theme.textSoft}`}>{footerCopyright}</p>
+      {/* Desktop keeps this text inside Redes, same as always - only mobile
+          detaches it into its own single-line bar at the very bottom. */}
+      <div className="hidden md:block">
+        <p className={`mt-4 text-xs ${theme.textSoft}`}>{resolvedSettings.footerAccent || theme.accent}</p>
+        <p className={`mt-2 text-xs ${theme.textSoft}`}>{footerCopyright}</p>
+      </div>
     </>
   );
 
@@ -263,10 +267,17 @@ export function Footer({
         {/* Ayuda moves down to sit on the same line as Redes on mobile
             (Ayuda first, then Redes) instead of living in the centered
             group above - desktop keeps Ayuda up there and Redes alone here. */}
-        <div className="flex gap-10 md:block">
+        <div className="flex items-start gap-10 md:block">
           <div className="md:hidden">{ayudaContent}</div>
           <div>{redesContent}</div>
         </div>
+
+        {/* Mobile-only: Redes' WhatsApp blurb + copyright, detached into their
+            own single line at the very bottom of the footer instead of
+            stacking inside Redes. */}
+        <p className={`text-xs md:hidden ${theme.textSoft}`}>
+          {(resolvedSettings.footerAccent || theme.accent)} · {footerCopyright}
+        </p>
       </div>
     </footer>
   );
