@@ -323,7 +323,10 @@ function AnnouncementBar({ announcements, theme }: { announcements: StoreAnnounc
 
   return (
     <div className={`px-4 py-2 ${theme.background} ${theme.border} ${theme.text}`}>
-      <div className="mx-auto max-w-7xl text-center">
+      {/* Fixed to exactly two lines' height on mobile (overflow-hidden clips
+          anything past that) so a longer rotating message never grows the
+          bar and shoves the rest of the page down - it just crops instead. */}
+      <div className="mx-auto max-h-10 max-w-7xl overflow-hidden text-center sm:max-h-none">
         <div key={active.id} className="announcement-fade font-body text-sm leading-5 sm:text-[0.95rem]">
           {active.text}
         </div>

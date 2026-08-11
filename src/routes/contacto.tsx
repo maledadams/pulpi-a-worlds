@@ -38,9 +38,23 @@ function Contact() {
       />
       <div className="relative z-10 mx-auto max-w-5xl">
       <div className="text-center">
-        <h1 className="text-4xl sm:text-5xl md:text-7xl" style={{ transform: "none" }}>
-          {settings.contactPageTitle}
-        </h1>
+        <div className="flex items-center justify-center gap-2">
+          <img
+            src={phoneBlack}
+            alt=""
+            aria-hidden="true"
+            className="h-9 w-9 shrink-0 -rotate-[14deg] object-contain sm:hidden"
+          />
+          <h1 className="text-4xl sm:text-5xl md:text-7xl" style={{ transform: "none" }}>
+            {settings.contactPageTitle}
+          </h1>
+          <img
+            src={phoneBlack}
+            alt=""
+            aria-hidden="true"
+            className="h-9 w-9 shrink-0 -scale-x-100 rotate-[14deg] object-contain sm:hidden"
+          />
+        </div>
         <p className="mt-2 w-full text-sm text-muted-foreground sm:text-base">
           {settings.contactPageIntro}
         </p>

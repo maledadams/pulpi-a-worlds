@@ -97,7 +97,7 @@ function HomeRailSection({
   return (
     <section className="pb-14">
       <div className="mb-6 px-4 xl:px-[5cm]">
-        <h2 className="text-left text-2xl md:text-3xl" style={{ transform: "none" }}>
+        <h2 className="text-center text-2xl sm:text-left md:text-3xl" style={{ transform: "none" }}>
           {title}
         </h2>
       </div>
@@ -296,9 +296,23 @@ function Home() {
             className="absolute right-[2%] top-1/2 w-24 -translate-y-1/2 rotate-[16deg] object-contain xl:w-32 2xl:w-40"
           />
         </div>
-        <h2 className="relative z-10 text-4xl md:text-6xl" style={{ transform: "none" }}>
-          {birthdayTitle}
-        </h2>
+        <div className="relative z-10 flex items-center justify-center gap-2">
+          <img
+            src={cakeTwo}
+            alt=""
+            aria-hidden="true"
+            className="h-9 w-9 shrink-0 object-contain sm:hidden"
+          />
+          <h2 className="text-4xl md:text-6xl" style={{ transform: "none" }}>
+            {birthdayTitle}
+          </h2>
+          <img
+            src={cakeFour}
+            alt=""
+            aria-hidden="true"
+            className="h-9 w-9 shrink-0 object-contain sm:hidden"
+          />
+        </div>
         <p className="relative z-10 mx-auto mt-2 max-w-md text-sm text-muted-foreground">
           {settings.newsletterDescription}
         </p>
@@ -358,7 +372,7 @@ function Home() {
             required
             value={birthdayDate}
             aria-label="Fecha de cumpleaños"
-            className="rounded-full border border-foreground/20 bg-background px-4 py-2.5 text-sm outline-none focus:border-foreground"
+            className="mx-auto w-fit rounded-full border border-foreground/20 bg-background px-4 py-2.5 text-center text-sm outline-none focus:border-foreground sm:mx-0 sm:w-full sm:text-left"
             onChange={(event) => {
               setBirthdayDate(event.target.value);
               setBirthdaySaved(false);
