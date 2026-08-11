@@ -593,8 +593,14 @@ function normalizeVariants(record: AdminProductRecord, swatch: [string, string],
     const currentVariant = existingVariantsBySize.get(size);
     const quantityAvailable = currentVariant?.quantityAvailable ?? record.stock ?? 0;
     const available = currentVariant?.available ?? record.available;
-    const price = currentVariant?.price ?? record.price;
-    const compareAtPrice = currentVariant?.compareAtPrice ?? record.compareAtPrice;
+    // Pricing is product-wide, not per-Talla (see setProductPricing) - always
+    // take it from the record, never from whatever a variant already had.
+    // A `?? currentVariant?.compareAtPrice` fallback here would let a stale
+    // per-variant compareAtPrice survive forever once "En oferta" is turned
+    // back off, since null on the record side would never win against an
+    // existing number on the variant side.
+    const price = record.price;
+    const compareAtPrice = record.compareAtPrice;
 
     return {
       id:
