@@ -61,13 +61,9 @@ export function ProductCard({
   const soldOut = !product.available;
   const visualVibe = themeVibe ?? product.vibe;
   const badgeTheme = PRODUCT_BADGE_THEME[product.vibe];
-  // The discounted price on a sale card always matches that page's own
-  // announcement-bar red - Tienda general always uses the general red
-  // (regardless of which substore the product actually belongs to), a
-  // vibe page uses that vibe's own accent (Moon borrows Men's red, since
-  // Moon's own announcement bar isn't red at all).
-  const saleAccentColor =
-    tone === "store" ? "#c5475f" : visualVibe === "sunshine" ? "#ff4ea3" : "#8f2015";
+  // The discounted price on a sale card uses the general announcement red
+  // everywhere except Sunshine, which keeps its own pink.
+  const saleAccentColor = visualVibe === "sunshine" ? "#ff4ea3" : "#c5475f";
   const isMoonCard = tone === "vibe" && visualVibe === "moon";
   const cardOutlineClassName =
     tone === "store"
