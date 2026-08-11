@@ -61,6 +61,13 @@ export function ProductCard({
   const soldOut = !product.available;
   const visualVibe = themeVibe ?? product.vibe;
   const badgeTheme = PRODUCT_BADGE_THEME[product.vibe];
+  // The discounted price on a sale card always matches that page's own
+  // announcement-bar red - Tienda general always uses the general red
+  // (regardless of which substore the product actually belongs to), a
+  // vibe page uses that vibe's own accent (Moon borrows Men's red, since
+  // Moon's own announcement bar isn't red at all).
+  const saleAccentColor =
+    tone === "store" ? "#c5475f" : visualVibe === "sunshine" ? "#ff4ea3" : "#8f2015";
   const isMoonCard = tone === "vibe" && visualVibe === "moon";
   const cardOutlineClassName =
     tone === "store"
@@ -207,7 +214,10 @@ const cartActionClassName =
                     {formatPrice(product.compareAtPrice!, product.currencyCode)}
                   </span>
                 ) : null}
-                <span className="text-sm font-black sm:text-[0.95rem]">
+                <span
+                  className="text-sm font-black sm:text-[0.95rem]"
+                  style={onSale ? { color: saleAccentColor } : undefined}
+                >
                   {formatPrice(product.price, product.currencyCode)}
                 </span>
               </div>
