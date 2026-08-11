@@ -253,7 +253,7 @@ const cartActionClassName =
         ? createPortal(
             <div
               role="status"
-              className={`pointer-events-none fixed bottom-6 left-1/2 z-[80] w-max max-w-[min(calc(100vw-2rem),42rem)] -translate-x-1/2 bg-white px-6 py-3 text-center text-sm font-semibold ${noticeTextClassName} transition-opacity duration-[1500ms] ease-out ${
+              className={`pointer-events-none fixed bottom-6 left-1/2 z-[80] w-max max-w-[min(calc(100vw-2rem),42rem)] -translate-x-1/2 border border-black bg-white px-6 py-3 text-center text-sm font-semibold ${noticeTextClassName} transition-opacity duration-[1500ms] ease-out ${
                 noticePhase === "fading" ? "opacity-0" : "opacity-100"
               }`}
             >
