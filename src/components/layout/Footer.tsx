@@ -258,12 +258,14 @@ export function Footer({
           </div>
 
           <div className="hidden md:block">{ayudaContent}</div>
-          <div className="md:hidden">{redesContent}</div>
         </div>
 
-        <div>
-          <div className="hidden md:block">{redesContent}</div>
+        {/* Ayuda moves down to sit on the same line as Redes on mobile
+            (Ayuda first, then Redes) instead of living in the centered
+            group above - desktop keeps Ayuda up there and Redes alone here. */}
+        <div className="flex gap-10 md:block">
           <div className="md:hidden">{ayudaContent}</div>
+          <div>{redesContent}</div>
         </div>
       </div>
     </footer>

@@ -107,7 +107,7 @@ function Contact() {
 
       </div>
       <section className="mt-12 sm:mt-16" aria-labelledby="location-heading">
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div className="mb-4 flex flex-wrap items-center justify-center gap-3 sm:items-end sm:justify-between">
           <h2 id="location-heading" className="text-2xl sm:text-3xl md:text-4xl">
             Dónde Encontrarnos
           </h2>
