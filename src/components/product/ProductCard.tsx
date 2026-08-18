@@ -211,14 +211,26 @@ const cartActionClassName =
                   </span>
                 ) : null}
                 <span
-                  className="text-sm font-black sm:text-[0.95rem]"
+                  className={`text-sm font-black sm:text-[0.95rem] ${onSale ? "hidden sm:inline" : ""}`}
                   style={onSale ? { color: saleAccentColor } : undefined}
                 >
                   {formatPrice(product.price, product.currencyCode)}
                 </span>
               </div>
+              {/* Mobile only: a sale card's discounted price doesn't fit next
+                  to the strikethrough price without overflowing the card, so
+                  it takes over the color-swatch row's spot here instead of
+                  making the card any taller - the swatch row itself moves to
+                  desktop-only below. */}
+              {onSale ? (
+                <div className="mt-2 sm:hidden">
+                  <span className="text-sm font-black" style={{ color: saleAccentColor }}>
+                    {formatPrice(product.price, product.currencyCode)}
+                  </span>
+                </div>
+              ) : null}
               {colors.length > 0 ? (
-                <div className="mt-2 flex items-center gap-1.5">
+                <div className={`mt-2 flex items-center gap-1.5 ${onSale ? "hidden sm:flex" : ""}`}>
                   {colors.slice(0, 5).map((color) => (
                     <span
                       key={color.name}
