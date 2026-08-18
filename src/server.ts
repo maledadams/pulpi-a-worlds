@@ -91,6 +91,30 @@ function finalizeResponse(request: Request, response: Response) {
   return withSecurityHeaders(withRequestSeoHeaders(request, response));
 }
 
+// Old product slugs Google indexed before a rename/merge, redirected to
+// where that product actually lives now - keeps whatever search ranking
+// those old URLs had instead of just handing back a 404. Two of these
+// (mano-esqueleto, adorno-de-3-calaveras) were duplicate listings merged
+// into their surviving sibling earlier; the rest are straightforward
+// slug changes from a product being renamed to its real name.
+const PRODUCT_SLUG_REDIRECTS: Record<string, string> = {
+  "correa-negra-con-relieve-calaveras": "correa-negra-con-relieve-y-hebilla-de-calaveras",
+  "correa-negra-con-logo-kiss-y-tachuelas-redondas": "correa-negra-con-hebilla-kiss-y-tachuelas-redondas",
+  "pulsera-de-cuerina-con-adorno-de-3-calaveras": "pulsera-de-cuerina-con-adorno-calavera",
+  "pulsera-de-cuerina-con-mano-esqueleto": "pulsera-de-cuerina-con-tachuela-esqueleto",
+  "bisu-rosario-negro-con-cruz-plat-y-punto-negro": "rosario-negro-con-cruz-plateada-y-punto-negro",
+  "correa-negra-con-tachuelas-circulares-calaveras": "correa-negra-con-tachuelas-circulares-y-hebilla-de-calaveras",
+  "bisu-rosario-negro-con-luna-plat-y-piedra-magica": "rosario-negro-con-luna-plateada-y-piedra-m-gica",
+  "botas-negras-sencillas-dr-martins": "botas-martins",
+};
+
+function getProductSlugRedirect(pathname: string): string | null {
+  const match = /^\/producto\/([^/]+)\/?$/.exec(pathname);
+  if (!match) return null;
+  const newSlug = PRODUCT_SLUG_REDIRECTS[match[1]];
+  return newSlug ? `/producto/${newSlug}` : null;
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
@@ -98,6 +122,12 @@ export default {
       if (requestUrl.hostname === "www.pulpinastore.com") {
         requestUrl.hostname = "pulpinastore.com";
         return finalizeResponse(request, Response.redirect(requestUrl, 308));
+      }
+
+      const redirectedProductPath = getProductSlugRedirect(requestUrl.pathname);
+      if (redirectedProductPath) {
+        requestUrl.pathname = redirectedProductPath;
+        return finalizeResponse(request, Response.redirect(requestUrl, 301));
       }
 
       const orderConfirmResponse = await maybeHandleOrderConfirmRequest(request);
