@@ -90,6 +90,14 @@ export function ProductCard({
       }),
     );
   const onlyVariant = product.variants.length === 1 ? product.variants[0] : null;
+  const colorSwatches = colors.slice(0, 5).map((color) => (
+    <span
+      key={color.name}
+      className={`ui-circle h-3 w-3 ${isMoonCard ? "border border-[#f2e9e1]/12" : "border border-foreground/15"}`}
+      style={{ backgroundColor: color.hex }}
+      title={color.name}
+    />
+  ));
 
   useEffect(() => () => noticeTimers.current.forEach((timer) => window.clearTimeout(timer)), []);
 
@@ -217,28 +225,27 @@ const cartActionClassName =
                   {formatPrice(product.price, product.currencyCode)}
                 </span>
               </div>
-              {/* Mobile only: a sale card's discounted price doesn't fit next
-                  to the strikethrough price without overflowing the card, so
-                  it takes over the color-swatch row's spot here instead of
-                  making the card any taller - the swatch row itself moves to
-                  desktop-only below. */}
+              {/* Mobile only, sale cards: the strikethrough price already
+                  owns the line above, so the discounted price shares this
+                  line with the color swatches (swatches left, price right)
+                  instead of squeezing next to the strikethrough price and
+                  overflowing the card. Desktop keeps colors on their own
+                  line below, same as non-sale cards. */}
               {onSale ? (
-                <div className="mt-2 sm:hidden">
+                <div className="mt-2 flex items-center justify-between gap-1.5 sm:hidden">
+                  {colors.length > 0 ? (
+                    <div className="flex items-center gap-1.5">{colorSwatches}</div>
+                  ) : (
+                    <span />
+                  )}
                   <span className="text-sm font-black" style={{ color: saleAccentColor }}>
                     {formatPrice(product.price, product.currencyCode)}
                   </span>
                 </div>
               ) : null}
               {colors.length > 0 ? (
-                <div className={`mt-2 flex items-center gap-1.5 ${onSale ? "hidden sm:flex" : ""}`}>
-                  {colors.slice(0, 5).map((color) => (
-                    <span
-                      key={color.name}
-                      className={`ui-circle h-3 w-3 ${isMoonCard ? "border border-[#f2e9e1]/12" : "border border-foreground/15"}`}
-                      style={{ backgroundColor: color.hex }}
-                      title={color.name}
-                    />
-                  ))}
+                <div className={`mt-2 flex items-center justify-end gap-1.5 ${onSale ? "hidden sm:flex" : ""}`}>
+                  {colorSwatches}
                 </div>
               ) : null}
             </div>
