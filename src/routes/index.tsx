@@ -97,7 +97,7 @@ function HomeRailSection({
   return (
     <section className="pb-14">
       <div className="mb-6 px-4 xl:px-[5cm]">
-        <h2 className="text-left text-2xl md:text-3xl" style={{ transform: "none" }}>
+        <h2 className="text-center text-3xl sm:text-left sm:text-2xl md:text-3xl" style={{ transform: "none" }}>
           {title}
         </h2>
       </div>
@@ -161,7 +161,7 @@ function Home() {
   const { homeCollections, settings } = Route.useLoaderData();
   const products = useCatalogProducts();
   const [newsletterEmail, setNewsletterEmail] = useState("");
-  const [birthdayDate, setBirthdayDate] = useState("");
+  const [birthdayDate, setBirthdayDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [birthdaySaved, setBirthdaySaved] = useState(false);
   const [newsletterStatus, setNewsletterStatus] = useState("");
   const [newsletterSubmitting, setNewsletterSubmitting] = useState(false);
@@ -296,14 +296,28 @@ function Home() {
             className="absolute right-[2%] top-1/2 w-24 -translate-y-1/2 rotate-[16deg] object-contain xl:w-32 2xl:w-40"
           />
         </div>
-        <h2 className="relative z-10 text-4xl md:text-6xl" style={{ transform: "none" }}>
-          {birthdayTitle}
-        </h2>
+        <div className="relative z-10 flex items-center justify-center gap-3">
+          <img
+            src={cakeTwo}
+            alt=""
+            aria-hidden="true"
+            className="h-16 w-16 shrink-0 object-contain sm:hidden"
+          />
+          <h2 className="text-4xl md:text-6xl" style={{ transform: "none" }}>
+            {birthdayTitle}
+          </h2>
+          <img
+            src={cakeFour}
+            alt=""
+            aria-hidden="true"
+            className="h-16 w-16 shrink-0 object-contain sm:hidden"
+          />
+        </div>
         <p className="relative z-10 mx-auto mt-2 max-w-md text-sm text-muted-foreground">
           {settings.newsletterDescription}
         </p>
         <form
-          className="relative z-10 mx-auto mt-5 grid max-w-2xl gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
+          className="relative z-10 mx-auto mt-5 grid max-w-2xl grid-cols-[0.85fr_1fr] gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
           onSubmit={(event) => {
             event.preventDefault();
             setNewsletterStatus("");
@@ -347,7 +361,7 @@ function Home() {
             required
             value={newsletterEmail}
             placeholder="tu@correo.com"
-            className="flex-1 rounded-full border border-foreground/20 bg-background px-4 py-2.5 text-sm outline-none focus:border-foreground"
+            className="w-full min-w-0 rounded-full border border-foreground/20 bg-background px-3 py-2.5 text-sm outline-none focus:border-foreground sm:px-4"
             onChange={(event) => {
               setNewsletterEmail(event.target.value);
               setBirthdaySaved(false);
@@ -358,7 +372,7 @@ function Home() {
             required
             value={birthdayDate}
             aria-label="Fecha de cumpleaños"
-            className="rounded-full border border-foreground/20 bg-background px-4 py-2.5 text-sm outline-none focus:border-foreground"
+            className="w-full min-w-0 rounded-full border border-foreground/20 bg-background px-3 py-2.5 text-sm outline-none focus:border-foreground sm:px-4"
             onChange={(event) => {
               setBirthdayDate(event.target.value);
               setBirthdaySaved(false);
@@ -366,7 +380,7 @@ function Home() {
           />
           <button
             disabled={newsletterSubmitting || !newsletterTurnstileToken}
-            className="rounded-full bg-foreground px-5 py-2.5 text-sm font-bold uppercase tracking-widest text-background hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="col-span-2 rounded-full bg-foreground px-5 py-2.5 text-sm font-bold uppercase tracking-widest text-background hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 sm:col-span-1"
           >
             {newsletterSubmitting ? "Validando..." : "Suscribirme"}
           </button>
