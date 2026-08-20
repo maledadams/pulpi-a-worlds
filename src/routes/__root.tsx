@@ -60,12 +60,15 @@ function ErrorComponent({ error }: { error: Error }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  loader: async () => ({
-    catalogProducts: await getStorefrontCatalog(),
-    announcements: await getStorefrontAnnouncements(),
-    categories: await getStorefrontCategories(),
-    settings: await getStorefrontSettings(),
-  }),
+  loader: async () => {
+    const [catalogProducts, announcements, categories, settings] = await Promise.all([
+      getStorefrontCatalog(),
+      getStorefrontAnnouncements(),
+      getStorefrontCategories(),
+      getStorefrontSettings(),
+    ]);
+    return { catalogProducts, announcements, categories, settings };
+  },
   head: ({ loaderData }) => ({
     meta: [
       { charSet: "utf-8" },
@@ -100,6 +103,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
     ],
     scripts: [
+      {
+        src: "https://www.googletagmanager.com/gtag/js?id=G-N6LGC4Z2PN",
+        async: true,
+      },
+      {
+        children: `window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+
+gtag('config', 'G-N6LGC4Z2PN');`,
+      },
       {
         type: "application/ld+json",
         children: JSON.stringify({

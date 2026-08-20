@@ -115,6 +115,22 @@ function getProductSlugRedirect(pathname: string): string | null {
   return newSlug ? `/producto/${newSlug}` : null;
 }
 
+// Every page under here is the same for every anonymous visitor - no
+// cookies, no per-request personalization (cart lives in localStorage on
+// the client, never touches SSR). Admin/checkout/server-fn traffic is
+// excluded so nothing session-specific ever risks getting cached.
+const EDGE_CACHEABLE_PATH = /^\/(?!admin(?:\/|$)|acceso-admin$|carrito$|solicitud$|_serverFn)/;
+
+function isEdgeCacheable(request: Request, pathname: string) {
+  return request.method === "GET" && EDGE_CACHEABLE_PATH.test(pathname);
+}
+
+async function renderAndFinalize(request: Request, env: unknown, ctx: unknown) {
+  const handler = await getServerEntry();
+  const response = await handler.fetch(request, env, ctx);
+  return finalizeResponse(request, await normalizeCatastrophicSsrResponse(response));
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
@@ -140,9 +156,24 @@ export default {
         return finalizeResponse(request, birthdayConfirmResponse);
       }
 
-      const handler = await getServerEntry();
-      const response = await handler.fetch(request, env, ctx);
-      return finalizeResponse(request, await normalizeCatastrophicSsrResponse(response));
+      if (!isEdgeCacheable(request, requestUrl.pathname)) {
+        return await renderAndFinalize(request, env, ctx);
+      }
+
+      const cache = caches.default;
+      const cacheKey = new Request(requestUrl.toString(), request);
+      const cachedResponse = await cache.match(cacheKey);
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+
+      const finalResponse = await renderAndFinalize(request, env, ctx);
+      if (finalResponse.status === 200 && finalResponse.headers.get("Cache-Control")?.includes("max-age")) {
+        (ctx as { waitUntil(promise: Promise<unknown>): void }).waitUntil(
+          cache.put(cacheKey, finalResponse.clone()),
+        );
+      }
+      return finalResponse;
     } catch (error) {
       console.error(error);
       return finalizeResponse(request, brandedErrorResponse());
