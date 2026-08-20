@@ -166,10 +166,6 @@ function cloneProduct(product: Product): Product {
   };
 }
 
-function cloneProducts(products: Product[]) {
-  return products.map(cloneProduct);
-}
-
 function localizeVariantTitle(size: string, color: string, hasColor = true) {
   return hasColor ? `${size} / ${color}` : size;
 }
@@ -714,8 +710,10 @@ export async function listCatalogProductsInternal() {
     `)
     .all<ProductRow>();
 
-  const products = (rows.results ?? []).map(productFromRow).filter((product) => product.vibe !== "pulpina");
-  return cloneProducts(products);
+  // Freshly built from this query's rows, not aliased to memoryCatalog or
+  // any other call's result - no clone needed (unlike listMemoryProducts,
+  // which reads from a shared mutable Map and must clone to protect it).
+  return (rows.results ?? []).map(productFromRow).filter((product) => product.vibe !== "pulpina");
 }
 
 export async function listStorefrontCatalogProductsInternal() {
