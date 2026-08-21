@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { StorePineapple } from "@/components/branding/StorePineapple";
 import { useCart } from "@/context/cart";
 import { formatPrice } from "@/data/products";
+import { trackBeginCheckout } from "@/lib/analytics";
 import { createSeoHead } from "@/lib/seo";
 import { useScrollFollow } from "@/hooks/use-scroll-follow";
 
@@ -170,6 +171,16 @@ function CartPage() {
                 }
                 void cart.refreshAvailability().then((available) => {
                   if (available) {
+                    trackBeginCheckout(
+                      cart.lines.map((line) => ({
+                        item_id: line.merchandiseId,
+                        item_name: line.productTitle,
+                        price: line.price,
+                        quantity: line.quantity,
+                      })),
+                      cart.subtotal,
+                      cart.currencyCode,
+                    );
                     void navigate({ to: "/solicitud" });
                     return;
                   }

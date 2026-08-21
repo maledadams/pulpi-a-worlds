@@ -7,6 +7,7 @@ import { useCatalogProducts } from "@/context/catalog";
 import { useCart } from "@/context/cart";
 import { formatPrice, type Product } from "@/data/products";
 import { useVibe } from "@/hooks/use-vibe";
+import { trackViewItem } from "@/lib/analytics";
 import { getStorefrontProductBySlug } from "@/lib/catalog";
 import { buildProductColorRecord, normalizeProductColorName } from "@/lib/product-colors";
 import {
@@ -188,6 +189,13 @@ function ProductPage() {
   const cart = useCart();
 
   useVibe(product.vibe);
+
+  useEffect(() => {
+    trackViewItem(
+      { item_id: product.id, item_name: product.name, price: product.price, item_category: product.category },
+      product.currencyCode,
+    );
+  }, [product.id, product.name, product.price, product.category, product.currencyCode]);
 
   const galleryImages =
     product.images.length > 0 ? product.images : product.featuredImage ? [product.featuredImage] : [];

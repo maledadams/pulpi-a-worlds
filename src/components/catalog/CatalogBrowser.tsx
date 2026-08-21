@@ -4,6 +4,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { ProductCard } from "@/components/product/ProductCard";
 import { useScrollFollow } from "@/hooks/use-scroll-follow";
 import { getCategoryLabel, type Product, type Vibe } from "@/data/products";
+import { trackSearch } from "@/lib/analytics";
 import {
   CATALOG_SORTS,
   PRICE_BUCKETS,
@@ -535,6 +536,7 @@ export function CatalogBrowser({
         <input
           value={filters.q}
           onChange={(e) => setQuery(e.target.value)}
+          onBlur={(e) => trackSearch(e.target.value)}
           placeholder="Buscar..."
           className={`w-full border py-2.5 pl-9 pr-4 text-sm outline-none ${searchControlFrameClass} ${
             isMoonVibe ? "placeholder:text-[#f2e9e1]/66" : ""

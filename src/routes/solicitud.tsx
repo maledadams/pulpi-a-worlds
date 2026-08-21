@@ -5,6 +5,7 @@ import { TurnstileWidget } from "@/components/forms/TurnstileWidget";
 import { useCatalogProducts } from "@/context/catalog";
 import { useCart } from "@/context/cart";
 import { formatPrice } from "@/data/products";
+import { trackPurchase } from "@/lib/analytics";
 import { submitManualOrder } from "@/lib/manual-orders";
 import { validateDiscountCode } from "@/lib/public-forms";
 import { createSeoHead } from "@/lib/seo";
@@ -413,6 +414,17 @@ function InquiryPage() {
                   }
 
                   setCreatedOrder(result);
+                  trackPurchase({
+                    transactionId: result.order.requestNumber,
+                    value: result.order.total,
+                    currency: "DOP",
+                    items: result.order.lines.map((line) => ({
+                      item_id: line.variantId,
+                      item_name: line.productName,
+                      price: line.unitPrice,
+                      quantity: line.quantity,
+                    })),
+                  });
                   setCustomerEmail("");
                   setCustomerName("");
                   setCustomerPhone("");

@@ -12,6 +12,7 @@ import {
 import { useCatalogProducts } from "@/context/catalog";
 import type { Product } from "@/data/products";
 import { getStorefrontHomeCollections, getStorefrontSettings } from "@/lib/admin-content";
+import { trackGenerateLead } from "@/lib/analytics";
 import { checkBirthdaySubscriberExists, subscribeNewsletter } from "@/lib/public-forms";
 import { createSeoHead } from "@/lib/seo";
 import men1 from "@/assets/men 1.svg";
@@ -345,6 +346,7 @@ function Home() {
                   }
                   setBirthdaySaved(true);
                   setNewsletterTurnstileToken("");
+                  trackGenerateLead("birthday_newsletter");
                 }
               })
               .catch(() => {

@@ -10,6 +10,7 @@ import {
 import { type Cart, type CartLine } from "@/data/products";
 import { useCatalogProducts } from "@/context/catalog";
 import { validateCartInventory } from "@/lib/catalog";
+import { trackAddToCart, trackRemoveFromCart } from "@/lib/analytics";
 
 export type CartLineAvailability = {
   available: boolean;
@@ -146,6 +147,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
 
     applyPreviewLines(nextLines);
+    trackAddToCart(
+      {
+        item_id: fallback.variant.id,
+        item_name: fallback.product.name,
+        price: fallback.variant.price,
+        quantity,
+        item_category: fallback.product.category,
+      },
+      fallback.variant.currencyCode,
+    );
     if (openDrawer) setOpen(true);
   };
 
@@ -159,8 +170,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const remove = async (lineId: string) => {
     const currentLines = cart?.id === PREVIEW_CART_ID ? cart.lines : loadPreviewLines();
+    const removedLine = currentLines.find((line) => line.id === lineId);
     const nextLines = currentLines.filter((line) => line.id !== lineId);
     applyPreviewLines(nextLines);
+    if (removedLine) {
+      trackRemoveFromCart(
+        {
+          item_id: removedLine.merchandiseId,
+          item_name: removedLine.productTitle,
+          price: removedLine.price,
+          quantity: removedLine.quantity,
+        },
+        removedLine.currencyCode,
+      );
+    }
   };
 
   const clear = () => applyCart(null);
