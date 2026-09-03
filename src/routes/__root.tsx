@@ -25,7 +25,13 @@ import {
   getStorefrontSettings,
 } from "@/lib/admin-content";
 import { getStorefrontCatalog } from "@/lib/catalog";
-import { absoluteSiteUrl, SITE_NAME, SITE_NAME_VARIANTS, SITE_URL } from "@/lib/seo";
+import {
+  absoluteSiteUrl,
+  buildOrganizationJsonLd,
+  buildWebsiteJsonLd,
+  SITE_DESCRIPTION,
+  SITE_NAME,
+} from "@/lib/seo";
 import generalPineapple from "@/assets/PULPINAGENERALPINA.svg";
 import moonPineapple from "@/assets/PULPINAMOONPINA.svg";
 import generalLogo from "@/assets/logo-sunshine.png";
@@ -73,11 +79,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: `${SITE_NAME} | Inicio` },
-      {
-        name: "description",
-        content: "Tienda de moda alternativa en República Dominicana.",
-      },
+      // Fallback only - every real route sets its own via createSeoHead.
+      { title: `${SITE_NAME} | Tienda de moda alternativa en República Dominicana` },
+      { name: "description", content: SITE_DESCRIPTION },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -116,27 +120,28 @@ gtag('config', 'G-N6LGC4Z2PN');`,
       },
       {
         type: "application/ld+json",
-        children: JSON.stringify({
-          "@context": "https://schema.org",
-          "@type": "WebSite",
-          name: SITE_NAME,
-          alternateName: SITE_NAME_VARIANTS,
-          url: SITE_URL,
-        }),
+        children: JSON.stringify(buildWebsiteJsonLd()),
       },
       {
         type: "application/ld+json",
-        children: JSON.stringify({
-          "@context": "https://schema.org",
-          "@type": "Organization",
-          name: SITE_NAME,
-          alternateName: SITE_NAME_VARIANTS,
-          url: SITE_URL,
-          logo: absoluteSiteUrl(generalLogo),
-          ...(loaderData?.settings.instagramUrl
-            ? { sameAs: [loaderData.settings.instagramUrl] }
-            : {}),
-        }),
+        children: JSON.stringify(
+          buildOrganizationJsonLd({
+            logo: absoluteSiteUrl(generalLogo),
+            // Every profile that verifiably belongs to this brand strengthens
+            // the entity: more corroborating sources for search/LLMs to tie
+            // the name to this shop rather than the cartoon.
+            sameAs: Array.from(
+              new Set(
+                [
+                  loaderData?.settings.instagramUrl,
+                  "https://www.instagram.com/pulpinard/",
+                  "https://www.instagram.com/pulpinamoon/",
+                  "https://www.instagram.com/pulpinamen/",
+                ].filter((entry): entry is string => Boolean(entry)),
+              ),
+            ),
+          }),
+        ),
       },
     ],
   }),
