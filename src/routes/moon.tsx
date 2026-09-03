@@ -4,16 +4,39 @@ import logo from "@/assets/logo-moon.png";
 import mood from "@/assets/mood-moon.jpg";
 import { getStorefrontSettings } from "@/lib/admin-content";
 import { validateCatalogSearch } from "@/lib/store-filters";
-import { createSeoHead } from "@/lib/seo";
+import { buildBreadcrumbJsonLd, buildCollectionPageJsonLd, createSeoHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/moon")({
   loader: async () => ({ settings: await getStorefrontSettings() }),
   validateSearch: validateCatalogSearch,
-  head: ({ loaderData }) => createSeoHead({
-    pageName: "Moon",
-    path: "/moon",
-    description: loaderData?.settings.moonPageIntro,
-    image: logo,
+  head: ({ loaderData }) => ({
+    ...createSeoHead({
+      pageName: "Moon",
+      path: "/moon",
+      description: loaderData?.settings.moonPageIntro,
+      image: logo,
+    }),
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify(
+          buildCollectionPageJsonLd({
+            name: "Moon",
+            path: "/moon",
+            description: loaderData?.settings.moonPageIntro,
+          }),
+        ),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify(
+          buildBreadcrumbJsonLd([
+            { name: "Inicio", path: "/" },
+            { name: "Moon", path: "/moon" },
+          ]),
+        ),
+      },
+    ],
   }),
   component: MoonPage,
 });

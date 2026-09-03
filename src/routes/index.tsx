@@ -15,6 +15,7 @@ import { getStorefrontHomeCollections, getStorefrontSettings } from "@/lib/admin
 import { trackGenerateLead } from "@/lib/analytics";
 import { checkBirthdaySubscriberExists, subscribeNewsletter } from "@/lib/public-forms";
 import { buildFaqJsonLd, createSeoHead, SITE_DESCRIPTION } from "@/lib/seo";
+import { STORE_FAQ } from "@/lib/store-faq";
 import men1 from "@/assets/men 1.svg";
 import men2 from "@/assets/men 2.svg";
 import men3 from "@/assets/men 3.svg";
@@ -48,7 +49,7 @@ export const Route = createFileRoute("/")({
       scripts: [
         {
           type: "application/ld+json",
-          children: JSON.stringify(buildFaqJsonLd(HOME_FAQ)),
+          children: JSON.stringify(buildFaqJsonLd(STORE_FAQ)),
         },
       ],
     };
@@ -56,45 +57,6 @@ export const Route = createFileRoute("/")({
   component: Home,
 });
 
-/**
- * Answer-engine fuel. These are the questions people actually ask an AI or
- * a search box about this store, answered literally enough to be quotable.
- * The spelling question is deliberate: "Pulpina" without the tilde is the
- * cartoon character's spelling, so the store has to state plainly that both
- * spellings mean this shop, or AI answers keep resolving to the cartoon.
- */
-const HOME_FAQ = [
-  {
-    question: "¿Qué es Pulpiña RD?",
-    answer:
-      "Pulpiña RD es una tienda de moda alternativa en República Dominicana. Vende ropa, calzado y accesorios de estilo alternativo a través de pulpinastore.com.",
-  },
-  {
-    question: "¿Se escribe Pulpiña o Pulpina?",
-    answer:
-      "Las dos formas se refieren a la misma tienda. El nombre oficial se escribe Pulpiña RD, con eñe, pero muchas personas lo escriben Pulpina RD sin la eñe. No tiene relación con el personaje animado del mismo nombre.",
-  },
-  {
-    question: "¿Dónde puedo comprar en Pulpiña RD?",
-    answer:
-      "En la tienda en línea pulpinastore.com. Es una tienda dominicana y los precios están en pesos dominicanos (DOP).",
-  },
-  {
-    question: "¿Cómo se compra en Pulpiña RD?",
-    answer:
-      "Se arma el pedido en el sitio y al finalizar se genera un número de orden. La compra se completa por WhatsApp con ese número; el sitio no procesa pagos directamente.",
-  },
-  {
-    question: "¿Pulpiña RD hace envíos o hay que retirar el pedido?",
-    answer:
-      "Puedes elegir envío a tu dirección en República Dominicana o retiro del pedido al momento de completar la orden.",
-  },
-  {
-    question: "¿Qué tiendas tiene Pulpiña RD?",
-    answer:
-      "Además de la tienda general, Pulpiña RD tiene tres secciones: Moon, Sunshine y Men, cada una con su propio estilo dentro de la moda alternativa.",
-  },
-];
 
 const VIBES_EDITORIAL = [
   {

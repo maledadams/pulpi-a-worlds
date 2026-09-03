@@ -18,6 +18,17 @@ import {
   SITE_NAME,
 } from "@/lib/seo";
 
+/**
+ * Google warns on Offers with no priceValidUntil and can stop showing the
+ * price in results once it lapses. Rolling a year out on each render keeps
+ * it from ever going stale, which a hardcoded date would.
+ */
+function getPriceValidUntil() {
+  const oneYearOut = new Date();
+  oneYearOut.setFullYear(oneYearOut.getFullYear() + 1);
+  return oneYearOut.toISOString().slice(0, 10);
+}
+
 const VIBE_CRUMB: Partial<Record<string, { name: string; path: string }>> = {
   moon: { name: "Moon", path: "/moon" },
   sunshine: { name: "Sunshine", path: "/sunshine" },
@@ -65,6 +76,20 @@ export const Route = createFileRoute("/producto/$slug")({
                 ? "https://schema.org/InStock"
                 : "https://schema.org/OutOfStock",
               url: absoluteSiteUrl(`/producto/${params.slug}`),
+              itemCondition: "https://schema.org/NewCondition",
+              priceValidUntil: getPriceValidUntil(),
+              // Destination only, no rate: the cart itself says shipping is
+              // "confirmado por mensaje", so there is no published rate to
+              // declare here and inventing one would be a commitment the
+              // store never made. hasMerchantReturnPolicy is omitted for the
+              // same reason - /politicas has no return terms written yet.
+              shippingDetails: {
+                "@type": "OfferShippingDetails",
+                shippingDestination: {
+                  "@type": "DefinedRegion",
+                  addressCountry: "DO",
+                },
+              },
             },
           }),
         },

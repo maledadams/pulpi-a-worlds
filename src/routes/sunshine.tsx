@@ -2,18 +2,41 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { VibePage } from "@/components/collections/VibePage";
 import { getStorefrontSettings } from "@/lib/admin-content";
 import { validateCatalogSearch } from "@/lib/store-filters";
-import { createSeoHead } from "@/lib/seo";
+import { buildBreadcrumbJsonLd, buildCollectionPageJsonLd, createSeoHead } from "@/lib/seo";
 import logo from "@/assets/logo-sunshine.png";
 import mood from "@/assets/mood-sunshine.jpg";
 
 export const Route = createFileRoute("/sunshine")({
   loader: async () => ({ settings: await getStorefrontSettings() }),
   validateSearch: validateCatalogSearch,
-  head: ({ loaderData }) => createSeoHead({
-    pageName: "Sunshine",
-    path: "/sunshine",
-    description: loaderData?.settings.sunshinePageIntro,
-    image: logo,
+  head: ({ loaderData }) => ({
+    ...createSeoHead({
+      pageName: "Sunshine",
+      path: "/sunshine",
+      description: loaderData?.settings.sunshinePageIntro,
+      image: logo,
+    }),
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify(
+          buildCollectionPageJsonLd({
+            name: "Sunshine",
+            path: "/sunshine",
+            description: loaderData?.settings.sunshinePageIntro,
+          }),
+        ),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify(
+          buildBreadcrumbJsonLd([
+            { name: "Inicio", path: "/" },
+            { name: "Sunshine", path: "/sunshine" },
+          ]),
+        ),
+      },
+    ],
   }),
   component: SunshinePage,
 });

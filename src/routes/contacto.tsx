@@ -2,15 +2,34 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Instagram } from "lucide-react";
 import { WhatsAppIcon } from "@/components/layout/Footer";
 import { getStorefrontSettings } from "@/lib/admin-content";
-import { createSeoHead } from "@/lib/seo";
+import { buildBreadcrumbJsonLd, buildFaqJsonLd, createSeoHead } from "@/lib/seo";
+import { STORE_FAQ } from "@/lib/store-faq";
 import phoneBlack from "@/assets/phoneblack.png";
 
 export const Route = createFileRoute("/contacto")({
   loader: async () => ({ settings: await getStorefrontSettings() }),
-  head: () => createSeoHead({
-    pageName: "Contacto",
-    path: "/contacto",
-    description: "Canales de contacto de Pulpiña RD.",
+  head: () => ({
+    ...createSeoHead({
+      pageName: "Contacto",
+      path: "/contacto",
+      description:
+        "Contacta a Pulpiña RD (Pulpina RD) por WhatsApp o Instagram. Boutique de moda alternativa en República Dominicana.",
+    }),
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify(buildFaqJsonLd(STORE_FAQ)),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify(
+          buildBreadcrumbJsonLd([
+            { name: "Inicio", path: "/" },
+            { name: "Contacto", path: "/contacto" },
+          ]),
+        ),
+      },
+    ],
   }),
   component: Contact,
 });

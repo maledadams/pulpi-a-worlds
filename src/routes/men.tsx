@@ -2,18 +2,41 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { VibePage } from "@/components/collections/VibePage";
 import { getStorefrontSettings } from "@/lib/admin-content";
 import { validateCatalogSearch } from "@/lib/store-filters";
-import { createSeoHead } from "@/lib/seo";
+import { buildBreadcrumbJsonLd, buildCollectionPageJsonLd, createSeoHead } from "@/lib/seo";
 import logo from "@/assets/logo-men.png";
 import mood from "@/assets/mood-men.jpg";
 
 export const Route = createFileRoute("/men")({
   loader: async () => ({ settings: await getStorefrontSettings() }),
   validateSearch: validateCatalogSearch,
-  head: ({ loaderData }) => createSeoHead({
-    pageName: "Men",
-    path: "/men",
-    description: loaderData?.settings.menPageIntro,
-    image: logo,
+  head: ({ loaderData }) => ({
+    ...createSeoHead({
+      pageName: "Men",
+      path: "/men",
+      description: loaderData?.settings.menPageIntro,
+      image: logo,
+    }),
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify(
+          buildCollectionPageJsonLd({
+            name: "Men",
+            path: "/men",
+            description: loaderData?.settings.menPageIntro,
+          }),
+        ),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify(
+          buildBreadcrumbJsonLd([
+            { name: "Inicio", path: "/" },
+            { name: "Men", path: "/men" },
+          ]),
+        ),
+      },
+    ],
   }),
   component: MenPage,
 });

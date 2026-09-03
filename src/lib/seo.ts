@@ -19,7 +19,14 @@ export const SITE_NAME_VARIANTS = [
 ];
 
 export const SITE_DESCRIPTION =
-  "Pulpiña RD (también escrita Pulpina RD) es una tienda de moda alternativa en República Dominicana, con ropa, calzado y accesorios de estilo alternativo.";
+  "Pulpiña RD (también escrita Pulpina RD) es una boutique de moda alternativa en República Dominicana desde 2020, con colecciones curadas de ropa, calzado y accesorios para todos los géneros.";
+
+export const SITE_FOUNDING_DATE = "2020-01-21";
+
+// Published on /contacto - repeating them as machine-readable contact points
+// gives search and AI engines a second, corroborating signal that this is a
+// real Dominican business.
+export const SITE_WHATSAPP_NUMBERS = ["+1-829-964-3104", "+1-829-549-0112"];
 
 // The catalog's real search URL - lets Google wire up a sitelinks searchbox
 // pointing at the store's own search instead of guessing.
@@ -62,7 +69,18 @@ export function createSeoHead({ description, image, noIndex = false, pageName, p
       { name: "twitter:description", content: description },
     );
   }
-  if (noIndex) meta.push({ name: "robots", content: "noindex, nofollow, noarchive" });
+  if (noIndex) {
+    meta.push({ name: "robots", content: "noindex, nofollow, noarchive" });
+  } else {
+    // Without this, engines cap image previews and truncate snippets by their
+    // own defaults. Bing, DuckDuckGo (Bing-backed) and AI answer engines all
+    // read it, and a longer permitted snippet is literally more of the page
+    // an answer engine is allowed to quote back.
+    meta.push({
+      name: "robots",
+      content: "index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1",
+    });
+  }
 
   return {
     meta,
@@ -103,7 +121,54 @@ export function buildOrganizationJsonLd({ logo, sameAs = [] }: { logo: string; s
     address: { "@type": "PostalAddress", addressCountry: "DO" },
     currenciesAccepted: "DOP",
     knowsLanguage: "es-DO",
+    foundingDate: SITE_FOUNDING_DATE,
+    // A dated founding, real phone numbers and a described catalog are all
+    // things a fictional character doesn't have. Each one widens the gap
+    // between this store and the cartoon sharing the un-tilded name.
+    contactPoint: SITE_WHATSAPP_NUMBERS.map((telephone) => ({
+      "@type": "ContactPoint",
+      telephone,
+      contactType: "customer service",
+      areaServed: "DO",
+      availableLanguage: ["es", "en"],
+    })),
+    knowsAbout: [
+      "moda alternativa",
+      "ropa alternativa",
+      "ropa gótica",
+      "streetwear alternativo",
+      "accesorios alternativos",
+    ],
     ...(sameAs.length > 0 ? { sameAs } : {}),
+  };
+}
+
+/**
+ * Catalog pages (/tienda and each sub-store) had no structured data at all,
+ * so nothing told an engine what those pages are or how they relate to the
+ * store. Deliberately does NOT enumerate every product as an ItemList: with
+ * ~300 products that would add serious weight to exactly the pages whose
+ * render cost we just spent effort reducing, and the sitemap already lists
+ * every product URL for crawlers.
+ */
+export function buildCollectionPageJsonLd({
+  description,
+  name,
+  path,
+}: {
+  description?: string;
+  name: string;
+  path: string;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: `${name} | ${SITE_NAME}`,
+    url: absoluteSiteUrl(path),
+    inLanguage: "es-DO",
+    isPartOf: { "@id": WEBSITE_ID },
+    about: { "@id": ORGANIZATION_ID },
+    ...(description ? { description } : {}),
   };
 }
 
