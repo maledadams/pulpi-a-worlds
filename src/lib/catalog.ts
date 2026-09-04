@@ -482,6 +482,7 @@ function productFromRow(row: ProductRow) {
       stock: row.stock,
       category: row.primary_category,
       createdAt: row.created_at,
+      updatedAt: row.updated_at,
     } satisfies Product);
   }
 
@@ -536,6 +537,7 @@ function productFromRow(row: ProductRow) {
       },
     ],
     createdAt: row.created_at,
+    updatedAt: row.updated_at,
     sizes: ["Unica"],
     colors: [{ name: defaultColorName, hex: swatch[0] }],
     salePrice: compareAtPrice ? price : null,
