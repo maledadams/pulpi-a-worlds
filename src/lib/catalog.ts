@@ -12,6 +12,7 @@ import { toAdminProductRecord } from "@/lib/admin-service";
 import { getProductColorHex, normalizeProductColorName } from "@/lib/product-colors";
 import { normalizeSizeList } from "@/lib/product-sizing";
 import { applyDiscountsToProducts, listActiveDiscountsInternal } from "@/lib/store-discounts";
+import { productPaths, purgeStorefrontCache } from "@/lib/storefront-cache";
 
 type WorkerEnv = {
   DB?: D1Database;
@@ -1162,6 +1163,8 @@ export const adjustAdminStock = createServerFn({ method: "POST" })
       [{ variantId: data.variantId, delta: data.delta }],
       { source: "manual", reason: data.reason },
     );
+    // Stock moved, so the storefront and the Merchant feed are both stale.
+    await purgeStorefrontCache(productPaths(canonical.product.slug));
     return {
       movement: movements[0] ?? null,
       products: (await listCatalogProductsInternal()).map(toAdminProductRecord),
@@ -1184,6 +1187,7 @@ export const saveAdminCatalogProduct = createServerFn({ method: "POST" })
 
     try {
       const savedProduct = await saveCatalogProductInternal(data);
+      await purgeStorefrontCache(productPaths(savedProduct.slug));
       return toAdminProductRecord(savedProduct);
     } catch (error) {
       console.error("[saveAdminCatalogProduct] save failed", data.id, error);
@@ -1205,7 +1209,9 @@ export const deleteAdminCatalogProduct = createServerFn({ method: "POST" })
     setResponseHeader("Cache-Control", "private, no-store");
 
     try {
-      return await deleteCatalogProductInternal(data.id);
+      const result = await deleteCatalogProductInternal(data.id);
+      await purgeStorefrontCache();
+      return result;
     } catch (error) {
       console.error("[deleteAdminCatalogProduct] delete failed", data.id, error);
       throw error;

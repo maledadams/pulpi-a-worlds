@@ -18,6 +18,7 @@ import { Route as PoliticasRouteImport } from './routes/politicas'
 import { Route as NosotrosRouteImport } from './routes/nosotros'
 import { Route as MoonRouteImport } from './routes/moon'
 import { Route as MenRouteImport } from './routes/men'
+import { Route as FeedDotxmlRouteImport } from './routes/feed[.]xml'
 import { Route as ContactoRouteImport } from './routes/contacto'
 import { Route as CarritoRouteImport } from './routes/carrito'
 import { Route as AccesoAdminRouteImport } from './routes/acceso-admin'
@@ -77,6 +78,11 @@ const MoonRoute = MoonRouteImport.update({
 const MenRoute = MenRouteImport.update({
   id: '/men',
   path: '/men',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FeedDotxmlRoute = FeedDotxmlRouteImport.update({
+  id: '/feed.xml',
+  path: '/feed.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContactoRoute = ContactoRouteImport.update({
@@ -160,6 +166,7 @@ export interface FileRoutesByFullPath {
   '/acceso-admin': typeof AccesoAdminRoute
   '/carrito': typeof CarritoRoute
   '/contacto': typeof ContactoRoute
+  '/feed.xml': typeof FeedDotxmlRoute
   '/men': typeof MenRoute
   '/moon': typeof MoonRoute
   '/nosotros': typeof NosotrosRoute
@@ -186,6 +193,7 @@ export interface FileRoutesByTo {
   '/acceso-admin': typeof AccesoAdminRoute
   '/carrito': typeof CarritoRoute
   '/contacto': typeof ContactoRoute
+  '/feed.xml': typeof FeedDotxmlRoute
   '/men': typeof MenRoute
   '/moon': typeof MoonRoute
   '/nosotros': typeof NosotrosRoute
@@ -213,6 +221,7 @@ export interface FileRoutesById {
   '/acceso-admin': typeof AccesoAdminRoute
   '/carrito': typeof CarritoRoute
   '/contacto': typeof ContactoRoute
+  '/feed.xml': typeof FeedDotxmlRoute
   '/men': typeof MenRoute
   '/moon': typeof MoonRoute
   '/nosotros': typeof NosotrosRoute
@@ -241,6 +250,7 @@ export interface FileRouteTypes {
     | '/acceso-admin'
     | '/carrito'
     | '/contacto'
+    | '/feed.xml'
     | '/men'
     | '/moon'
     | '/nosotros'
@@ -267,6 +277,7 @@ export interface FileRouteTypes {
     | '/acceso-admin'
     | '/carrito'
     | '/contacto'
+    | '/feed.xml'
     | '/men'
     | '/moon'
     | '/nosotros'
@@ -293,6 +304,7 @@ export interface FileRouteTypes {
     | '/acceso-admin'
     | '/carrito'
     | '/contacto'
+    | '/feed.xml'
     | '/men'
     | '/moon'
     | '/nosotros'
@@ -320,6 +332,7 @@ export interface RootRouteChildren {
   AccesoAdminRoute: typeof AccesoAdminRoute
   CarritoRoute: typeof CarritoRoute
   ContactoRoute: typeof ContactoRoute
+  FeedDotxmlRoute: typeof FeedDotxmlRoute
   MenRoute: typeof MenRoute
   MoonRoute: typeof MoonRoute
   NosotrosRoute: typeof NosotrosRoute
@@ -405,6 +418,13 @@ declare module '@tanstack/react-router' {
       path: '/men'
       fullPath: '/men'
       preLoaderRoute: typeof MenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/feed.xml': {
+      id: '/feed.xml'
+      path: '/feed.xml'
+      fullPath: '/feed.xml'
+      preLoaderRoute: typeof FeedDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/contacto': {
@@ -520,6 +540,7 @@ const rootRouteChildren: RootRouteChildren = {
   AccesoAdminRoute: AccesoAdminRoute,
   CarritoRoute: CarritoRoute,
   ContactoRoute: ContactoRoute,
+  FeedDotxmlRoute: FeedDotxmlRoute,
   MenRoute: MenRoute,
   MoonRoute: MoonRoute,
   NosotrosRoute: NosotrosRoute,
