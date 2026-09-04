@@ -81,14 +81,28 @@ export const Route = createFileRoute("/producto/$slug")({
               // Destination only, no rate: the cart itself says shipping is
               // "confirmado por mensaje", so there is no published rate to
               // declare here and inventing one would be a commitment the
-              // store never made. hasMerchantReturnPolicy is omitted for the
-              // same reason - /politicas has no return terms written yet.
+              // store never made.
               shippingDetails: {
                 "@type": "OfferShippingDetails",
                 shippingDestination: {
                   "@type": "DefinedRegion",
                   addressCountry: "DO",
                 },
+              },
+              // Mirrors /politicas section 11 verbatim ("dentro de los 30
+              // días siguientes a que recibas tu pedido"). This has to keep
+              // matching the visible page: structured data that promises
+              // terms the page doesn't state is both a Google violation and
+              // a promise to a customer the store never actually made.
+              // returnMethod/returnFees are omitted rather than guessed -
+              // returns are arranged case by case over WhatsApp, which maps
+              // to none of Schema.org's fixed method values.
+              hasMerchantReturnPolicy: {
+                "@type": "MerchantReturnPolicy",
+                applicableCountry: "DO",
+                returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+                merchantReturnDays: 30,
+                merchantReturnLink: absoluteSiteUrl("/politicas"),
               },
             },
           }),
