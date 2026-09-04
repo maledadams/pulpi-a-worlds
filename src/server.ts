@@ -5,6 +5,10 @@ import { renderErrorPage } from "./lib/error-page";
 import { withSecurityHeaders } from "./lib/security-headers";
 import { maybeHandleBirthdayConfirmRequest, processBirthdayEmailsInternal } from "./lib/public-forms";
 import { maybeHandleOrderConfirmRequest } from "./lib/manual-orders";
+import { submitSitemapToIndexNow } from "./lib/indexnow";
+
+/** Midnight in the Dominican Republic (UTC-4, no DST). */
+const MIDNIGHT_RD_CRON = "0 4 * * *";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -179,7 +183,17 @@ export default {
       return finalizeResponse(request, brandedErrorResponse());
     }
   },
-  async scheduled(_controller: unknown, _env: unknown, ctx: { waitUntil(promise: Promise<unknown>): void }) {
+  async scheduled(
+    controller: { cron?: string },
+    _env: unknown,
+    ctx: { waitUntil(promise: Promise<unknown>): void },
+  ) {
+    // 04:00 UTC is midnight in the Dominican Republic, which stays on UTC-4
+    // year round - no daylight saving to drift against.
+    if (controller?.cron === MIDNIGHT_RD_CRON) {
+      ctx.waitUntil(submitSitemapToIndexNow());
+      return;
+    }
     ctx.waitUntil(processBirthdayEmailsInternal());
   },
 };
