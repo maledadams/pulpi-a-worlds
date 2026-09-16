@@ -8,7 +8,12 @@ const CONTENT_SECURITY_POLICY = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://static.cloudflareinsights.com https://www.googletagmanager.com",
-  "connect-src 'self' https://challenges.cloudflare.com https://*.cloudflareaccess.com https://cloudflareinsights.com https://www.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com",
+  // GA4 posts its measurement hits to bare analytics.google.com, which a
+  // *.analytics.google.com wildcard does NOT match - CSP wildcards cover
+  // subdomains only, never the apex - so both spellings have to be listed.
+  // gtag also mirrors hits to google.com and stats.g.doubleclick.net for
+  // Google Signals; without those the console fills with CSP violations.
+  "connect-src 'self' https://challenges.cloudflare.com https://*.cloudflareaccess.com https://cloudflareinsights.com https://www.googletagmanager.com https://google-analytics.com https://*.google-analytics.com https://analytics.google.com https://*.analytics.google.com https://*.g.doubleclick.net https://www.google.com",
   "frame-src https://challenges.cloudflare.com https://www.google.com",
   "upgrade-insecure-requests",
 ].join("; ");

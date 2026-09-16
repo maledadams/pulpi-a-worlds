@@ -9,8 +9,9 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
-    "deploy:production": "vite build --mode production && wrangler deploy",
-    "deploy:dry-run": "vite build --mode production && wrangler deploy --dry-run",
+    "deploy:production": "vite build --mode production && wrangler deploy --env production && node scripts/verify-deploy.mjs",
+    "deploy:dry-run": "vite build --mode production && wrangler deploy --env production --dry-run",
+    "verify:deploy": "node scripts/verify-deploy.mjs",
     "lint": "eslint .",
     "format": "prettier --write ."
   },
