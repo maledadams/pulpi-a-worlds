@@ -17,6 +17,14 @@ export type AnalyticsItem = {
   item_category?: string;
 };
 
+export function trackPageView(params: {
+  page_location: string;
+  page_title: string;
+  page_referrer?: string;
+}) {
+  sendEvent("page_view", params);
+}
+
 export function trackViewItem(item: AnalyticsItem, currency: string) {
   sendEvent("view_item", { currency, value: item.price, items: [item] });
 }

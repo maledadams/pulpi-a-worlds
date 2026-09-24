@@ -9,6 +9,7 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
+    "deploy": "node -e \"console.error('\\nUse: pnpm deploy:production\\n\\nA bare wrangler deploy targets the tanstack-start-app worker, which does\\nnot serve pulpinastore.com. It reports success and changes nothing.\\n'); process.exit(1)\"",
     "deploy:production": "vite build --mode production && wrangler deploy --env production && node scripts/verify-deploy.mjs",
     "deploy:dry-run": "vite build --mode production && wrangler deploy --env production --dry-run",
     "verify:deploy": "node scripts/verify-deploy.mjs",

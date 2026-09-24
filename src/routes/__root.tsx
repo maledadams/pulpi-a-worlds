@@ -25,6 +25,7 @@ import {
   getStorefrontSettings,
 } from "@/lib/admin-content";
 import { getStorefrontCatalog } from "@/lib/catalog";
+import { usePageViewTracking } from "@/hooks/use-page-view-tracking";
 import {
   absoluteSiteUrl,
   buildOrganizationJsonLd,
@@ -170,6 +171,10 @@ function RootComponent() {
   const { catalogProducts, announcements, categories, settings } = Route.useLoaderData();
   const location = useLocation();
   const isAdminRoute = isAdminRoutePath(location.pathname);
+
+  // The gtag snippet only ever sees the document load; this reports the
+  // client-side navigations that make up the rest of every visit.
+  usePageViewTracking();
 
   setRuntimeCategoryConfig(categories);
 

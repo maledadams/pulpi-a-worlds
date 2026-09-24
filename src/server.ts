@@ -6,6 +6,7 @@ import { withSecurityHeaders } from "./lib/security-headers";
 import { maybeHandleBirthdayConfirmRequest, processBirthdayEmailsInternal } from "./lib/public-forms";
 import { maybeHandleOrderConfirmRequest } from "./lib/manual-orders";
 import { submitSitemapToIndexNow } from "./lib/indexnow";
+import { checkAnalyticsHealth } from "./lib/analytics-health";
 
 /** Midnight in the Dominican Republic (UTC-4, no DST). */
 const MIDNIGHT_RD_CRON = "0 4 * * *";
@@ -192,6 +193,9 @@ export default {
     // year round - no daylight saving to drift against.
     if (controller?.cron === MIDNIGHT_RD_CRON) {
       ctx.waitUntil(submitSitemapToIndexNow());
+      // Backstop for analytics silently dying between deploys - see
+      // lib/analytics-health.ts for why one quiet night is the worst case now.
+      ctx.waitUntil(checkAnalyticsHealth());
       return;
     }
     ctx.waitUntil(processBirthdayEmailsInternal());
