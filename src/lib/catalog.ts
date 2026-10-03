@@ -1068,6 +1068,49 @@ async function listStockMovementsInternal(limit = 250) {
   } satisfies AdminStockMovement));
 }
 
+export async function getOrderClosureMovementDatesInternal(requestNumbers: string[]) {
+  const uniqueRequestNumbers = Array.from(new Set(requestNumbers.map((value) => value.trim()).filter(Boolean)));
+  if (uniqueRequestNumbers.length === 0) {
+    return new Map<string, string>();
+  }
+
+  const db = await getDatabase();
+  if (!db) {
+    const dates = new Map<string, string>();
+    const requested = new Set(uniqueRequestNumbers);
+    for (const movement of memoryStockMovements) {
+      if (movement.source !== "order" || movement.delta >= 0 || !requested.has(movement.referenceId)) continue;
+      const current = dates.get(movement.referenceId);
+      if (!current || movement.createdAt < current) {
+        dates.set(movement.referenceId, movement.createdAt);
+      }
+    }
+    return dates;
+  }
+
+  await ensureCatalogStorageReady(db);
+  const placeholders = uniqueRequestNumbers.map(() => "?").join(", ");
+  const result = await db
+    .prepare(
+      `
+        SELECT reference_id, MIN(created_at) AS closed_at
+        FROM inventory_movements
+        WHERE source = 'order'
+          AND delta < 0
+          AND reference_id IN (${placeholders})
+        GROUP BY reference_id
+      `,
+    )
+    .bind(...uniqueRequestNumbers)
+    .all<{ reference_id: string; closed_at: string | null }>();
+
+  return new Map(
+    (result.results ?? [])
+      .filter((row) => row.closed_at)
+      .map((row) => [row.reference_id, row.closed_at!]),
+  );
+}
+
 export const getStorefrontCatalog = createServerFn({ method: "GET" }).handler(async () => {
   const { setResponseHeader } = await import("@tanstack/react-start/server");
   setResponseHeader("Cache-Control", "public, max-age=60");

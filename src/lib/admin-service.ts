@@ -203,6 +203,7 @@ function makeInquiry(input: {
   customerPhone: string;
   status: AdminInquiryStatus;
   channel: AdminInquiryChannel;
+  closedAt?: string | null;
   fulfillmentMethod: "pickup" | "delivery";
   createdAt: string;
   shipping: number;
@@ -230,6 +231,7 @@ function makeInquiry(input: {
     discount: 0,
     total: totals.total,
     createdAt: input.createdAt,
+    closedAt: input.status === "closed" ? input.closedAt ?? input.createdAt : null,
     notes: input.notes,
     paymentStatus: input.status === "closed" ? "confirmed" : input.status === "cancelled" ? "cancelled" : "pending",
     externalReference: "",

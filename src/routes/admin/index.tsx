@@ -56,7 +56,8 @@ function getWindowStart(window: SalesWindow) {
 function isInWindow(order: AdminInquiryRecord, window: SalesWindow) {
   const start = getWindowStart(window);
   if (!start) return true;
-  return new Date(order.createdAt) >= start;
+  const metricDate = order.status === "closed" ? order.closedAt ?? order.createdAt : order.createdAt;
+  return new Date(metricDate) >= start;
 }
 
 function AdminDashboardPage() {

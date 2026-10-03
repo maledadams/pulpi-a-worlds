@@ -6,6 +6,7 @@ import { enforceAdminAccess } from "@/lib/admin-access";
 import { formatPrice, isStorefrontVisible } from "@/data/products";
 import {
   adjustCatalogVariantInventoryInternal,
+  getOrderClosureMovementDatesInternal,
   getCatalogVariantByIdInternal,
   listStorefrontCatalogProductsInternal,
 } from "@/lib/catalog";
@@ -150,6 +151,7 @@ type OrderEmailState = {
 
 type InquiryRow = {
   channel: string;
+  closed_at: string | null;
   contact_confirmed_at: string | null;
   created_at: string;
   customer_email: string;
@@ -412,6 +414,7 @@ async function buildCanonicalLines(
 
 function buildInquiryRecord(input: {
   channel?: AdminInquiryChannel;
+  closedAt?: string | null;
   createdAt?: string;
   customerEmail: string;
   customerName: string;
@@ -430,6 +433,9 @@ function buildInquiryRecord(input: {
   const shipping = input.shipping ?? 0;
   const discount = input.discount ?? 0;
   const subtotal = input.lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0);
+  const createdAt = input.createdAt ?? new Date().toISOString();
+  const status = input.status ?? "new";
+  const closedAt = "closedAt" in input ? input.closedAt ?? null : status === "closed" ? createdAt : null;
 
   return {
     id: input.id,
@@ -437,14 +443,15 @@ function buildInquiryRecord(input: {
     customerName: input.customerName,
     customerEmail: input.customerEmail,
     customerPhone: input.customerPhone,
-    status: input.status ?? "new",
+    status,
     channel: input.channel ?? "formulario",
     fulfillmentMethod: input.fulfillmentMethod ?? "pickup",
     subtotal,
     shipping,
     discount,
     total: Math.max(0, subtotal + shipping - discount),
-    createdAt: input.createdAt ?? new Date().toISOString(),
+    createdAt,
+    closedAt: status === "closed" ? closedAt : null,
     notes: input.notes,
     paymentStatus: input.paymentStatus ?? "pending",
     externalReference: "",
@@ -491,7 +498,8 @@ async function ensureOrderStorageReady(db: D1Database) {
           shipping_province TEXT,
           notes TEXT,
           items_json TEXT NOT NULL DEFAULT '[]',
-          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          closed_at TEXT
         );
 
         CREATE TABLE IF NOT EXISTS order_sequences (
@@ -525,6 +533,7 @@ async function ensureOrderStorageReady(db: D1Database) {
         "ALTER TABLE inquiries ADD COLUMN shipping_city TEXT;",
         "ALTER TABLE inquiries ADD COLUMN shipping_province TEXT;",
         "ALTER TABLE inquiries ADD COLUMN contact_confirmed_at TEXT;",
+        "ALTER TABLE inquiries ADD COLUMN closed_at TEXT;",
       ]) {
         try {
           await db.exec(statement);
@@ -601,9 +610,10 @@ async function ensureOrderStorageReady(db: D1Database) {
             shipping_province,
             notes,
             items_json,
-            created_at
+            created_at,
+            closed_at
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'DOP', ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'DOP', ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
           await db.batch(
@@ -628,6 +638,7 @@ async function ensureOrderStorageReady(db: D1Database) {
                 order.notes,
                 serializeRecordLines(order.lines),
                 order.createdAt,
+                order.closedAt,
               ),
             ),
           );
@@ -736,9 +747,10 @@ async function createOrderInDatabaseAttempt(
           shipping_city,
           shipping_province,
           notes,
-          items_json
+          items_json,
+          closed_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'DOP', ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'DOP', ?, ?, ?, ?, ?, ?, ?)
       `,
     )
     .bind(
@@ -760,6 +772,7 @@ async function createOrderInDatabaseAttempt(
       record.shippingAddress.province,
       record.notes,
       serializeInquiryLines(lines),
+      record.closedAt,
     )
     .run();
 
@@ -846,16 +859,23 @@ async function listOrdersFromDatabase() {
           shipping_province,
           notes,
           items_json,
-          created_at
+          created_at,
+          closed_at
         FROM inquiries
         ORDER BY created_at DESC, request_number DESC
       `,
     )
     .all<InquiryRow>();
 
-  return (inquiriesResult.results ?? []).map((row) =>
+  const rows = inquiriesResult.results ?? [];
+  const movementClosedDates = await getOrderClosureMovementDatesInternal(
+    rows.filter((row) => row.status === "closed" && !row.closed_at).map((row) => row.request_number),
+  );
+
+  return rows.map((row) =>
     buildInquiryRecord({
       channel: normalizeOrderChannel(row.channel),
+      closedAt: row.closed_at ?? movementClosedDates.get(row.request_number) ?? null,
       createdAt: row.created_at,
       customerEmail: row.customer_email,
       customerName: row.customer_name ?? "",
@@ -925,6 +945,12 @@ async function ensureInventoryChangesAvailable(changes: Array<{ delta: number; v
   }
 }
 
+function getNextClosedAt(previous: Pick<AdminInquiryRecord, "closedAt" | "status">, nextStatus: AdminInquiryStatus) {
+  if (nextStatus !== "closed") return null;
+  if (previous.status === "closed") return previous.closedAt;
+  return new Date().toISOString();
+}
+
 async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>) {
   const db = await getDatabase();
   if (!db) {
@@ -937,6 +963,7 @@ async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>
     const next = cloneInquiry({
       ...buildInquiryRecord({
         channel: input.channel,
+        closedAt: getNextClosedAt(current, input.status),
         createdAt: current.createdAt,
         customerEmail: input.customerEmail,
         customerName: input.customerName,
@@ -999,7 +1026,8 @@ async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>
           shipping_province,
           notes,
           items_json,
-          created_at
+          created_at,
+          closed_at
         FROM inquiries
         WHERE id = ?
         LIMIT 1
@@ -1015,6 +1043,7 @@ async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>
   const shipping = fromCents(existing.shipping_cents);
   const previousRecord = buildInquiryRecord({
     channel: normalizeOrderChannel(existing.channel),
+    closedAt: existing.closed_at,
     createdAt: existing.created_at,
     customerEmail: existing.customer_email,
     customerName: existing.customer_name ?? "",
@@ -1041,6 +1070,7 @@ async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>
   const canonicalLines = await buildCanonicalLines(input.lines, false, previousRecord.lines);
   const nextRecord = buildInquiryRecord({
     channel: input.channel,
+    closedAt: getNextClosedAt(previousRecord, input.status),
     createdAt: existing.created_at,
     customerEmail: input.customerEmail,
     customerName: input.customerName,
@@ -1088,7 +1118,8 @@ async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>
           shipping_city = ?,
           shipping_province = ?,
           notes = ?,
-          items_json = ?
+          items_json = ?,
+          closed_at = ?
         WHERE id = ?
       `,
     )
@@ -1109,6 +1140,7 @@ async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>
       nextRecord.shippingAddress.province,
       input.notes,
       serializeInquiryLines(canonicalLines),
+      nextRecord.closedAt,
       input.id,
     )
     .run();
@@ -1182,7 +1214,8 @@ async function getAdminOrderSnapshotInternal(limit = 4) {
           shipping_province,
           notes,
           items_json,
-          created_at
+          created_at,
+          closed_at
         FROM inquiries
         WHERE status <> 'pending_contact'
         ORDER BY created_at DESC, request_number DESC
@@ -1192,12 +1225,18 @@ async function getAdminOrderSnapshotInternal(limit = 4) {
     .bind(limit)
     .all<InquiryRow>();
 
+  const recentRows = recent.results ?? [];
+  const movementClosedDates = await getOrderClosureMovementDatesInternal(
+    recentRows.filter((row) => row.status === "closed" && !row.closed_at).map((row) => row.request_number),
+  );
+
   return {
     inquiryCount: counts?.inquiry_count ?? 0,
     openInquiryCount: counts?.open_inquiry_count ?? 0,
-    recentInquiries: (recent.results ?? []).map((row) =>
+    recentInquiries: recentRows.map((row) =>
       buildInquiryRecord({
         channel: normalizeOrderChannel(row.channel),
+        closedAt: row.closed_at ?? movementClosedDates.get(row.request_number) ?? null,
         createdAt: row.created_at,
         customerEmail: row.customer_email,
         customerName: row.customer_name ?? "",
@@ -1274,7 +1313,8 @@ async function deleteOrderInternal(id: string) {
           shipping_province,
           notes,
           items_json,
-          created_at
+          created_at,
+          closed_at
         FROM inquiries
         WHERE id = ?
         LIMIT 1
@@ -1289,6 +1329,7 @@ async function deleteOrderInternal(id: string) {
 
   const record = buildInquiryRecord({
     channel: normalizeOrderChannel(existing.channel),
+    closedAt: existing.closed_at,
     createdAt: existing.created_at,
     customerEmail: existing.customer_email,
     customerName: existing.customer_name ?? "",
@@ -1934,7 +1975,7 @@ export async function maybeHandleOrderConfirmRequest(request: Request): Promise<
           id, request_number, customer_name, customer_email, customer_phone,
           status, channel, fulfillment_method, subtotal_cents, shipping_cents,
           discount_cents, total_cents, payment_status, shipping_line1,
-          shipping_city, shipping_province, notes, items_json, created_at
+          shipping_city, shipping_province, notes, items_json, created_at, closed_at
         FROM inquiries
         WHERE id = ?
         LIMIT 1
@@ -1958,6 +1999,7 @@ export async function maybeHandleOrderConfirmRequest(request: Request): Promise<
 
   const confirmedRecord = buildInquiryRecord({
     channel: normalizeOrderChannel(existing.channel),
+    closedAt: existing.closed_at,
     createdAt: existing.created_at,
     customerEmail: existing.customer_email,
     customerName: existing.customer_name ?? "",
