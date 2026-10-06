@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 
 const STORAGE_KEY = "pulpina-age-ok-until";
 const REMEMBER_MS = 3 * 24 * 60 * 60 * 1000;
+// Headings get a global left-anchored scaleX stretch, which shifts centered
+// text to the right; keep the stretch but grow it from the middle.
+const CENTERED_TITLE = { transform: "scaleX(1.12)", transformOrigin: "center" } as const;
 
 function hasValidConfirmation() {
   try {
@@ -52,7 +55,7 @@ export function AgeGate() {
       <div className="w-full max-w-sm rounded-2xl bg-background p-6 text-center text-foreground shadow-2xl">
         {declined ? (
           <>
-            <h2 id="age-gate-title" className="font-display text-2xl">
+            <h2 id="age-gate-title" className="font-display text-2xl" style={CENTERED_TITLE}>
               Lo sentimos
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
@@ -68,7 +71,7 @@ export function AgeGate() {
           </>
         ) : (
           <>
-            <h2 id="age-gate-title" className="font-display text-2xl">
+            <h2 id="age-gate-title" className="font-display text-2xl" style={CENTERED_TITLE}>
               ¿Tienes 18 años o más?
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
