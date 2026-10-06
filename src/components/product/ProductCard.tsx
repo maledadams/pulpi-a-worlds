@@ -90,9 +90,9 @@ export function ProductCard({
       }),
     );
   const onlyVariant = product.variants.length === 1 ? product.variants[0] : null;
-  const colorSwatches = colors.slice(0, 5).map((color) => (
+  const colorSwatches = colors.slice(0, 5).map((color, index) => (
     <span
-      key={color.name}
+      key={`${color.name}-${index}`}
       className={`ui-circle h-3 w-3 ${isMoonCard ? "border border-[#f2e9e1]/12" : "border border-foreground/15"}`}
       style={{ backgroundColor: color.hex }}
       title={color.name}
@@ -119,7 +119,9 @@ export function ProductCard({
 
     void cart
       .add({ variantId: onlyVariant.id, quantity: 1, openDrawer: false })
-      .then(showAddedNotice);
+      .then((added) => {
+        if (added) showAddedNotice();
+      });
   };
 
 const cartActionClassName =

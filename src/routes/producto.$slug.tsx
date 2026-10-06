@@ -418,9 +418,9 @@ function ProductPage() {
               <div className="mt-5">
                 <div className="mb-2 text-sm font-bold uppercase">Colores</div>
                 <div className="flex flex-wrap gap-2">
-                  {colors.map((entry) => (
+                  {colors.map((entry, index) => (
                     <button
-                      key={entry.name}
+                      key={`${entry.name}-${index}`}
                       onClick={() => setColor(entry.name)}
                       className={`flex items-center gap-2 rounded-full border border-foreground/20 px-3 py-2 text-sm font-bold ${
                         color === entry.name ? "bg-foreground text-background" : "bg-card"
@@ -439,7 +439,14 @@ function ProductPage() {
                   -
                 </button>
                 <span className="px-2 font-bold">{qty}</span>
-                <button onClick={() => setQty(qty + 1)} className="px-3 py-2">
+                <button
+                  onClick={() => setQty(qty + 1)}
+                  disabled={
+                    typeof selectedVariant.quantityAvailable === "number" &&
+                    qty >= selectedVariant.quantityAvailable
+                  }
+                  className="px-3 py-2 disabled:cursor-not-allowed disabled:opacity-30"
+                >
                   +
                 </button>
               </div>

@@ -4,12 +4,14 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { type Cart, type CartLine } from "@/data/products";
 import { useCatalogProducts } from "@/context/catalog";
 import { validateCartInventory } from "@/lib/catalog";
+import { toast } from "sonner";
 import { trackAddToCart, trackRemoveFromCart } from "@/lib/analytics";
 
 export type CartLineAvailability = {
@@ -26,7 +28,7 @@ type CartCtx = {
   loading: boolean;
   configured: boolean;
   setOpen: (v: boolean) => void;
-  add: (line: { variantId: string; quantity: number; openDrawer?: boolean }) => Promise<void>;
+  add: (line: { variantId: string; quantity: number; openDrawer?: boolean }) => Promise<boolean>;
   update: (lineId: string, quantity: number) => Promise<void>;
   remove: (lineId: string) => Promise<void>;
   removeUnavailable: () => void;
@@ -85,8 +87,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
     () => new Map(),
   );
   const configured = false;
+  // Only the newest stock check may write results: a slow response for an
+  // older cart (e.g. before a quantity change) must not mark lines available.
+  const refreshSeqRef = useRef(0);
 
   const applyCart = (nextCart: Cart | null) => {
+    refreshSeqRef.current++;
+    setLoading(false);
     setRemoteAvailability(new Map());
     setCart(nextCart);
     persistPreviewLines(nextCart?.id === PREVIEW_CART_ID ? nextCart.lines : []);
@@ -120,11 +127,29 @@ export function CartProvider({ children }: { children: ReactNode }) {
         .filter((variant) => variant.id === variantId)
         .map((variant) => ({ product, variant })),
     )[0];
-    if (!fallback) return;
+    if (!fallback) return false;
+    if (fallback.product.hidden || !fallback.product.available || !fallback.variant.available) {
+      toast.error(`${fallback.product.name} está agotado.`, { id: `stock-${variantId}` });
+      return false;
+    }
 
     const currentLines = cart?.id === PREVIEW_CART_ID ? cart.lines : loadPreviewLines();
     const existing = currentLines.findIndex((line) => line.merchandiseId === variantId);
     const nextLines = [...currentLines];
+
+    const inCart = existing >= 0 ? currentLines[existing].quantity : 0;
+    const stock = fallback.variant.quantityAvailable;
+    if (typeof stock === "number" && inCart + quantity > stock) {
+      const allowed = Math.max(0, stock - inCart);
+      if (allowed === 0) {
+        toast.error(`Ya tienes en el carrito todo el stock disponible de ${fallback.product.name} (${stock}).`, {
+          id: `stock-${variantId}`,
+        });
+        return false;
+      }
+      toast(`Solo quedan ${stock} de ${fallback.product.name}. Agregamos ${allowed}.`, { id: `stock-${variantId}` });
+      quantity = allowed;
+    }
 
     if (existing >= 0) {
       nextLines[existing] = {
@@ -158,6 +183,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       fallback.variant.currencyCode,
     );
     if (openDrawer) setOpen(true);
+    return true;
   };
 
   const update = async (lineId: string, quantity: number) => {
@@ -244,6 +270,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const refreshAvailability = useCallback(async () => {
     const lines = cart?.lines ?? [];
+    const seq = ++refreshSeqRef.current;
     if (lines.length === 0) {
       setRemoteAvailability(new Map());
       return true;
@@ -268,12 +295,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
           reason: entry.reason,
         }]),
       );
-      setRemoteAvailability(next);
+      if (seq === refreshSeqRef.current) setRemoteAvailability(next);
       return result.every((entry) => entry.available);
     } catch {
       return lines.every((line) => localAvailabilityByLineId.get(line.id)?.available);
     } finally {
-      setLoading(false);
+      if (seq === refreshSeqRef.current) setLoading(false);
     }
   }, [cart?.lines, localAvailabilityByLineId]);
 
@@ -282,10 +309,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
     void refreshAvailability();
     const interval = window.setInterval(() => void refreshAvailability(), 15000);
     const onFocus = () => void refreshAvailability();
+    // Phones rarely fire window "focus" when you come back to the tab, and
+    // timers are frozen while it is in the background, so also re-check on
+    // visibility changes and back/forward cache restores.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refreshAvailability();
+    };
     window.addEventListener("focus", onFocus);
+    window.addEventListener("pageshow", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       window.clearInterval(interval);
       window.removeEventListener("focus", onFocus);
+      window.removeEventListener("pageshow", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [cart?.lines.length, refreshAvailability]);
 

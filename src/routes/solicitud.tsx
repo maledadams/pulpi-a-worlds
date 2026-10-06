@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { CheckCircle2, ChevronLeft, ShoppingBag } from "lucide-react";
-import { TurnstileWidget } from "@/components/forms/TurnstileWidget";
+import { TurnstileWidget, type TurnstileHandle } from "@/components/forms/TurnstileWidget";
 import { useCatalogProducts } from "@/context/catalog";
 import { useCart } from "@/context/cart";
 import { formatPrice } from "@/data/products";
@@ -99,6 +100,7 @@ function InquiryPage() {
   const [status, setStatus] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
+  const turnstileRef = useRef<TurnstileHandle>(null);
   const [turnstileVersion, setTurnstileVersion] = useState(0);
   const [discountCode, setDiscountCode] = useState("");
   const [appliedDiscountCode, setAppliedDiscountCode] = useState("");
@@ -178,7 +180,10 @@ function InquiryPage() {
   useEffect(() => {
     if (cart.lines.length === 0 || createdOrder) return;
     void cart.refreshAvailability().then((available) => {
-      if (!available) void navigate({ to: "/carrito", replace: true });
+      if (!available) {
+        toast.error("Algunos productos de tu carrito ya no tienen stock. Revisalo antes de continuar.", { id: "cart-stock" });
+        void navigate({ to: "/carrito", replace: true });
+      }
     });
   }, [cart.lines.length, cart.refreshAvailability, createdOrder, navigate]);
 
@@ -368,13 +373,24 @@ function InquiryPage() {
 
               const inventoryAvailable = await cart.refreshAvailability();
               if (!inventoryAvailable) {
+                toast.error("Algunos productos de tu carrito ya no tienen stock. Revisalo antes de continuar.", { id: "cart-stock" });
                 await navigate({ to: "/carrito", replace: true });
                 return;
               }
               setSubmitting(true);
               setStatus("");
 
-              void submitManualOrder({
+              const sendOrder = async (forceNewToken: boolean) => {
+                const token = turnstileRef.current
+                  ? await turnstileRef.current.getToken({ forceNew: forceNewToken })
+                  : turnstileToken;
+                if (!token) {
+                  return {
+                    message: "No se pudo completar la verificacion anti-spam. Revisa tu conexion e intentalo otra vez.",
+                    ok: false as const,
+                  };
+                }
+                return submitManualOrder({
                 data: {
                   customerEmail,
                   customerName,
@@ -400,12 +416,23 @@ function InquiryPage() {
                           city: "",
                           province: "",
                         },
-                  turnstileToken,
+                  turnstileToken: token,
                 },
-              })
-                .then(async (result) => {
+                });
+              };
+
+              void sendOrder(false)
+                .then(async (first) => {
+                  // A token can still be rejected (expired while the phone was
+                  // in the background, network hiccup). Retry once with a brand
+                  // new one before bothering the customer.
+                  const result =
+                    !first.ok && "retryTurnstile" in first && first.retryTurnstile
+                      ? await sendOrder(true)
+                      : first;
                   setStatus(result.message);
                   if (!result.ok) {
+                    toast.error(result.message, { id: "order-error" });
                     if (/stock|disponible|existe/i.test(result.message)) {
                       await router.invalidate();
                       await navigate({ to: "/carrito", replace: true });
@@ -444,6 +471,7 @@ function InquiryPage() {
                 })
                 .catch(() => {
                   setStatus("No se pudo crear el pedido ahora mismo.");
+                  toast.error("No se pudo crear el pedido ahora mismo. Intentalo otra vez.", { id: "order-error" });
                 })
                 .finally(() => {
                   setSubmitting(false);
@@ -660,7 +688,7 @@ function InquiryPage() {
               onChange={(event) => setNotes(event.target.value)}
             />
 
-            <TurnstileWidget key={turnstileVersion} onTokenChange={setTurnstileToken} />
+            <TurnstileWidget key={turnstileVersion} ref={turnstileRef} onTokenChange={setTurnstileToken} />
             {status ? <p className="text-sm text-muted-foreground">{status}</p> : null}
             <button
               type="submit"

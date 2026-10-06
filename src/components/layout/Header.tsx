@@ -97,7 +97,7 @@ const STORE_CHILDREN: NavChild[] = [
   { to: "/tienda", label: "Ver todo" },
   { to: "/tienda", label: "Nuevo", search: { fresh: "1" }, hash: "shop" },
   { to: "/tienda", label: "Oferta", search: { sale: "1" }, hash: "shop" },
-  ...getAvailableMenuCategories(undefined, false).map((c) => ({
+  ...getAvailableMenuCategories().map((c) => ({
     to: "/tienda",
     label: c.label,
     search: getCategoryLinkSearch(c.id),
@@ -418,7 +418,7 @@ export function Header({
       { to, label },
       { to, label: "Nuevo", search: { fresh: "1" }, hash: "shop" },
       { to, label: "Oferta", search: { sale: "1" }, hash: "shop" },
-      ...getAvailableMenuCategories(catalogProducts, vibe, vibe ? true : false).map((category) => ({
+      ...getAvailableMenuCategories(catalogProducts, vibe).map((category) => ({
         to,
         label: category.label,
         search: vibe
@@ -481,7 +481,7 @@ export function Header({
     return {
       tienda: build("tienda","General","/tienda","Toda la tienda en un solo lugar.",publicProducts,
         [{to:"/tienda",label:"Ver todo"},{to:"/tienda",label:"Nuevo",search:{fresh:"1"},hash:"shop"},{to:"/tienda",label:"Oferta",search:{sale:"1"},hash:"shop"}],
-        getAvailableMenuCategories(publicProducts, undefined, false)),
+        getAvailableMenuCategories(publicProducts)),
       moon: build("moon","Moon","/moon","Oscuro, dramático, gótico y alternativo.",moonPool,
         [{to:"/moon",label:"Todo Moon"},{to:"/moon",label:"Nuevo",search:{fresh:"1"},hash:"shop"},{to:"/moon",label:"Oferta",search:{sale:"1"},hash:"shop"}],
         getAvailableMenuCategories(publicProducts, "moon")),

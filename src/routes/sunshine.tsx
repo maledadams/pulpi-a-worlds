@@ -49,7 +49,7 @@ function SunshinePage() {
   return (
     <VibePage
       search={search}
-      onSearchChange={(next) => navigate({ to: "/sunshine", search: next, replace: true, resetScroll: false })}
+      onSearchChange={(next) => navigate({ to: "/sunshine", search: next, replace: true, resetScroll: false, viewTransition: false })}
       cfg={{
         vibe: "sunshine",
         title: "Sunshine",

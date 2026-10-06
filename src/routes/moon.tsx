@@ -49,7 +49,7 @@ function MoonPage() {
   return (
     <VibePage
       search={search}
-      onSearchChange={(next) => navigate({ to: "/moon", search: next, replace: true, resetScroll: false })}
+      onSearchChange={(next) => navigate({ to: "/moon", search: next, replace: true, resetScroll: false, viewTransition: false })}
       cfg={{
         vibe: "moon",
         title: "Moon",

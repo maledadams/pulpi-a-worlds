@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { StorePineapple } from "@/components/branding/StorePineapple";
+import { toast } from "sonner";
 import { useCart } from "@/context/cart";
 import { formatPrice } from "@/data/products";
 import { trackBeginCheckout } from "@/lib/analytics";
@@ -124,7 +125,7 @@ function CartPage() {
                       <button
                         onClick={() => void cart.update(line.id, line.quantity + 1)}
                         disabled={!availability.available || availability.availableQuantity <= line.quantity}
-                        className="px-3 py-1"
+                        className="px-3 py-1 disabled:cursor-not-allowed disabled:opacity-30"
                       >
                         +
                       </button>
@@ -184,7 +185,12 @@ function CartPage() {
                     void navigate({ to: "/solicitud" });
                     return;
                   }
-                  document.getElementById("productos-no-disponibles")?.scrollIntoView({ behavior: "smooth" });
+                  toast.error("Algunos productos ya no tienen stock. Revisa tu carrito.", { id: "cart-stock" });
+                  // The warning banner renders on the next paint, after the
+                  // fresh stock data lands, so wait for it before scrolling.
+                  window.setTimeout(() => {
+                    document.getElementById("productos-no-disponibles")?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }, 50);
                 });
               }}
               disabled={cart.loading}

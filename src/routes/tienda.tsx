@@ -55,13 +55,12 @@ function Tienda() {
         <CatalogBrowser
           products={products}
           search={search}
-          onSearchChange={(next) => navigate({ to: "/tienda", search: next, replace: true, resetScroll: false })}
+          onSearchChange={(next) => navigate({ to: "/tienda", search: next, replace: true, resetScroll: false, viewTransition: false })}
           mode="sidebar"
           tone="store"
           soldOutMode="standard"
           showDepartmentFilter
           departmentTitle="Subtienda"
-          enableNsfwGate
           resetFiltersOnQuery
           wideResults
         />

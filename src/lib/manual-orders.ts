@@ -1718,6 +1718,7 @@ export const submitManualOrder = createServerFn({ method: "POST" })
       return {
         message: "La verificacion anti-spam fallo. Intentalo otra vez.",
         ok: false as const,
+        retryTurnstile: true as const,
       };
     }
 

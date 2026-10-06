@@ -12,6 +12,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import type { Vibe } from "@/data/products";
 import appCss from "../styles.css?url";
 import { CartDrawer } from "@/components/cart/CartDrawer";
+import { AgeGate } from "@/components/layout/AgeGate";
+import { Toaster } from "@/components/ui/sonner";
 import { CheckoutSideWaves } from "@/components/layout/CheckoutSideWaves";
 import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
@@ -281,6 +283,8 @@ function AppChrome({
         <Footer settings={settings} themeOverride={themeOverride} />
       </div>
       <CartDrawer theme={themeOverride ?? "store"} />
+      <Toaster position="top-center" />
+      <AgeGate />
     </div>
   );
 }

@@ -49,7 +49,7 @@ function MenPage() {
   return (
     <VibePage
       search={search}
-      onSearchChange={(next) => navigate({ to: "/men", search: next, replace: true, resetScroll: false })}
+      onSearchChange={(next) => navigate({ to: "/men", search: next, replace: true, resetScroll: false, viewTransition: false })}
       cfg={{
         vibe: "men",
         title: "Men",
