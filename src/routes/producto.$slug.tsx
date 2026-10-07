@@ -4,6 +4,8 @@ import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { ProductCard } from "@/components/product/ProductCard";
 import { useCatalogProducts } from "@/context/catalog";
+import { useIsVerifiedAdult } from "@/lib/age-verification";
+import { isNsfwProduct } from "@/lib/store-filters";
 import { useCart } from "@/context/cart";
 import { formatPrice, type Product } from "@/data/products";
 import { useVibe } from "@/hooks/use-vibe";
@@ -224,6 +226,31 @@ function ProductPage() {
   const { product } = Route.useLoaderData() as {
     product: Product;
   };
+  const isAdult = useIsVerifiedAdult();
+
+  if (!isAdult && isNsfwProduct(product)) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center px-4 text-center">
+        <div>
+          <h1 className="font-display text-3xl" style={{ transform: "scaleX(1.12)", transformOrigin: "center" }}>
+            Producto no disponible
+          </h1>
+          <p className="mt-2 text-muted-foreground">Este producto es solo para mayores de 18 años.</p>
+          <Link
+            to="/tienda"
+            className="mt-6 inline-block bg-foreground px-5 py-2.5 text-sm font-bold uppercase text-background"
+          >
+            Ir a la tienda
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return <ProductDetails product={product} />;
+}
+
+function ProductDetails({ product }: { product: Product }) {
   const products = useCatalogProducts();
   const cart = useCart();
 
