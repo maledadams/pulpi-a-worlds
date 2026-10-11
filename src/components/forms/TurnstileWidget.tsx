@@ -24,6 +24,8 @@ declare global {
 export type TurnstileHandle = {
   // Resolves with a token the server will still accept: tokens expire after
   // 300s and are single-use, so a stale or already-sent one is replaced first.
+  // Resolves "" when no token can be had (widget blocked, errored or still
+  // waiting on a click after the timeout) - callers must not hang on it.
   getToken: (options?: { forceNew?: boolean }) => Promise<string>;
 };
 
@@ -33,7 +35,7 @@ const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 // request round trip. Phones freeze timers in background tabs, so the widget's
 // own auto-refresh can't be trusted to have run.
 const TOKEN_MAX_AGE_MS = 240_000;
-const FRESH_TOKEN_TIMEOUT_MS = 30_000;
+const FRESH_TOKEN_TIMEOUT_MS = 12_000;
 
 async function loadTurnstileScript() {
   const existing = document.getElementById(TURNSTILE_SCRIPT_ID) as HTMLScriptElement | null;
@@ -62,25 +64,28 @@ export function TurnstileWidget({
   const onTokenChangeRef = useRef(onTokenChange);
   onTokenChangeRef.current = onTokenChange;
 
+  const resolveWaiters = (value: string) => {
+    const waiters = waitersRef.current;
+    waitersRef.current = [];
+    waiters.forEach((resolve) => resolve(value));
+  };
+
   const setToken = (value: string) => {
     tokenRef.current = { value, issuedAt: value ? Date.now() : 0 };
     onTokenChangeRef.current(value);
-    if (value) {
-      const waiters = waitersRef.current;
-      waitersRef.current = [];
-      waiters.forEach((resolve) => resolve(value));
-    }
+    if (value) resolveWaiters(value);
   };
 
   useImperativeHandle(ref, () => ({
     getToken: ({ forceNew = false } = {}) => {
+      if (!TURNSTILE_SITE_KEY) return Promise.resolve("");
+
       const { value, issuedAt } = tokenRef.current;
       if (!forceNew && value && Date.now() - issuedAt < TOKEN_MAX_AGE_MS) {
-        // Single-use: hand it out once, then let the widget fetch the next one.
+        // Single-use: hand it out once. No reset here - resetting right after
+        // reading the token could void it before the server checked it, and
+        // the form remounts the widget after every submit anyway.
         tokenRef.current = { value: "", issuedAt: 0 };
-        if (widgetIdRef.current && window.turnstile) {
-          window.turnstile.reset(widgetIdRef.current);
-        }
         return Promise.resolve(value);
       }
 
@@ -96,8 +101,12 @@ export function TurnstileWidget({
           resolve(token);
         };
         waitersRef.current.push(done);
+        // Only restart the widget when the token we hold is stale or was
+        // rejected. With no token yet it is mid-challenge (or waiting on a
+        // click); a reset would just throw that progress away.
+        const mustReset = forceNew || Boolean(value);
         tokenRef.current = { value: "", issuedAt: 0 };
-        if (widgetIdRef.current && window.turnstile) {
+        if (mustReset && widgetIdRef.current && window.turnstile) {
           window.turnstile.reset(widgetIdRef.current);
         }
       });
@@ -119,7 +128,11 @@ export function TurnstileWidget({
 
       widgetIdRef.current = window.turnstile.render(containerRef.current, {
         callback: (token) => setToken(token),
-        "error-callback": () => setToken(""),
+        "error-callback": () => {
+          setToken("");
+          // Don't keep a submit waiting on a widget that just failed.
+          resolveWaiters("");
+        },
         "expired-callback": () => setToken(""),
         sitekey: TURNSTILE_SITE_KEY,
         theme: "auto",

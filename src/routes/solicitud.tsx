@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, useLoaderData, useNavigate, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CheckCircle2, ChevronLeft, ShoppingBag } from "lucide-react";
@@ -8,6 +8,12 @@ import { useCart } from "@/context/cart";
 import { formatPrice } from "@/data/products";
 import { trackPurchase } from "@/lib/analytics";
 import { submitManualOrder } from "@/lib/manual-orders";
+import {
+  normalizeOrderEmail,
+  normalizeOrderPhoneDigits,
+  ORDER_EMAIL_PATTERN,
+  ORDER_FIELD_LIMITS,
+} from "@/lib/order-validation";
 import { validateDiscountCode } from "@/lib/public-forms";
 import { createSeoHead } from "@/lib/seo";
 import { useScrollFollow } from "@/hooks/use-scroll-follow";
@@ -47,14 +53,12 @@ const DOMINICAN_PROVINCES = [
   "Valverde",
 ] as const;
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 type OrderFieldErrors = Partial<
   Record<"customerName" | "customerEmail" | "customerPhone" | "addressLine1" | "addressCity" | "addressProvince", string>
 >;
 
 function formatPhoneInput(raw: string, previous: string) {
-  let digits = raw.replace(/\D/g, "").slice(0, 10);
+  let digits = normalizeOrderPhoneDigits(raw);
 
   // Backspacing right after a boundary (3rd/6th digit) only deletes the
   // auto-inserted ")" or "-" rather than a digit, since the digit count
@@ -111,7 +115,13 @@ function InquiryPage() {
   const [applyingDiscount, setApplyingDiscount] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<OrderFieldErrors>({});
   const orderFormFollower = useScrollFollow(1024);
+  const whatsappNumber = useLoaderData({ from: "__root__" })?.settings.whatsappNumber ?? "";
+  const [orderFailed, setOrderFailed] = useState(false);
+  // Guards against a double tap firing two orders before React re-renders
+  // the button as disabled.
+  const submittingRef = useRef(false);
   const [createdOrder, setCreatedOrder] = useState<null | {
+    confirmUrl: string;
     emailState: {
       configured: boolean;
       customerSent: boolean;
@@ -150,11 +160,13 @@ function InquiryPage() {
   function validateOrderForm(): OrderFieldErrors {
     const errors: OrderFieldErrors = {};
 
-    if (customerName.trim().length < 2) {
+    const trimmedName = customerName.trim();
+    if (trimmedName.length < 2 || trimmedName.length > ORDER_FIELD_LIMITS.name) {
       errors.customerName = "Escribe tu nombre completo.";
     }
 
-    if (!EMAIL_PATTERN.test(customerEmail.trim())) {
+    const email = normalizeOrderEmail(customerEmail);
+    if (email.length > ORDER_FIELD_LIMITS.email || !ORDER_EMAIL_PATTERN.test(email)) {
       errors.customerEmail = "Escribe un correo válido (ejemplo: nombre@correo.com).";
     }
 
@@ -221,8 +233,20 @@ function InquiryPage() {
               Tu numero de orden es {createdOrder.order.requestNumber}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
-              Ya registramos tu pedido. Revisa tu correo: ahi tienes el detalle y el boton para confirmar por WhatsApp.
+              {createdOrder.emailState.customerSent
+                ? "Ya registramos tu pedido y te enviamos el detalle por correo. Para terminar, confirmalo por WhatsApp."
+                : "Ya registramos tu pedido, pero no pudimos enviarte el correo. Confirmalo por WhatsApp con el boton de abajo para que podamos atenderte."}
             </p>
+            {createdOrder.confirmUrl ? (
+              <a
+                href={createdOrder.confirmUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-5 inline-flex items-center justify-center rounded-full bg-[#25D366] px-6 py-3 text-sm font-bold uppercase tracking-wider text-white"
+              >
+                Confirmar por WhatsApp
+              </a>
+            ) : null}
           </div>
 
           <div className="mt-6">
@@ -367,32 +391,36 @@ function InquiryPage() {
             noValidate
             onSubmit={async (event) => {
               event.preventDefault();
+              if (submittingRef.current) return;
               const errors = validateOrderForm();
               setFieldErrors(errors);
               if (Object.keys(errors).length > 0) return;
 
+              submittingRef.current = true;
+              setSubmitting(true);
+              setStatus("");
+              setOrderFailed(false);
+
               const inventoryAvailable = await cart.refreshAvailability();
               if (!inventoryAvailable) {
+                submittingRef.current = false;
+                setSubmitting(false);
                 toast.error("Algunos productos de tu carrito ya no tienen stock. Revisalo antes de continuar.", { id: "cart-stock" });
                 await navigate({ to: "/carrito", replace: true });
                 return;
               }
-              setSubmitting(true);
-              setStatus("");
 
-              const sendOrder = async (forceNewToken: boolean) => {
+              // allowUnverified: on the last try, or when the anti-spam widget
+              // never produced a token (blocked, errored), the server still
+              // takes the order and flags it instead of turning the customer away.
+              const sendOrder = async (forceNewToken: boolean, allowUnverified: boolean) => {
                 const token = turnstileRef.current
                   ? await turnstileRef.current.getToken({ forceNew: forceNewToken })
                   : turnstileToken;
-                if (!token) {
-                  return {
-                    message: "No se pudo completar la verificacion anti-spam. Revisa tu conexion e intentalo otra vez.",
-                    ok: false as const,
-                  };
-                }
                 return submitManualOrder({
                 data: {
-                  customerEmail,
+                  allowUnverified: allowUnverified || !token,
+                  customerEmail: normalizeOrderEmail(customerEmail),
                   customerName,
                   customerPhone,
                   discountCode: appliedDiscountCode,
@@ -421,17 +449,18 @@ function InquiryPage() {
                 });
               };
 
-              void sendOrder(false)
+              void sendOrder(false, false)
                 .then(async (first) => {
                   // A token can still be rejected (expired while the phone was
                   // in the background, network hiccup). Retry once with a brand
-                  // new one before bothering the customer.
+                  // new one; that retry is accepted even if it fails again.
                   const result =
                     !first.ok && "retryTurnstile" in first && first.retryTurnstile
-                      ? await sendOrder(true)
+                      ? await sendOrder(true, true)
                       : first;
                   setStatus(result.message);
                   if (!result.ok) {
+                    setOrderFailed(true);
                     toast.error(result.message, { id: "order-error" });
                     if (/stock|disponible|existe/i.test(result.message)) {
                       await router.invalidate();
@@ -469,11 +498,14 @@ function InquiryPage() {
                   setTurnstileToken("");
                   cart.clear();
                 })
-                .catch(() => {
-                  setStatus("No se pudo crear el pedido ahora mismo.");
-                  toast.error("No se pudo crear el pedido ahora mismo. Intentalo otra vez.", { id: "order-error" });
+                .catch((error) => {
+                  console.error("[solicitud] submit failed", error);
+                  setOrderFailed(true);
+                  setStatus("No pudimos conectar con la tienda. Revisa tu conexion e intentalo otra vez.");
+                  toast.error("No pudimos conectar con la tienda. Revisa tu conexion e intentalo otra vez.", { id: "order-error" });
                 })
                 .finally(() => {
+                  submittingRef.current = false;
                   setSubmitting(false);
                   setTurnstileVersion((value) => value + 1);
                 });
@@ -484,6 +516,8 @@ function InquiryPage() {
               <div>
                 <input
                   value={customerName}
+                  maxLength={ORDER_FIELD_LIMITS.name}
+                  autoComplete="name"
                   placeholder="Tu nombre"
                   className={`w-full rounded-2xl border bg-[#fbf4e8] px-4 py-3 text-[#231717] caret-[#231717] placeholder:text-[#7c665f] ${
                     fieldErrors.customerName ? "border-red-500" : "border-[#231717]/15"
@@ -499,6 +533,9 @@ function InquiryPage() {
                 <input
                   type="email"
                   value={customerEmail}
+                  maxLength={ORDER_FIELD_LIMITS.email}
+                  autoComplete="email"
+                  autoCapitalize="none"
                   placeholder="Tu correo"
                   className={`w-full rounded-2xl border bg-[#fbf4e8] px-4 py-3 text-[#231717] caret-[#231717] placeholder:text-[#7c665f] ${
                     fieldErrors.customerEmail ? "border-red-500" : "border-[#231717]/15"
@@ -527,6 +564,7 @@ function InquiryPage() {
                 <input
                   type="tel"
                   inputMode="numeric"
+                  autoComplete="tel"
                   value={customerPhone}
                   placeholder="(809) 000-0000"
                   className="w-full bg-transparent text-[#231717] caret-[#231717] placeholder:text-[#7c665f] focus:outline-none"
@@ -557,13 +595,19 @@ function InquiryPage() {
                 disabled={applyingDiscount || !discountCode.trim() || !customerEmail.trim()}
                 className="border border-[#231717] bg-[#231717] px-5 py-3 text-sm font-bold uppercase text-[#fbf4e8] disabled:cursor-not-allowed disabled:opacity-45"
                 onClick={() => {
+                  const email = normalizeOrderEmail(customerEmail);
+                  if (!ORDER_EMAIL_PATTERN.test(email)) {
+                    setDiscountOk(false);
+                    setDiscountStatus("Escribe un correo valido antes de aplicar el codigo.");
+                    return;
+                  }
                   setApplyingDiscount(true);
                   let birthdayToken = "";
                   try {
                     const raw = localStorage.getItem("pulpina_birthday_token");
                     if (raw) {
                       const saved = JSON.parse(raw) as { email?: string; token?: string };
-                      if (saved.email === customerEmail.trim().toLowerCase() && saved.token) {
+                      if (saved.email === email && saved.token) {
                         birthdayToken = saved.token;
                       }
                     }
@@ -571,7 +615,7 @@ function InquiryPage() {
                     // Ignore invalid local storage data.
                   }
                   void validateDiscountCode({
-                    data: { code: discountCode, email: customerEmail, subtotal: cart.subtotal, token: birthdayToken },
+                    data: { code: discountCode, email, subtotal: cart.subtotal, token: birthdayToken },
                   })
                     .then((result) => {
                       setDiscountStatus(result.message);
@@ -581,6 +625,10 @@ function InquiryPage() {
                         setAppliedDiscountToken(birthdayToken);
                         setAppliedDiscount(result.discount);
                       }
+                    })
+                    .catch(() => {
+                      setDiscountOk(false);
+                      setDiscountStatus("No pudimos validar el codigo ahora mismo. Intentalo otra vez.");
                     })
                     .finally(() => setApplyingDiscount(false));
                 }}
@@ -630,6 +678,7 @@ function InquiryPage() {
                 <div className="sm:col-span-2">
                   <input
                     value={addressLine1}
+                    maxLength={ORDER_FIELD_LIMITS.address}
                     placeholder="Calle, numero, sector o referencia (ej: Calle Duarte #45, apto 3B)"
                     className={`w-full rounded-2xl border bg-[#fbf4e8] px-4 py-3 text-[#231717] caret-[#231717] placeholder:text-[#7c665f] ${
                       fieldErrors.addressLine1 ? "border-red-500" : "border-[#231717]/15"
@@ -644,6 +693,7 @@ function InquiryPage() {
                 <div>
                   <input
                     value={addressCity}
+                    maxLength={ORDER_FIELD_LIMITS.city}
                     placeholder="Ciudad"
                     className={`w-full rounded-2xl border bg-[#fbf4e8] px-4 py-3 text-[#231717] caret-[#231717] placeholder:text-[#7c665f] ${
                       fieldErrors.addressCity ? "border-red-500" : "border-[#231717]/15"
@@ -683,6 +733,7 @@ function InquiryPage() {
             <textarea
               rows={4}
               value={notes}
+              maxLength={ORDER_FIELD_LIMITS.notes}
               placeholder="Notas opcionales: horario, referencia, dudas de talla, etc."
               className="w-full rounded-2xl border border-[#231717]/15 bg-[#fbf4e8] px-4 py-3 text-[#231717] caret-[#231717] placeholder:text-[#7c665f]"
               onChange={(event) => setNotes(event.target.value)}
@@ -690,12 +741,22 @@ function InquiryPage() {
 
             <TurnstileWidget key={turnstileVersion} ref={turnstileRef} onTokenChange={setTurnstileToken} />
             {status ? <p className="text-sm text-muted-foreground">{status}</p> : null}
+            {orderFailed && whatsappNumber ? (
+              <a
+                href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent("Hola, quiero hacer un pedido y la pagina no me deja completarlo.")}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm font-semibold text-[#1f7a43] underline underline-offset-2"
+              >
+                ¿Sigue sin funcionar? Escribenos por WhatsApp y lo completamos contigo.
+              </a>
+            ) : null}
             <button
               type="submit"
-              disabled={submitting || cart.loading || !turnstileToken}
+              disabled={submitting}
               className="mt-auto inline-flex items-center justify-center rounded-full bg-foreground px-5 py-3 text-sm font-bold uppercase tracking-wider text-background disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {submitting ? "Creando pedido..." : cart.loading ? "Verificando stock..." : "Completar pedido"}
+              {submitting ? "Creando pedido..." : "Completar pedido"}
             </button>
           </form>
         </section>

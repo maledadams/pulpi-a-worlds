@@ -14,6 +14,7 @@ import { verifyTurnstileToken } from "@/lib/turnstile";
 import { getDominicanDateParts, getDominicanDayStartIso, validateDiscountCodeInternal } from "@/lib/public-forms";
 import { recordDiscountRedemption } from "@/lib/store-discounts";
 import { signOrderConfirmToken, verifyOrderConfirmToken } from "@/lib/order-confirm-token";
+import { normalizeOrderEmail, ORDER_EMAIL_PATTERN, ORDER_FIELD_LIMITS } from "@/lib/order-validation";
 import type { AdminInquiryChannel, AdminInquiryRecord, AdminInquiryStatus } from "@/lib/admin-types";
 
 const ORDER_SEQUENCE_KEY = "manual_orders";
@@ -60,18 +61,46 @@ const manualOrderLineSchema = z.object({
 });
 
 const manualOrderSchema = z.object({
-  customerEmail: z.string().trim().email(),
-  customerName: z.string().trim().min(2).max(120),
+  customerEmail: z
+    .string()
+    .transform(normalizeOrderEmail)
+    .pipe(z.string().max(ORDER_FIELD_LIMITS.email).regex(ORDER_EMAIL_PATTERN)),
+  customerName: z.string().trim().min(2).max(ORDER_FIELD_LIMITS.name),
   customerPhone: z.string().trim().min(7).max(40),
   discountCode: z.string().trim().max(20).optional().default(""),
   discountToken: z.string().trim().optional().default(""),
   fulfillmentMethod: z.enum(FULFILLMENT_METHODS).default("pickup"),
   lines: z.array(manualOrderLineSchema).min(1),
-  notes: z.string().trim().max(1200).optional().default(""),
+  notes: z.string().trim().max(ORDER_FIELD_LIMITS.notes).optional().default(""),
   shipping: z.number().min(0).max(999999).default(0),
   shippingAddress: shippingAddressSchema.default({ line1: "", city: "", province: "" }),
-  turnstileToken: z.string().trim().min(1),
+  // Empty when the widget never produced a token (blocked, errored). Such an
+  // order can still go through as unverified - see submitManualOrder.
+  turnstileToken: z.string().trim().max(4096).optional().default(""),
+  // Set by the form on its last attempt, after a fresh token was rejected.
+  allowUnverified: z.boolean().optional().default(false),
 });
+
+// Turns a rejected checkout payload into something the customer can act on.
+function describeManualOrderInputError(error: z.ZodError) {
+  const field = error.issues[0]?.path[0];
+  switch (field) {
+    case "customerEmail":
+      return "Revisa tu correo, parece tener un error (ejemplo: nombre@correo.com).";
+    case "customerName":
+      return `Escribe tu nombre (entre 2 y ${ORDER_FIELD_LIMITS.name} caracteres).`;
+    case "customerPhone":
+      return "Revisa tu número de teléfono.";
+    case "notes":
+      return `Las notas son muy largas (máximo ${ORDER_FIELD_LIMITS.notes} caracteres).`;
+    case "shippingAddress":
+      return "Revisa la dirección de entrega.";
+    case "lines":
+      return "Revisa los productos de tu carrito.";
+    default:
+      return "Revisa los datos del formulario e intenta de nuevo.";
+  }
+}
 
 const adminOrderUpdateSchema = z.object({
   channel: z.enum(CONTACT_CHANNELS),
@@ -158,6 +187,8 @@ type InquiryRow = {
   customer_name: string | null;
   customer_phone: string | null;
   discount_cents: number;
+  email_status?: string | null;
+  anti_spam_status?: string | null;
   fulfillment_method: string | null;
   id: string;
   items_json: string | null;
@@ -412,7 +443,17 @@ async function buildCanonicalLines(
   });
 }
 
+// Admin badges for storefront orders that need a human look: the customer
+// never got the confirmation email, or the anti-spam check didn't pass.
+function buildDeliveryTags(row: Pick<InquiryRow, "email_status" | "anti_spam_status">) {
+  const tags: string[] = [];
+  if (row.email_status === "failed" || row.email_status === "not_configured") tags.push("Correo no enviado");
+  if (row.anti_spam_status === "failed") tags.push("Sin verificar");
+  return tags;
+}
+
 function buildInquiryRecord(input: {
+  adminTags?: string[];
   channel?: AdminInquiryChannel;
   closedAt?: string | null;
   createdAt?: string;
@@ -455,7 +496,7 @@ function buildInquiryRecord(input: {
     notes: input.notes,
     paymentStatus: input.paymentStatus ?? "pending",
     externalReference: "",
-    adminTags: [],
+    adminTags: input.adminTags ?? [],
     shippingAddress: {
       line1: input.shippingAddress?.line1?.trim() ?? "",
       city: input.shippingAddress?.city?.trim() ?? "",
@@ -534,6 +575,12 @@ async function ensureOrderStorageReady(db: D1Database) {
         "ALTER TABLE inquiries ADD COLUMN shipping_province TEXT;",
         "ALTER TABLE inquiries ADD COLUMN contact_confirmed_at TEXT;",
         "ALTER TABLE inquiries ADD COLUMN closed_at TEXT;",
+        // Delivery record for storefront orders: did the confirmation email
+        // reach Resend ('sent' | 'failed' | 'not_configured'), and did the
+        // anti-spam check pass ('passed' | 'failed'). NULL on older rows.
+        "ALTER TABLE inquiries ADD COLUMN email_status TEXT;",
+        "ALTER TABLE inquiries ADD COLUMN anti_spam_status TEXT;",
+        "ALTER TABLE order_rate_limits ADD COLUMN verified INTEGER NOT NULL DEFAULT 1;",
       ]) {
         try {
           await db.exec(statement);
@@ -860,7 +907,9 @@ async function listOrdersFromDatabase() {
           notes,
           items_json,
           created_at,
-          closed_at
+          closed_at,
+          email_status,
+          anti_spam_status
         FROM inquiries
         ORDER BY created_at DESC, request_number DESC
       `,
@@ -874,6 +923,7 @@ async function listOrdersFromDatabase() {
 
   return rows.map((row) =>
     buildInquiryRecord({
+      adminTags: buildDeliveryTags(row),
       channel: normalizeOrderChannel(row.channel),
       closedAt: row.closed_at ?? movementClosedDates.get(row.request_number) ?? null,
       createdAt: row.created_at,
@@ -1411,22 +1461,40 @@ async function sendEmailViaResend(input: {
     return false;
   }
 
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${config.apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: config.from,
-      html: input.html,
-      subject: input.subject,
-      text: input.text,
-      to: [input.to],
-    }),
+  const body = JSON.stringify({
+    from: config.from,
+    html: input.html,
+    subject: input.subject,
+    text: input.text,
+    to: [input.to],
   });
 
-  return response.ok;
+  // One retry for Resend's rate limit (429), its own outages (5xx) and
+  // network drops. A 4xx like an invalid address won't fix itself, so stop.
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${config.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body,
+        // Kept short: the customer is waiting on "Creando pedido..." while
+        // this runs (twice, plus the team alert if it fails).
+        signal: AbortSignal.timeout(6_000),
+      });
+      if (response.ok) return true;
+
+      const detail = (await response.text().catch(() => "")).slice(0, 300);
+      console.error("[resend] send failed", { attempt, status: response.status, subject: input.subject, detail });
+      if (response.status !== 429 && response.status < 500) return false;
+    } catch (error) {
+      console.error("[resend] send threw", { attempt, subject: input.subject, error: String(error) });
+    }
+    if (attempt === 1) await new Promise((resolve) => setTimeout(resolve, 800));
+  }
+  return false;
 }
 
 async function buildVariantImageMap(lines: AdminInquiryRecord["lines"]) {
@@ -1445,19 +1513,27 @@ async function buildVariantImageMap(lines: AdminInquiryRecord["lines"]) {
   return map;
 }
 
+// The "Confirmar por WhatsApp" link: marks the order confirmed, notifies the
+// team, then opens WhatsApp. Without the signing secret it can only open
+// WhatsApp, so at least carry the order number along.
+async function buildOrderConfirmUrl(record: Pick<AdminInquiryRecord, "id" | "requestNumber">) {
+  const secret = await getOrderConfirmSecret();
+  if (secret) {
+    const token = await signOrderConfirmToken(record.id, secret);
+    return `https://pulpinastore.com/pedido/confirmar?order=${encodeURIComponent(record.id)}&token=${encodeURIComponent(token)}`;
+  }
+  console.error("[orders] ORDER_CONFIRM_SECRET is missing; confirm links skip the team notification");
+  const settings = await getStorefrontSettingsInternal();
+  return buildWhatsappRedirectUrl(settings.whatsappNumber, record.requestNumber);
+}
+
 async function sendCustomerInvoiceEmail(record: AdminInquiryRecord): Promise<boolean> {
   const config = await getEmailConfig();
   if (!config.apiKey || !config.from) return false;
 
   const settings = await getStorefrontSettingsInternal();
-  const secret = await getOrderConfirmSecret();
   const imageMap = await buildVariantImageMap(record.lines);
-
-  const confirmUrl = secret
-    ? `https://pulpinastore.com/pedido/confirmar?order=${encodeURIComponent(record.id)}&token=${encodeURIComponent(
-        await signOrderConfirmToken(record.id, secret),
-      )}`
-    : `https://wa.me/${settings.whatsappNumber}`;
+  const confirmUrl = await buildOrderConfirmUrl(record);
 
   const rows = record.lines
     .map((line) => {
@@ -1548,9 +1624,31 @@ function toWhatsappDigits(phone: string) {
   return digits;
 }
 
-async function sendTeamOrderNotificationEmail(record: AdminInquiryRecord): Promise<boolean> {
+// "confirmed": the customer tapped "Confirmar por WhatsApp" - the normal
+// team notification. "customer_email_failed": the order exists but the
+// customer's confirmation email didn't go out, so they may never confirm and
+// the order would otherwise sit unseen under "Pendiente de contacto". This
+// is the only email the team gets for an unconfirmed order.
+type TeamNotificationKind = "confirmed" | "customer_email_failed";
+
+async function sendTeamOrderNotificationEmail(
+  record: AdminInquiryRecord,
+  kind: TeamNotificationKind = "confirmed",
+  { unverified = false }: { unverified?: boolean } = {},
+): Promise<boolean> {
   const config = await getEmailConfig();
   if (!config.apiKey || !config.from) return false;
+
+  const emailFailed = kind === "customer_email_failed";
+  const heading = emailFailed ? "No le llegó el correo al cliente" : "Nuevo pedido confirmado";
+  const subject = emailFailed
+    ? `Pedido ${record.requestNumber}: no se pudo enviar el correo al cliente`
+    : `Nuevo pedido confirmado ${record.requestNumber}`;
+  const intro = emailFailed
+    ? `El pedido se creó, pero no pudimos enviarle el correo de confirmación al cliente. Puede que nunca confirme por su cuenta: escríbele por WhatsApp. El pedido está en el admin bajo "Pendiente de contacto".${
+        unverified ? " Además, no pasó la verificación anti-spam: revisa que sea real antes de escribirle." : ""
+      }`
+    : "";
 
   const imageMap = await buildVariantImageMap(record.lines);
   const customerDigits = toWhatsappDigits(record.customerPhone);
@@ -1603,7 +1701,8 @@ async function sendTeamOrderNotificationEmail(record: AdminInquiryRecord): Promi
     <div style="background:#fbf4e8;padding:32px 16px;font-family:Arial,sans-serif">
       <div style="max-width:560px;margin:auto;background:#ffffff;border:1px solid #231717;border-radius:20px;padding:32px">
         <p style="letter-spacing:.18em;text-transform:uppercase;color:#6b5a55;font-size:12px;margin:0 0 4px">Pulpiña RD</p>
-        <h1 style="font-size:26px;margin:0 0 8px;color:#231717">Nuevo pedido confirmado</h1>
+        <h1 style="font-size:26px;margin:0 0 8px;color:#231717">${heading}</h1>
+        ${intro ? `<p style="font-size:14px;line-height:1.6;color:#7d291b;background:#f4d5cf;border-radius:12px;padding:12px 14px;margin:0 0 16px">${escapeHtml(intro)}</p>` : ""}
         <p style="font-size:14px;line-height:1.6;color:#231717;margin:0 0 4px">
           <strong>${escapeHtml(record.requestNumber)}</strong> &middot; ${escapeHtml(record.customerName)}
         </p>
@@ -1635,7 +1734,8 @@ async function sendTeamOrderNotificationEmail(record: AdminInquiryRecord): Promi
     </div>`;
 
   const text = [
-    `Nuevo pedido confirmado: ${record.requestNumber}`,
+    `${heading}: ${record.requestNumber}`,
+    intro,
     `Cliente: ${record.customerName}`,
     `Email: ${record.customerEmail}`,
     `Telefono: ${record.customerPhone}`,
@@ -1655,78 +1755,141 @@ async function sendTeamOrderNotificationEmail(record: AdminInquiryRecord): Promi
 
   return sendEmailViaResend({
     html,
-    subject: `Nuevo pedido confirmado ${record.requestNumber}`,
+    subject,
     text,
     to: config.supportEmail,
   });
 }
 
-const ORDER_RATE_LIMIT_MAX_PER_DAY = 3;
+const ORDER_RATE_LIMIT_PER_EMAIL_PER_DAY = 3;
+// Dominican carriers put many phones behind one shared public IP (CGNAT), so
+// a low per-IP cap blocks unrelated real customers. This only stops floods.
+const ORDER_RATE_LIMIT_PER_IP_PER_DAY = 150;
+// Same email twice within this window is a double tap, not a second order.
 const ORDER_RATE_LIMIT_BURST_MS = 20_000;
+// Orders that failed the anti-spam check are still accepted so a flaky widget
+// never costs a sale, but capped site-wide so a bot can't flood the inbox.
+const UNVERIFIED_ORDERS_PER_DAY = 10;
 
-async function checkOrderRateLimit(db: D1Database, ip: string, email: string) {
-  const normalizedEmail = email.trim().toLowerCase();
-
+async function checkOrderRateLimit(db: D1Database, ip: string, email: string, verified: boolean) {
   const lastRow = await db
-    .prepare("SELECT created_at FROM order_rate_limits WHERE ip = ? OR email = ? ORDER BY created_at DESC LIMIT 1")
-    .bind(ip, normalizedEmail)
+    .prepare("SELECT created_at FROM order_rate_limits WHERE email = ? ORDER BY created_at DESC LIMIT 1")
+    .bind(email)
     .first<{ created_at: string }>();
   if (lastRow) {
     const elapsedMs = Date.now() - new Date(lastRow.created_at).getTime();
     if (elapsedMs >= 0 && elapsedMs < ORDER_RATE_LIMIT_BURST_MS) {
-      return "Estas enviando pedidos demasiado rapido. Espera unos segundos e intenta de nuevo.";
+      return "Ya recibimos un pedido con este correo hace unos segundos. Espera un momento antes de enviar otro.";
     }
   }
 
   const dayStartIso = getDominicanDayStartIso(getDominicanDateParts().dateKey);
-  const countRow = await db
-    .prepare("SELECT COUNT(*) as count FROM order_rate_limits WHERE created_at >= ? AND (ip = ? OR email = ?)")
-    .bind(dayStartIso, ip, normalizedEmail)
-    .first<{ count: number }>();
-  if ((countRow?.count ?? 0) >= ORDER_RATE_LIMIT_MAX_PER_DAY) {
-    return "Llegaste al limite de pedidos por hoy. Escribenos por WhatsApp si necesitas hacer otro.";
+  const counts = await db
+    .prepare(
+      `
+        SELECT
+          COALESCE(SUM(CASE WHEN email = ? THEN 1 ELSE 0 END), 0) AS by_email,
+          COALESCE(SUM(CASE WHEN ip = ? AND ip <> '' THEN 1 ELSE 0 END), 0) AS by_ip,
+          COALESCE(SUM(CASE WHEN verified = 0 THEN 1 ELSE 0 END), 0) AS unverified
+        FROM order_rate_limits
+        WHERE created_at >= ?
+      `,
+    )
+    .bind(email, ip, dayStartIso)
+    .first<{ by_email: number; by_ip: number; unverified: number }>();
+
+  if ((counts?.by_email ?? 0) >= ORDER_RATE_LIMIT_PER_EMAIL_PER_DAY) {
+    return "Llegaste al límite de pedidos por hoy con este correo. Escríbenos por WhatsApp si necesitas hacer otro.";
+  }
+  if ((counts?.by_ip ?? 0) >= ORDER_RATE_LIMIT_PER_IP_PER_DAY) {
+    console.warn("[submitManualOrder] per-IP daily cap hit", { ip });
+    return "Recibimos demasiados pedidos desde tu conexión hoy. Escríbenos por WhatsApp y lo completamos contigo.";
+  }
+  if (!verified && (counts?.unverified ?? 0) >= UNVERIFIED_ORDERS_PER_DAY) {
+    console.warn("[submitManualOrder] unverified daily cap hit");
+    return "No pudimos verificar tu pedido. Recarga la página e inténtalo otra vez, o escríbenos por WhatsApp.";
   }
 
   return null;
 }
 
-async function recordOrderRateLimit(db: D1Database, ip: string, email: string) {
+async function recordOrderRateLimit(db: D1Database, ip: string, email: string, verified: boolean) {
   await db
-    .prepare("INSERT INTO order_rate_limits (id, ip, email, created_at) VALUES (?, ?, ?, ?)")
-    .bind(crypto.randomUUID(), ip, email.trim().toLowerCase(), new Date().toISOString())
+    .prepare("INSERT INTO order_rate_limits (id, ip, email, created_at, verified) VALUES (?, ?, ?, ?, ?)")
+    .bind(crypto.randomUUID(), ip, email, new Date().toISOString(), verified ? 1 : 0)
     .run();
 }
 
+async function saveOrderDeliveryStatus(
+  db: D1Database,
+  id: string,
+  status: { antiSpam?: "passed" | "failed"; email?: "sent" | "failed" | "not_configured" },
+) {
+  try {
+    await db
+      .prepare(
+        "UPDATE inquiries SET email_status = COALESCE(?, email_status), anti_spam_status = COALESCE(?, anti_spam_status) WHERE id = ?",
+      )
+      .bind(status.email ?? null, status.antiSpam ?? null, id)
+      .run();
+  } catch (error) {
+    console.error("[orders] failed to save delivery status", id, error);
+  }
+}
+
 export const submitManualOrder = createServerFn({ method: "POST" })
-  .inputValidator((data: z.input<typeof manualOrderSchema>) => manualOrderSchema.parse(data))
-  .handler(async ({ data }) => {
+  // Validated inside the handler instead: a throwing validator reaches the
+  // customer as a generic error, while safeParse lets us say which field.
+  .inputValidator((data: z.input<typeof manualOrderSchema>) => data)
+  .handler(async ({ data: rawData }) => {
     const { getRequestHeader, setResponseHeader } = await import("@tanstack/react-start/server");
 
     setResponseHeader("Cache-Control", "private, no-store");
 
+    const parsed = manualOrderSchema.safeParse(rawData);
+    if (!parsed.success) {
+      console.warn("[submitManualOrder] rejected input", parsed.error.issues.map((issue) => issue.path.join(".")));
+      return { message: describeManualOrderInputError(parsed.error), ok: false as const };
+    }
+    const data = parsed.data;
+    const requestIp = getRequestHeader("cf-connecting-ip") ?? "";
+
     const verification = await verifyTurnstileToken({
-      remoteIp: getRequestHeader("cf-connecting-ip"),
+      remoteIp: requestIp,
       token: data.turnstileToken,
     });
+    const verified = verification.success;
 
-    if (!verification.success) {
-      console.error("[submitManualOrder] turnstile verification failed", {
+    if (!verified) {
+      console.warn("[submitManualOrder] turnstile verification failed", {
+        allowUnverified: data.allowUnverified,
         errors: verification.errors,
-        skipped: verification.skipped,
-        tokenLength: data.turnstileToken?.length ?? 0,
+        tokenLength: data.turnstileToken.length,
       });
-      return {
-        message: "La verificacion anti-spam fallo. Intentalo otra vez.",
-        ok: false as const,
-        retryTurnstile: true as const,
-      };
+      // First attempt: ask the form to retry with a fresh token. On the
+      // retry the order goes through anyway, flagged "Sin verificar", rather
+      // than turning a real customer away over a flaky widget.
+      if (!data.allowUnverified) {
+        return {
+          message: "La verificacion anti-spam fallo. Intentalo otra vez.",
+          ok: false as const,
+          retryTurnstile: true as const,
+        };
+      }
     }
 
-    const rateLimitIp = getRequestHeader("cf-connecting-ip") ?? "";
     const rateLimitDb = await getDatabase();
     if (rateLimitDb) {
-      await ensureOrderStorageReady(rateLimitDb);
-      const rateLimitMessage = await checkOrderRateLimit(rateLimitDb, rateLimitIp, data.customerEmail);
+      let rateLimitMessage: string | null = null;
+      try {
+        rateLimitMessage = await withD1Retry(async () => {
+          await ensureOrderStorageReady(rateLimitDb);
+          return checkOrderRateLimit(rateLimitDb, requestIp, data.customerEmail, verified);
+        });
+      } catch (error) {
+        // A D1 hiccup in the spam guard must not cost a real order.
+        console.error("[submitManualOrder] rate limit check failed, letting the order through", error);
+      }
       if (rateLimitMessage) {
         return { message: rateLimitMessage, ok: false as const };
       }
@@ -1734,8 +1897,17 @@ export const submitManualOrder = createServerFn({ method: "POST" })
 
     let canonicalLines: CanonicalManualOrderLine[];
     try {
-      canonicalLines = await buildCanonicalLines(data.lines);
+      // Stock messages ("No hay suficiente stock...") aren't transient, so
+      // withD1Retry rethrows them at once; only D1 stalls get retried.
+      canonicalLines = await withD1Retry(() => buildCanonicalLines(data.lines));
     } catch (error) {
+      if (isTransientD1Error(error)) {
+        console.error("[submitManualOrder] inventory lookup failed", error);
+        return {
+          message: "No pudimos revisar el inventario ahora mismo. Intentalo otra vez en unos segundos.",
+          ok: false as const,
+        };
+      }
       return {
         message: error instanceof Error ? error.message : "No se pudo validar el carrito.",
         ok: false as const,
@@ -1794,31 +1966,57 @@ export const submitManualOrder = createServerFn({ method: "POST" })
       }
       if (db) {
         try {
-          await recordOrderRateLimit(db, rateLimitIp, data.customerEmail);
+          await recordOrderRateLimit(db, requestIp, data.customerEmail, verified);
         } catch (error) {
           console.error("[submitManualOrder] failed to record order rate limit entry", error);
         }
       }
       const config = await getEmailConfig();
+      const configured = Boolean(config.apiKey && config.from);
       let customerSent = false;
-      if (config.apiKey && config.from) {
+      if (configured) {
         try {
           customerSent = await sendCustomerInvoiceEmail(record);
         } catch (error) {
-          console.error("sendCustomerInvoiceEmail failed", error);
+          console.error("[submitManualOrder] sendCustomerInvoiceEmail threw", record.requestNumber, error);
+        }
+      } else {
+        console.error("[submitManualOrder] RESEND_API_KEY / RESEND_FROM_EMAIL missing; no confirmation email sent");
+      }
+
+      // The customer may never confirm without that email, so this is the
+      // one case the team hears about an unconfirmed order.
+      let teamSent = false;
+      if (!customerSent) {
+        console.error("[submitManualOrder] customer email not sent", record.requestNumber);
+        try {
+          teamSent = await sendTeamOrderNotificationEmail(record, "customer_email_failed", { unverified: !verified });
+        } catch (error) {
+          console.error("[submitManualOrder] team alert email threw", record.requestNumber, error);
         }
       }
-      const emailState: OrderEmailState = {
-        configured: Boolean(config.apiKey && config.from),
-        customerSent,
-        teamSent: false,
-      };
+
+      if (db) {
+        await saveOrderDeliveryStatus(db, record.id, {
+          antiSpam: verified ? "passed" : "failed",
+          email: !configured ? "not_configured" : customerSent ? "sent" : "failed",
+        });
+      }
+
+      const emailState: OrderEmailState = { configured, customerSent, teamSent };
+      let confirmUrl = "";
+      try {
+        confirmUrl = await buildOrderConfirmUrl(record);
+      } catch (error) {
+        console.error("[submitManualOrder] could not build confirm url", error);
+      }
 
       return {
+        confirmUrl,
         emailState,
-        message: emailState.configured
+        message: customerSent
           ? "Pedido creado. Revisa tu correo para confirmar por WhatsApp."
-          : "Pedido creado. Falta configurar el proveedor de correo para enviar confirmaciones automaticas.",
+          : "Pedido creado. No pudimos enviarte el correo, confirma por WhatsApp con el boton.",
         ok: true as const,
         order: {
           createdAt: record.createdAt,
@@ -1837,7 +2035,7 @@ export const submitManualOrder = createServerFn({ method: "POST" })
     } catch (error) {
       console.error("submitManualOrder failed", error);
       return {
-        message: "No se pudo crear el pedido ahora mismo.",
+        message: "No se pudo crear el pedido ahora mismo. Intentalo otra vez o escribenos por WhatsApp.",
         ok: false as const,
       };
     }
@@ -1926,9 +2124,14 @@ export const resendAdminOrderConfirmation = createServerFn({ method: "POST" })
 
     try {
       const sent = await sendCustomerInvoiceEmail(record);
+      const db = await getDatabase();
+      if (sent && db) await saveOrderDeliveryStatus(db, record.id, { email: "sent" });
       return sent
         ? { ok: true as const, message: `Correo reenviado a ${record.customerEmail}.` }
-        : { ok: false as const, message: "El envio de correos no esta configurado ahora mismo." };
+        : {
+            ok: false as const,
+            message: "No se pudo enviar el correo. Revisa que el correo del cliente este bien o intentalo mas tarde.",
+          };
     } catch (error) {
       console.error("[resendAdminOrderConfirmation] send failed", data.id, error);
       return { ok: false as const, message: "No se pudo reenviar el correo ahora mismo." };

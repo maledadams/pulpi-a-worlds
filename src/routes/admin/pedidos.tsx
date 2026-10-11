@@ -322,6 +322,8 @@ function AdminOrdersPage() {
       },
     }).then((updated) => {
       const next = cloneInquiry(updated);
+      // Saving doesn't touch the delivery badges, so keep the ones we had.
+      if (next.adminTags.length === 0) next.adminTags = [...value.draft.adminTags];
       setRows((current) => current.map((inquiry) => (inquiry.id === next.id ? next : inquiry)));
       setDraft((current) => (current && current.id === value.draft.id ? next : current));
       if (activeOrderIdRef.current === value.draft.id) {
@@ -412,8 +414,18 @@ function AdminOrdersPage() {
     if (!draft) return;
     setResending(true);
     setToastMessage("");
-    void resendAdminOrderConfirmation({ data: { id: draft.id } })
-      .then((result) => showToast(result.message, result.ok ? "success" : "error"))
+    const resentId = draft.id;
+    void resendAdminOrderConfirmation({ data: { id: resentId } })
+      .then((result) => {
+        showToast(result.message, result.ok ? "success" : "error");
+        if (!result.ok) return;
+        const clearTag = (inquiry: AdminInquiryRecord) =>
+          inquiry.id === resentId
+            ? { ...inquiry, adminTags: inquiry.adminTags.filter((tag) => tag !== "Correo no enviado") }
+            : inquiry;
+        setRows((current) => current.map(clearTag));
+        setDraft((current) => (current ? clearTag(current) : current));
+      })
       .catch(() => showToast("No se pudo reenviar el correo ahora mismo.", "error"))
       .finally(() => setResending(false));
   };
@@ -598,7 +610,14 @@ function AdminOrdersPage() {
                         <td className="py-3 pr-3">{formatAdminInquiryChannel(inquiry.channel)}</td>
                         <td className="py-3 pr-3">{inquiry.fulfillmentMethod === "delivery" ? "Delivery" : "Recoger"}</td>
                         <td className="py-3 pr-3">
-                          <AdminTag tone={statusTone(inquiry.status)}>{formatAdminInquiryStatus(inquiry.status)}</AdminTag>
+                          <div className="flex flex-wrap gap-1">
+                            <AdminTag tone={statusTone(inquiry.status)}>{formatAdminInquiryStatus(inquiry.status)}</AdminTag>
+                            {inquiry.adminTags.map((tag) => (
+                              <AdminTag key={tag} tone={tag === "Correo no enviado" ? "danger" : "warn"}>
+                                {tag}
+                              </AdminTag>
+                            ))}
+                          </div>
                         </td>
                       </tr>
                     ))}
