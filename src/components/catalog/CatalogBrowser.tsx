@@ -782,7 +782,7 @@ export function CatalogBrowser({
               soldOutMode={soldOutMode}
               showSubtitle={false}
               tone={tone}
-              themeVibe={themeVibe}
+              themeVibe={themeVibe ?? vibeScope}
             />
           ))}
         </div>

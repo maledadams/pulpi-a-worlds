@@ -68,7 +68,7 @@ export function ProductCard({
   const cardOutlineClassName =
     tone === "store"
       ? "border-foreground/20"
-      : product.vibe === "sunshine"
+      : visualVibe === "sunshine"
         ? "border-[#d2a0ca]"
         : "border-foreground/20";
   const noticeTextClassName =
