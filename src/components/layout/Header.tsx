@@ -1,7 +1,6 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { ShoppingBag, Search, Menu, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MegaPortal } from "./MegaPortal";
 import { StorePineapple } from "@/components/branding/StorePineapple";
 import { useCart } from "@/context/cart";
 import {
@@ -366,16 +365,6 @@ export function Header({
     setCategoryPage(0);
   }, [renderedMega]);
 
-  const headerRef = useRef<HTMLElement | null>(null);
-  const [headerHeight, setHeaderHeight] = useState(0);
-
-  useEffect(() => {
-    const update = () => setHeaderHeight(headerRef.current?.getBoundingClientRect().height ?? 0);
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
-
   /* close mobile on route change */
   useEffect(() => {
     setMobileOpen(false);
@@ -401,16 +390,12 @@ export function Header({
     }
   }, [activeMega]);
 
-  /* block page scroll while the mega dropdown is open/hovered, so it stays put */
+  /* scrolling the page closes the mega dropdown */
   useEffect(() => {
     if (!activeMega) return;
-    const preventScroll = (event: WheelEvent | TouchEvent) => event.preventDefault();
-    window.addEventListener("wheel", preventScroll, { passive: false });
-    window.addEventListener("touchmove", preventScroll, { passive: false });
-    return () => {
-      window.removeEventListener("wheel", preventScroll);
-      window.removeEventListener("touchmove", preventScroll);
-    };
+    const close = () => setActiveMega(null);
+    window.addEventListener("scroll", close, { passive: true });
+    return () => window.removeEventListener("scroll", close);
   }, [activeMega]);
 
   const navItems = useMemo<NavItem[]>(() => {
@@ -507,8 +492,9 @@ export function Header({
 
   return (
     <header
-      ref={headerRef}
-      className="sticky top-0 z-40 bg-background/95 backdrop-blur transition-colors duration-300"
+      className={`sticky top-0 bg-background/95 backdrop-blur transition-colors duration-300 ${
+        renderedMega ? "z-[99999]" : "z-40"
+      }`}
       onMouseLeave={handleMouseLeaveHeader}
     >
       {/* ── Top bar ── */}
@@ -586,15 +572,17 @@ export function Header({
 
       {/* ── Desktop mega menu ── */}
       <AnnouncementBar announcements={announcements} theme={announcementTheme} />
-      <MegaPortal top={headerHeight}>
-        <div
-          className={`left-0 right-0 hidden overflow-hidden shadow-xl transition-[max-height,opacity,transform] duration-250 md:block ${
+      {/* Hangs off the bottom of the nav row (top-14 = its h-14), so it covers
+          the announcement bar instead of opening below it. Pure CSS on
+          purpose: html has a per-breakpoint `zoom` (styles.css), and JS
+          measurements under zoom disagree between Safari and Chrome. */}
+      <div
+          className={`absolute inset-x-0 top-14 hidden overflow-hidden shadow-xl transition-[max-height,opacity,transform] duration-250 md:block ${
             megaOpen
               ? "pointer-events-auto max-h-[34rem] translate-y-0 opacity-100"
               : "pointer-events-none max-h-0 -translate-y-1 opacity-0"
           }`}
           style={{
-            position: "fixed",
             background: currentMega
               ? (VIBE_PANEL[currentMega.key]?.panelBg ?? "var(--color-background)")
               : "var(--color-background)",
@@ -755,7 +743,6 @@ export function Header({
           );
         })()}
       </div>
-      </MegaPortal>
 
       {/* ── Mobile menu ── */}
       {mobileOpen && (
