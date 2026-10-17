@@ -264,7 +264,9 @@ function AppChrome({
   return (
     <div className={`min-h-screen flex flex-col ${hasCheckoutTexture ? "checkout-texture relative isolate" : ""}`}>
       {hasCheckoutTexture ? <CheckoutSideWaves /> : null}
-      <div className={hasCheckoutTexture ? "relative z-10" : undefined}>
+      {/* z-20, one above <main>'s z-10, so the header's dropdown paints over
+          the checkout form instead of under it. */}
+      <div className={hasCheckoutTexture ? "relative z-20" : undefined}>
         <Header announcements={announcements} announcementThemeOverride={themeOverride} />
       </div>
       <main
