@@ -169,8 +169,9 @@ const assertAdminAccess = createServerFn({ method: "GET" }).handler(async () => 
   setResponseHeader("Cache-Control", "private, no-store");
   setResponseHeader("Vary", "Cookie, Cf-Access-Authenticated-User-Email, Cf-Access-Jwt-Assertion");
 
-  const host = getRequestHost({ xForwardedHost: true }).toLowerCase().split(":")[0];
-  if (LOCAL_HOSTS.has(host)) return;
+  // Use the real Host header, never X-Forwarded-Host: visitors can set that
+  // header to anything. Local dev is already exempt via enforceAdminAccess().
+  const host = getRequestHost().toLowerCase().split(":")[0];
 
   const allowedHosts = new Set(parseServerAllowedHosts());
   if (allowedHosts.size > 0 && !allowedHosts.has(host)) {
