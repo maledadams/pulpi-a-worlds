@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { BarChart3, Boxes, Cake, FolderKanban, LayoutGrid, Package2, Percent, Settings2, ShoppingBag, Store, Warehouse } from "lucide-react";
+import { BarChart3, Boxes, Cake, FolderKanban, LayoutGrid, MessageSquareHeart, Package2, Percent, Settings2, ShoppingBag, Store, Warehouse } from "lucide-react";
 import type { ReactNode } from "react";
 import { shouldShowAdminAccessNotice } from "@/lib/admin-access";
 import type { AdminSection } from "@/lib/admin-types";
@@ -17,6 +17,7 @@ const NAV_ITEMS: Array<{
   { section: "categorias", label: "Categorias", to: "/admin/categorias", icon: Boxes },
   { section: "colecciones", label: "Colecciones", to: "/admin/colecciones", icon: FolderKanban },
   { section: "pedidos", label: "Pedidos", to: "/admin/pedidos", icon: ShoppingBag },
+  { section: "encuestas", label: "Encuestas", to: "/admin/encuestas", icon: MessageSquareHeart },
   { section: "descuentos", label: "Promociones", to: "/admin/descuentos", icon: Percent },
   { section: "cumpleanos", label: "Cumpleaños", to: "/admin/cumpleanos", icon: Cake },
   { section: "configuracion", label: "Configuracion", to: "/admin/configuracion", icon: Settings2 },
@@ -29,6 +30,7 @@ const SECTION_BACKGROUNDS: Record<AdminSection, string> = {
   categorias: "linear-gradient(160deg, rgba(255, 197, 219, 0.35) 0%, rgba(255, 223, 156, 0.28) 45%, rgba(253, 249, 244, 1) 100%)",
   colecciones: "linear-gradient(160deg, rgba(255, 210, 228, 0.35) 0%, rgba(255, 191, 214, 0.26) 45%, rgba(253, 249, 244, 1) 100%)",
   pedidos: "linear-gradient(160deg, rgba(255, 221, 176, 0.38) 0%, rgba(255, 201, 146, 0.28) 45%, rgba(253, 249, 244, 1) 100%)",
+  encuestas: "linear-gradient(160deg, rgba(255, 214, 226, 0.36) 0%, rgba(255, 228, 170, 0.26) 45%, rgba(253, 249, 244, 1) 100%)",
   descuentos: "linear-gradient(160deg, rgba(214, 245, 164, 0.38) 0%, rgba(191, 239, 119, 0.28) 45%, rgba(253, 249, 244, 1) 100%)",
   cumpleanos: "linear-gradient(160deg, rgba(255, 202, 212, 0.38) 0%, rgba(255, 231, 158, 0.28) 45%, rgba(253, 249, 244, 1) 100%)",
   configuracion: "linear-gradient(160deg, rgba(214, 245, 164, 0.32) 0%, rgba(255, 205, 221, 0.28) 45%, rgba(253, 249, 244, 1) 100%)",

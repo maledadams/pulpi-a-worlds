@@ -172,6 +172,9 @@ function ProductSearchField({
 }
 
 export const Route = createFileRoute("/admin/pedidos")({
+  validateSearch: (search: Record<string, unknown>): { order?: string } => ({
+    order: typeof search.order === "string" && search.order.trim() ? search.order.trim() : undefined,
+  }),
   beforeLoad: () => enforceAdminAccess(),
   loader: async () => {
     const [inquiries, products] = await Promise.all([getAdminOrders(), getAdminCatalogProducts()]);
@@ -183,15 +186,22 @@ export const Route = createFileRoute("/admin/pedidos")({
 
 function AdminOrdersPage() {
   const { inquiries, products } = Route.useLoaderData();
+  const { order: requestedOrderId } = Route.useSearch();
+  const requestedOrder = requestedOrderId
+    ? inquiries.find((inquiry) => inquiry.id === requestedOrderId) ?? null
+    : null;
+  const initialOrder = requestedOrder ?? inquiries[0] ?? null;
   const [rows, setRows] = useState(() => inquiries.map(cloneInquiry));
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | AdminInquiryStatus>("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | AdminInquiryStatus>(
+    requestedOrder?.status === "pending_contact" ? "pending_contact" : "all",
+  );
   const [page, setPage] = useState(0);
-  const [selectedId, setSelectedId] = useState(inquiries[0]?.id ?? "");
+  const [selectedId, setSelectedId] = useState(initialOrder?.id ?? "");
   const activeOrderIdRef = useRef(selectedId);
   activeOrderIdRef.current = selectedId;
-  const [draft, setDraft] = useState<AdminInquiryRecord | null>(inquiries[0] ? cloneInquiry(inquiries[0]) : null);
-  const [draftLines, setDraftLines] = useState<DraftOrderLine[]>(() => inquiries[0] ? buildEditableLines(inquiries[0], products) : []);
+  const [draft, setDraft] = useState<AdminInquiryRecord | null>(initialOrder ? cloneInquiry(initialOrder) : null);
+  const [draftLines, setDraftLines] = useState<DraftOrderLine[]>(() => initialOrder ? buildEditableLines(initialOrder, products) : []);
   const [toastMessage, setToastMessage] = useState("");
   const [toastTone, setToastTone] = useState<AdminToastTone>("info");
   const showToast = (text: string, tone: AdminToastTone = "info") => {
@@ -241,6 +251,14 @@ function AdminOrdersPage() {
   useEffect(() => {
     setPage(0);
   }, [query, statusFilter]);
+
+  useEffect(() => {
+    if (!requestedOrder) return;
+    const index = filtered.findIndex((inquiry) => inquiry.id === requestedOrder.id);
+    if (index >= 0) setPage(Math.floor(index / PAGE_SIZE));
+    // Only on first mount: later filter/search changes behave as before.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!filtered.length) {

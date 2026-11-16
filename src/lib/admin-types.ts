@@ -8,6 +8,7 @@ export type AdminSection =
   | "categorias"
   | "colecciones"
   | "pedidos"
+  | "encuestas"
   | "descuentos"
   | "cumpleanos"
   | "configuracion";

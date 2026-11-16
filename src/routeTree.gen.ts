@@ -28,6 +28,7 @@ import { Route as ColeccionSlugRouteImport } from './routes/coleccion.$slug'
 import { Route as AdminStockRouteImport } from './routes/admin/stock'
 import { Route as AdminProductosRouteImport } from './routes/admin/productos'
 import { Route as AdminPedidosRouteImport } from './routes/admin/pedidos'
+import { Route as AdminEncuestasRouteImport } from './routes/admin/encuestas'
 import { Route as AdminDescuentosRouteImport } from './routes/admin/descuentos'
 import { Route as AdminCumpleanosRouteImport } from './routes/admin/cumpleanos'
 import { Route as AdminConfiguracionRouteImport } from './routes/admin/configuracion'
@@ -129,6 +130,11 @@ const AdminPedidosRoute = AdminPedidosRouteImport.update({
   path: '/admin/pedidos',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminEncuestasRoute = AdminEncuestasRouteImport.update({
+  id: '/admin/encuestas',
+  path: '/admin/encuestas',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminDescuentosRoute = AdminDescuentosRouteImport.update({
   id: '/admin/descuentos',
   path: '/admin/descuentos',
@@ -174,6 +180,7 @@ export interface FileRoutesByFullPath {
   '/admin/configuracion': typeof AdminConfiguracionRoute
   '/admin/cumpleanos': typeof AdminCumpleanosRoute
   '/admin/descuentos': typeof AdminDescuentosRoute
+  '/admin/encuestas': typeof AdminEncuestasRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/productos': typeof AdminProductosRoute
   '/admin/stock': typeof AdminStockRoute
@@ -200,6 +207,7 @@ export interface FileRoutesByTo {
   '/admin/configuracion': typeof AdminConfiguracionRoute
   '/admin/cumpleanos': typeof AdminCumpleanosRoute
   '/admin/descuentos': typeof AdminDescuentosRoute
+  '/admin/encuestas': typeof AdminEncuestasRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/productos': typeof AdminProductosRoute
   '/admin/stock': typeof AdminStockRoute
@@ -227,6 +235,7 @@ export interface FileRoutesById {
   '/admin/configuracion': typeof AdminConfiguracionRoute
   '/admin/cumpleanos': typeof AdminCumpleanosRoute
   '/admin/descuentos': typeof AdminDescuentosRoute
+  '/admin/encuestas': typeof AdminEncuestasRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/productos': typeof AdminProductosRoute
   '/admin/stock': typeof AdminStockRoute
@@ -255,6 +264,7 @@ export interface FileRouteTypes {
     | '/admin/configuracion'
     | '/admin/cumpleanos'
     | '/admin/descuentos'
+    | '/admin/encuestas'
     | '/admin/pedidos'
     | '/admin/productos'
     | '/admin/stock'
@@ -281,6 +291,7 @@ export interface FileRouteTypes {
     | '/admin/configuracion'
     | '/admin/cumpleanos'
     | '/admin/descuentos'
+    | '/admin/encuestas'
     | '/admin/pedidos'
     | '/admin/productos'
     | '/admin/stock'
@@ -307,6 +318,7 @@ export interface FileRouteTypes {
     | '/admin/configuracion'
     | '/admin/cumpleanos'
     | '/admin/descuentos'
+    | '/admin/encuestas'
     | '/admin/pedidos'
     | '/admin/productos'
     | '/admin/stock'
@@ -334,6 +346,7 @@ export interface RootRouteChildren {
   AdminConfiguracionRoute: typeof AdminConfiguracionRoute
   AdminCumpleanosRoute: typeof AdminCumpleanosRoute
   AdminDescuentosRoute: typeof AdminDescuentosRoute
+  AdminEncuestasRoute: typeof AdminEncuestasRoute
   AdminPedidosRoute: typeof AdminPedidosRoute
   AdminProductosRoute: typeof AdminProductosRoute
   AdminStockRoute: typeof AdminStockRoute
@@ -477,6 +490,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminPedidosRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/encuestas': {
+      id: '/admin/encuestas'
+      path: '/admin/encuestas'
+      fullPath: '/admin/encuestas'
+      preLoaderRoute: typeof AdminEncuestasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/descuentos': {
       id: '/admin/descuentos'
       path: '/admin/descuentos'
@@ -534,6 +554,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminConfiguracionRoute: AdminConfiguracionRoute,
   AdminCumpleanosRoute: AdminCumpleanosRoute,
   AdminDescuentosRoute: AdminDescuentosRoute,
+  AdminEncuestasRoute: AdminEncuestasRoute,
   AdminPedidosRoute: AdminPedidosRoute,
   AdminProductosRoute: AdminProductosRoute,
   AdminStockRoute: AdminStockRoute,
