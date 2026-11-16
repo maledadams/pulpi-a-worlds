@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate, useRouter } from "@tanstack/react-r
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, ChevronLeft, ShoppingBag } from "lucide-react";
 import { TurnstileWidget } from "@/components/forms/TurnstileWidget";
+import { OrderFeedbackForm } from "@/components/order/OrderFeedbackForm";
 import { useCatalogProducts } from "@/context/catalog";
 import { useCart } from "@/context/cart";
 import { formatPrice } from "@/data/products";
@@ -296,6 +297,8 @@ function InquiryPage() {
               </div>
             </div>
           </div>
+
+          <OrderFeedbackForm orderId={createdOrder.feedback.orderId} token={createdOrder.feedback.token} />
 
           <Link
             to="/tienda"
