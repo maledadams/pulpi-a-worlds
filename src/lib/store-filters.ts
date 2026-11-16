@@ -4,6 +4,7 @@ import {
   getCategorySortOrder,
   isConfiguredNsfwCategory,
   type Product,
+  type SubstoreVibe,
   type Vibe,
 } from "@/data/products";
 import {
@@ -345,6 +346,34 @@ export function filterCatalogProducts(products: Product[], filters: CatalogFilte
   }
 
   return result;
+}
+
+export function isOwnStoreProduct(product: Product, vibe: SubstoreVibe) {
+  return product.vibe === vibe || product.secondaryVibe === vibe;
+}
+
+// Cross-store results (spec 2026-11-16-mobile-findability): only when the
+// shopper is looking for a specific kind of item - a category filter or real
+// search text. Plain browsing of a sub-store stays exactly as before.
+export function isCrossStoreTriggered(filters: CatalogFilters) {
+  return filters.categories.size > 0 || filters.q.trim().length > 0;
+}
+
+// Own store's matches first (unchanged rules), then every other store's
+// in-stock matches. The department filter is dropped for the second group
+// because it would otherwise exclude every foreign product by definition.
+export function orderForSubstore(allProducts: Product[], filters: CatalogFilters, vibe: SubstoreVibe) {
+  const ownProducts = allProducts.filter((product) => isOwnStoreProduct(product, vibe));
+  const ownGroup = filterCatalogProducts(ownProducts, filters);
+  if (!isCrossStoreTriggered(filters)) return ownGroup;
+
+  const foreignProducts = allProducts.filter((product) => !isOwnStoreProduct(product, vibe));
+  const foreignGroup = filterCatalogProducts(foreignProducts, {
+    ...filters,
+    departments: new Set(),
+    onlyAvail: true,
+  });
+  return [...ownGroup, ...foreignGroup];
 }
 
 export function getDepartmentOptions(products: Product[]) {

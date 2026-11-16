@@ -12,6 +12,7 @@
     "deploy:production": "vite build --mode production && wrangler deploy",
     "deploy:dry-run": "vite build --mode production && wrangler deploy --dry-run",
     "lint": "eslint .",
+    "test": "vitest run",
     "format": "prettier --write ."
   },
   "dependencies": {
@@ -86,6 +87,7 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.59.4",
     "vite": "^7.3.6",
+    "vitest": "3.2.4",
     "wrangler": "4.106.0"
   }
 }
