@@ -34,7 +34,8 @@ export function VibePage({
   onSearchChange: (next: CatalogSearch) => void;
 }) {
   useVibe(cfg.vibe);
-  const products = useCatalogProducts().filter(
+  const allProducts = useCatalogProducts();
+  const products = allProducts.filter(
     (product) => product.vibe === cfg.vibe || product.secondaryVibe === cfg.vibe,
   );
   const catalogHeading = /^toda la linea$/i.test(cfg.catalogHeading.trim())
@@ -104,6 +105,7 @@ export function VibePage({
             themeVibe={cfg.catalogThemeVibe}
             searchPlaceholderClassName={cfg.searchPlaceholderClassName}
             wideProductResultsOnly
+            crossStoreCatalog={allProducts}
           />
         </div>
       </section>

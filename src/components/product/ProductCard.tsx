@@ -44,12 +44,16 @@ export function ProductCard({
   showSubtitle = false,
   tone = "vibe",
   themeVibe,
+  dataVibe,
 }: {
   product: Product;
   soldOutMode?: "standard" | "vibe";
   showSubtitle?: boolean;
   tone?: "store" | "vibe";
   themeVibe?: Product["vibe"];
+  // Set only for a card shown outside its own store (cross-store results):
+  // re-scopes the CSS color variables to the card's home store.
+  dataVibe?: Product["vibe"];
 }) {
   void soldOutMode;
   const cart = useCart();
@@ -115,7 +119,10 @@ const cartActionClassName =
 
   return (
     <>
-      <div className="card-lift group relative block h-full rounded-lg">
+      <div
+        data-vibe={dataVibe}
+        className={`card-lift group relative block h-full rounded-lg ${dataVibe ? "text-foreground" : ""}`}
+      >
         <Link to="/producto/$slug" params={{ slug: product.slug }} className="block h-full">
           <div
             className={`flex aspect-[4/7] h-full flex-col overflow-hidden rounded-lg border shadow-sm ${cardOutlineClassName} ${

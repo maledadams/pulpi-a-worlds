@@ -3,7 +3,7 @@ import { ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { ProductCard } from "@/components/product/ProductCard";
 import { useScrollFollow } from "@/hooks/use-scroll-follow";
-import { getCategoryLabel, type Product, type Vibe } from "@/data/products";
+import { getCategoryLabel, type Product, type SubstoreVibe, type Vibe } from "@/data/products";
 import {
   CATALOG_SORTS,
   PRICE_BUCKETS,
@@ -15,6 +15,8 @@ import {
   getDepartmentOptions,
   getShoeSizeOptions,
   isNsfwCategory,
+  isOwnStoreProduct,
+  orderForSubstore,
   parseCatalogSearch,
   sizeLabel,
   toggleSet,
@@ -167,6 +169,10 @@ type CatalogBrowserProps = {
   wideResults?: boolean;
   wideResultsTitle?: string;
   wideProductResultsOnly?: boolean;
+  // Sub-store pages only: the full public catalog. When present together with
+  // vibeScope, a category filter or search shows this store's matches first and
+  // then every other store's in-stock matches (orderForSubstore).
+  crossStoreCatalog?: Product[];
 };
 
 export function CatalogBrowser({
@@ -188,6 +194,7 @@ export function CatalogBrowser({
   wideResults = false,
   wideResultsTitle,
   wideProductResultsOnly = false,
+  crossStoreCatalog,
 }: CatalogBrowserProps) {
   const [drawer, setDrawer] = useState(false);
   const filterFollower = useScrollFollow(768);
@@ -223,13 +230,22 @@ export function CatalogBrowser({
     () => getDepartmentOptions(filterCatalogProducts(visibleProducts, { ...filters, departments: new Set() })),
     [filters, visibleProducts],
   );
-  const categoryOptions = useMemo(
-    () =>
-      getCategoryOptions(filterCatalogProducts(visibleProducts, { ...filters, categories: new Set() })).filter(
-        (c) => filters.nsfwEnabled || !isNsfwCategory(c.id),
-      ),
-    [filters, visibleProducts],
-  );
+  const crossStoreVibe: SubstoreVibe | null =
+    crossStoreCatalog && vibeScope && vibeScope !== "pulpina" ? vibeScope : null;
+  const categoryOptions = useMemo(() => {
+    const options = getCategoryOptions(
+      filterCatalogProducts(visibleProducts, { ...filters, categories: new Set() }),
+    ).filter((c) => filters.nsfwEnabled || !isNsfwCategory(c.id));
+    if (!crossStoreVibe || !crossStoreCatalog) return options;
+    return options.map((option) => ({
+      ...option,
+      count: orderForSubstore(
+        crossStoreCatalog,
+        { ...filters, categories: new Set([option.id]) },
+        crossStoreVibe,
+      ).length,
+    }));
+  }, [filters, visibleProducts, crossStoreCatalog, crossStoreVibe]);
   const sizeOptions = useMemo(
     () => getApparelSizeOptions(filterCatalogProducts(visibleProducts, { ...filters, apparelSizes: new Set() })),
     [filters, visibleProducts],
@@ -246,7 +262,13 @@ export function CatalogBrowser({
     () => filterCatalogProducts(visibleProducts, { ...filters, priceBuckets: new Set() }),
     [filters, visibleProducts],
   );
-  const filtered = useMemo(() => filterCatalogProducts(products, filters), [filters, products]);
+  const filtered = useMemo(
+    () =>
+      crossStoreVibe && crossStoreCatalog
+        ? orderForSubstore(crossStoreCatalog, filters, crossStoreVibe)
+        : filterCatalogProducts(products, filters),
+    [crossStoreCatalog, crossStoreVibe, filters, products],
+  );
 
   const activeFilterCount =
     filters.departments.size +
@@ -812,16 +834,34 @@ export function CatalogBrowser({
         </div>
       ) : (
         <div className={`grid ${wideResults ? "gap-4" : "gap-3"} ${cols} ${lastRowClass}`}>
-          {filtered.map((p) => (
-            <ProductCard
-              key={p.id}
-              product={p}
-              soldOutMode={soldOutMode}
-              showSubtitle={false}
-              tone={tone}
-              themeVibe={themeVibe}
-            />
-          ))}
+          {filtered.map((p) => {
+            const isForeign = crossStoreVibe !== null && !isOwnStoreProduct(p, crossStoreVibe);
+            if (!isForeign) {
+              return (
+                <ProductCard
+                  key={p.id}
+                  product={p}
+                  soldOutMode={soldOutMode}
+                  showSubtitle={false}
+                  tone={tone}
+                  themeVibe={themeVibe}
+                />
+              );
+            }
+            // Render exactly as on the product's own store page.
+            const homeLook = p.vibe === "moon" ? "men" : p.vibe;
+            return (
+              <ProductCard
+                key={p.id}
+                product={p}
+                soldOutMode={soldOutMode}
+                showSubtitle={false}
+                tone={p.vibe === "pulpina" ? "store" : "vibe"}
+                themeVibe={p.vibe === "moon" ? "men" : undefined}
+                dataVibe={homeLook}
+              />
+            );
+          })}
         </div>
       )}
     </>
