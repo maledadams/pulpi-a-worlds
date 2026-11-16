@@ -45,6 +45,11 @@ export function useAdminAutosave<T>(
   const savingRef = useRef(false);
   const queuedRef = useRef<{ value: T; snapshot: string } | null>(null);
   const baselineRef = useRef<string | null>(null);
+  // The snapshot whose save just failed. Callers pass a fresh `value` object on
+  // every render, so without this a rejected save (e.g. a server validation
+  // error) re-scheduled itself every debounce tick forever - hundreds of
+  // identical failing requests. Only a real change, or flush(), retries it.
+  const failedSnapshotRef = useRef<string | null>(null);
   // A sentinel (never equal to any real resetKey) so the resync effect below
   // always runs on the very first render too - otherwise the initial render's
   // ref starts out equal to the initial resetKey, the "did it change" check is
@@ -70,6 +75,7 @@ export function useAdminAutosave<T>(
     const promise = save(nextValue)
       .then(() => {
         baselineRef.current = snapshot;
+        failedSnapshotRef.current = null;
         setStatus("saved");
         // A permanent "Guardado" pill just sits there taking up space long
         // after it stopped being useful information - fade it back to idle
@@ -80,6 +86,7 @@ export function useAdminAutosave<T>(
         }, 1800);
       })
       .catch((error: unknown) => {
+        failedSnapshotRef.current = snapshot;
         setStatus("error");
         setErrorMessage(getAdminErrorMessage(error));
       })
@@ -101,6 +108,7 @@ export function useAdminAutosave<T>(
     if (resetKey !== lastResetKeyRef.current) {
       lastResetKeyRef.current = resetKey;
       baselineRef.current = value == null ? null : stableStringify(value);
+      failedSnapshotRef.current = null;
       if (timerRef.current) {
         clearTimeout(timerRef.current);
         timerRef.current = null;
@@ -118,6 +126,7 @@ export function useAdminAutosave<T>(
     if (!enabled || value == null) return;
     const snapshot = stableStringify(value);
     if (snapshot === baselineRef.current) return;
+    if (snapshot === failedSnapshotRef.current) return;
 
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
