@@ -104,7 +104,7 @@ export const submitOrderFeedback = createServerFn({ method: "POST" })
       )
       .run();
 
-    if (!result.meta?.changes) {
+    if (result.meta?.changes === 0) {
       return { ok: false as const, message: "Ya recibimos tu opinion sobre este pedido. Gracias." };
     }
     return { ok: true as const };
