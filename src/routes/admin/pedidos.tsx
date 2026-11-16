@@ -848,6 +848,8 @@ function AdminOrdersPage() {
                   </AdminField>
                   <AdminField label="Estado">
                     <AdminSelect value={draft.status} onChange={(event) => setDraft((current) => (current ? { ...current, status: event.target.value as AdminInquiryStatus } : current))}>
+                      {/* Without this option a pending_contact order showed "Nuevo" and saving it silently became "new". */}
+                      <option value="pending_contact">Pendiente de contacto</option>
                       <option value="new">Nuevo</option>
                       <option value="follow_up">Seguimiento</option>
                       <option value="quoted">Cotizada</option>
