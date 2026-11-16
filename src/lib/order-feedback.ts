@@ -8,6 +8,7 @@ import {
   classifyDevice,
   feedbackTokenSubject,
   orderFeedbackInputSchema,
+  toIsoUtc,
 } from "@/lib/order-feedback-shared";
 
 export { FEEDBACK_QUESTIONS } from "@/lib/order-feedback-shared";
@@ -79,6 +80,13 @@ export async function createOrderFeedbackToken(orderId: string) {
     // Never let the survey marker block order creation.
   }
   return signOrderConfirmToken(feedbackTokenSubject(orderId), secret);
+}
+
+// Deleting an order deletes its survey answer too. Returned as a statement so
+// deleteOrderInternal can run it in the same batch as the order delete.
+export async function prepareOrderFeedbackDelete(db: D1Database, orderId: string) {
+  await ensureFeedbackStorageReady(db);
+  return db.prepare("DELETE FROM order_feedback WHERE inquiry_id = ?").bind(orderId);
 }
 
 export const submitOrderFeedback = createServerFn({ method: "POST" })
@@ -161,6 +169,13 @@ export const getAdminOrderFeedback = createServerFn({ method: "GET" }).handler(a
   if (!db) return { answers: [] as AdminOrderFeedbackRow[], unanswered: [] as AdminUnansweredOrderRow[] };
   await ensureFeedbackStorageReady(db);
 
+  // The orders table is created by the orders code on first use. Before any
+  // order exists there is nothing to show, and querying it would throw.
+  const ordersTable = await db
+    .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'inquiries'")
+    .first();
+  if (!ordersTable) return { answers: [] as AdminOrderFeedbackRow[], unanswered: [] as AdminUnansweredOrderRow[] };
+
   const answers = await db
     .prepare(
       `SELECT f.id, f.inquiry_id, f.ratings_json, f.note, f.device, f.created_at,
@@ -198,8 +213,11 @@ export const getAdminOrderFeedback = createServerFn({ method: "GET" }).handler(a
       `SELECT i.id, i.request_number, i.customer_name, i.customer_phone, i.created_at
        FROM inquiries i
        LEFT JOIN order_feedback f ON f.inquiry_id = i.id
-       WHERE f.id IS NULL AND i.channel = 'formulario' AND i.created_at >= ?
-       ORDER BY i.created_at DESC
+       WHERE f.id IS NULL AND i.channel = 'formulario'
+         -- julianday() so SQLite "YYYY-MM-DD HH:MM:SS" and ISO marker compare as times, not text.
+         -- One minute of slack: the marker is written just after the first order is inserted.
+         AND julianday(i.created_at) >= julianday(?, '-1 minute')
+       ORDER BY julianday(i.created_at) DESC
        LIMIT ?`,
     )
     .bind(startedAt, UNANSWERED_LIMIT)
@@ -229,7 +247,7 @@ export const getAdminOrderFeedback = createServerFn({ method: "GET" }).handler(a
         ratings,
         note: row.note,
         device,
-        createdAt: row.created_at,
+        createdAt: toIsoUtc(row.created_at),
         orderExists: row.request_number !== null,
       };
     }),
@@ -238,7 +256,7 @@ export const getAdminOrderFeedback = createServerFn({ method: "GET" }).handler(a
       requestNumber: row.request_number,
       customerName: row.customer_name ?? "",
       customerPhone: row.customer_phone ?? "",
-      createdAt: row.created_at,
+      createdAt: toIsoUtc(row.created_at),
     })),
   };
 });

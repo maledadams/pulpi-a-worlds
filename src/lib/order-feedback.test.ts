@@ -5,7 +5,22 @@ import {
   classifyDevice,
   feedbackTokenSubject,
   orderFeedbackInputSchema,
+  toIsoUtc,
 } from "@/lib/order-feedback-shared";
+
+describe("toIsoUtc", () => {
+  it("reads SQLite CURRENT_TIMESTAMP values (what new orders store) as UTC", () => {
+    expect(toIsoUtc("2026-11-16 20:47:28")).toBe("2026-11-16T20:47:28.000Z");
+  });
+
+  it("keeps ISO timestamps as the same instant", () => {
+    expect(toIsoUtc("2026-06-10T18:10:00.000Z")).toBe("2026-06-10T18:10:00.000Z");
+  });
+
+  it("returns the input unchanged when it isn't a date", () => {
+    expect(toIsoUtc("not a date")).toBe("not a date");
+  });
+});
 
 describe("FEEDBACK_QUESTIONS", () => {
   it("has the five approved questions, verbatim", () => {

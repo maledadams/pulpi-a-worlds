@@ -29,6 +29,15 @@ export function feedbackTokenSubject(orderId: string) {
   return `order-feedback:${orderId}`;
 }
 
+// Orders get `created_at` from SQLite's CURRENT_TIMESTAMP ("YYYY-MM-DD HH:MM:SS",
+// UTC, no zone marker). Browsers read that shape as local time (or reject it,
+// Safari), so convert to a real ISO UTC string before it reaches the page.
+export function toIsoUtc(value: string) {
+  const sqliteUtc = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value) ? `${value.replace(" ", "T")}Z` : value;
+  const time = Date.parse(sqliteUtc);
+  return Number.isNaN(time) ? value : new Date(time).toISOString();
+}
+
 const rating = z.number().int().min(1).max(5);
 
 export const orderFeedbackInputSchema = z.object({

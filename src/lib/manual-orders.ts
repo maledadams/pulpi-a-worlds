@@ -14,7 +14,7 @@ import { verifyTurnstileToken } from "@/lib/turnstile";
 import { getDominicanDateParts, getDominicanDayStartIso, validateDiscountCodeInternal } from "@/lib/public-forms";
 import { recordDiscountRedemption } from "@/lib/store-discounts";
 import { signOrderConfirmToken, verifyOrderConfirmToken } from "@/lib/order-confirm-token";
-import { createOrderFeedbackToken } from "@/lib/order-feedback";
+import { createOrderFeedbackToken, prepareOrderFeedbackDelete } from "@/lib/order-feedback";
 import { normalizeOrderEmail, ORDER_EMAIL_PATTERN, ORDER_FIELD_LIMITS } from "@/lib/order-validation";
 import type { AdminInquiryChannel, AdminInquiryRecord, AdminInquiryStatus } from "@/lib/admin-types";
 
@@ -1404,7 +1404,11 @@ async function deleteOrderInternal(id: string) {
     status: normalizeOrderStatus(existing.status),
   });
 
-  await db.prepare("DELETE FROM inquiries WHERE id = ?").bind(normalizedId).run();
+  // The order's survey answer goes with it, in one batch so neither is left behind alone.
+  await db.batch([
+    await prepareOrderFeedbackDelete(db, normalizedId),
+    db.prepare("DELETE FROM inquiries WHERE id = ?").bind(normalizedId),
+  ]);
 
   const inventoryImpact = buildOrderInventoryImpact(record.lines, record.status);
   await adjustCatalogVariantInventoryInternal(
