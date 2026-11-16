@@ -16,7 +16,7 @@ export function OrderFeedbackForm({ orderId, token }: { orderId: string; token: 
   if (state === "sent") {
     return (
       <p className="mt-6 rounded-2xl border border-foreground/10 bg-background p-4 text-center text-sm">
-        Gracias por tu opinion. Nos ayuda a mejorar la pagina.
+        Gracias por tu opinión. Nos ayuda a mejorar la página.
       </p>
     );
   }
@@ -36,7 +36,7 @@ export function OrderFeedbackForm({ orderId, token }: { orderId: string; token: 
         setState("open");
       })
       .catch(() => {
-        setError("No se pudo enviar ahora mismo. Intentalo otra vez.");
+        setError("No se pudo enviar ahora mismo. Inténtalo otra vez.");
         setState("open");
       });
   };
@@ -47,7 +47,7 @@ export function OrderFeedbackForm({ orderId, token }: { orderId: string; token: 
       className="mt-6 rounded-2xl border border-foreground/10 bg-background p-4 sm:p-5"
     >
       <h2 id="order-feedback-title" className="text-sm font-bold">
-        ¿Como fue tu experiencia en la pagina? (opcional)
+        ¿Cómo fue tu experiencia en la página? (opcional)
       </h2>
       <div className="mt-4 grid gap-4">
         {FEEDBACK_QUESTIONS.map((question) => (
@@ -76,7 +76,7 @@ export function OrderFeedbackForm({ orderId, token }: { orderId: string; token: 
           </fieldset>
         ))}
         <label className="grid gap-2 text-sm">
-          <span>¿Algo mas que quieras contarnos?</span>
+          <span>¿Algo más que quieras contarnos?</span>
           <textarea
             value={note}
             onChange={(event) => setNote(event.target.value.slice(0, 500))}

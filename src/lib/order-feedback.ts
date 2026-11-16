@@ -46,6 +46,19 @@ async function ensureFeedbackStorageReady(db: D1Database) {
         )`,
       )
       .run()
+      .then(() =>
+        // Survey start marker: orders created before this never saw a survey (see unanswered query).
+        db.batch([
+          db.prepare(
+            "CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value_json TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)",
+          ),
+          db
+            .prepare(
+              "INSERT INTO app_settings (key, value_json) VALUES ('order_feedback_started_at', ?) ON CONFLICT(key) DO NOTHING",
+            )
+            .bind(JSON.stringify(new Date().toISOString())),
+        ]),
+      )
       .then(() => undefined)
       .catch((error) => {
         feedbackStorageReady = null;
@@ -59,6 +72,12 @@ async function ensureFeedbackStorageReady(db: D1Database) {
 export async function createOrderFeedbackToken(orderId: string) {
   const secret = await getSecret();
   if (!secret) return "";
+  try {
+    const db = (await getWorkerEnv()).DB;
+    if (db) await ensureFeedbackStorageReady(db);
+  } catch {
+    // Never let the survey marker block order creation.
+  }
   return signOrderConfirmToken(feedbackTokenSubject(orderId), secret);
 }
 
@@ -68,7 +87,7 @@ export const submitOrderFeedback = createServerFn({ method: "POST" })
     const { setResponseHeader } = await import("@tanstack/react-start/server");
     setResponseHeader("Cache-Control", "private, no-store");
 
-    const hasAnswer = Object.keys(data.ratings).length > 0 || data.note.length > 0;
+    const hasAnswer = Object.values(data.ratings).some((value) => typeof value === "number") || data.note.length > 0;
     if (!hasAnswer) {
       return { ok: false as const, message: "Marca al menos una estrella o escribe un comentario." };
     }
@@ -84,7 +103,7 @@ export const submitOrderFeedback = createServerFn({ method: "POST" })
     const workerEnv = await getWorkerEnv();
     const db = workerEnv.DB ?? null;
     if (!db) {
-      return { ok: false as const, message: "La encuesta no esta disponible ahora mismo." };
+      return { ok: false as const, message: "La encuesta no está disponible ahora mismo." };
     }
 
     await ensureFeedbackStorageReady(db);
@@ -105,7 +124,7 @@ export const submitOrderFeedback = createServerFn({ method: "POST" })
       .run();
 
     if (result.meta?.changes === 0) {
-      return { ok: false as const, message: "Ya recibimos tu opinion sobre este pedido. Gracias." };
+      return { ok: false as const, message: "Ya recibimos tu opinión sobre este pedido. Gracias." };
     }
     return { ok: true as const };
   });
@@ -119,6 +138,7 @@ export type AdminOrderFeedbackRow = {
   note: string;
   device: FeedbackDevice;
   createdAt: string;
+  orderExists: boolean;
 };
 
 export type AdminUnansweredOrderRow = {
@@ -160,16 +180,29 @@ export const getAdminOrderFeedback = createServerFn({ method: "GET" }).handler(a
       customer_name: string | null;
     }>();
 
-  const unanswered = await db
+  const markerRow = await db
+    .prepare("SELECT value_json FROM app_settings WHERE key = 'order_feedback_started_at'")
+    .first<{ value_json: string }>();
+  let startedAt = "";
+  try {
+    const parsed = markerRow ? JSON.parse(markerRow.value_json) : null;
+    if (typeof parsed === "string" && !Number.isNaN(Date.parse(parsed))) startedAt = parsed;
+  } catch {
+    startedAt = "";
+  }
+
+  const unanswered = !startedAt
+    ? { results: [] }
+    : await db
     .prepare(
       `SELECT i.id, i.request_number, i.customer_name, i.customer_phone, i.created_at
        FROM inquiries i
        LEFT JOIN order_feedback f ON f.inquiry_id = i.id
-       WHERE f.id IS NULL AND i.channel = 'formulario'
+       WHERE f.id IS NULL AND i.channel = 'formulario' AND i.created_at >= ?
        ORDER BY i.created_at DESC
        LIMIT ?`,
     )
-    .bind(UNANSWERED_LIMIT)
+    .bind(startedAt, UNANSWERED_LIMIT)
     .all<{
       id: string;
       request_number: string;
@@ -197,6 +230,7 @@ export const getAdminOrderFeedback = createServerFn({ method: "GET" }).handler(a
         note: row.note,
         device,
         createdAt: row.created_at,
+        orderExists: row.request_number !== null,
       };
     }),
     unanswered: (unanswered.results ?? []).map((row) => ({

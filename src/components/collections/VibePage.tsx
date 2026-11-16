@@ -3,7 +3,7 @@ import { CatalogBrowser } from "@/components/catalog/CatalogBrowser";
 import { useCatalogProducts } from "@/context/catalog";
 import { useVibe } from "@/hooks/use-vibe";
 import { type CatalogSearch } from "@/lib/store-filters";
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { HeroWaveTransition } from "@/components/collections/HeroWaveTransition";
 
 type Cfg = {
@@ -35,8 +35,9 @@ export function VibePage({
 }) {
   useVibe(cfg.vibe);
   const allProducts = useCatalogProducts();
-  const products = allProducts.filter(
-    (product) => product.vibe === cfg.vibe || product.secondaryVibe === cfg.vibe,
+  const products = useMemo(
+    () => allProducts.filter((product) => product.vibe === cfg.vibe || product.secondaryVibe === cfg.vibe),
+    [allProducts, cfg.vibe],
   );
   const catalogHeading = /^toda la linea$/i.test(cfg.catalogHeading.trim())
     ? "Toda la Linea"

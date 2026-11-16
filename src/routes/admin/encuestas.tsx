@@ -18,7 +18,7 @@ export const Route = createFileRoute("/admin/encuestas")({
 });
 
 const DEVICE_LABEL: Record<FeedbackDevice, string> = {
-  phone: "Telefono",
+  phone: "Teléfono",
   tablet: "Tablet",
   desktop: "Computadora",
 };
@@ -50,12 +50,12 @@ function AdminSurveysPage() {
   const desktop = answers.filter((row) => row.device !== "phone");
 
   return (
-    <AdminShell section="encuestas" title="Encuestas" subtitle="Opiniones opcionales que dejan los clientes despues de hacer un pedido.">
+    <AdminShell section="encuestas" title="Encuestas" subtitle="Opiniones opcionales que dejan los clientes después de hacer un pedido.">
       <AdminPanel title="Promedios">
         {answers.length === 0 ? (
           <AdminEmptyState
-            title="Todavia no hay respuestas"
-            body="Cuando un cliente complete la encuesta despues de su pedido, aparecera aqui."
+            title="Todavía no hay respuestas"
+            body="Cuando un cliente complete la encuesta después de su pedido, aparecerá aquí."
           />
         ) : (
           <div className="overflow-x-auto">
@@ -63,7 +63,7 @@ function AdminSurveysPage() {
               <thead>
                 <tr className="border-b border-[#231717]/10">
                   <th className="py-2 pr-4 font-bold">Pregunta</th>
-                  <th className="py-2 pr-4 font-bold">Telefono ({phone.length})</th>
+                  <th className="py-2 pr-4 font-bold">Teléfono ({phone.length})</th>
                   <th className="py-2 pr-4 font-bold">Tablet y computadora ({desktop.length})</th>
                   <th className="py-2 font-bold">Todos ({answers.length})</th>
                 </tr>
@@ -89,13 +89,17 @@ function AdminSurveysPage() {
             {answers.map((row) => (
               <li key={row.id} className="rounded-2xl border border-[#231717]/10 bg-white p-4">
                 <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <Link
-                    to="/admin/pedidos"
-                    search={{ order: row.orderId }}
-                    className="font-black underline underline-offset-4"
-                  >
-                    Pedido {row.requestNumber}
-                  </Link>
+                  {row.orderExists ? (
+                    <Link
+                      to="/admin/pedidos"
+                      search={{ order: row.orderId }}
+                      className="font-black underline underline-offset-4"
+                    >
+                      Pedido {row.requestNumber}
+                    </Link>
+                  ) : (
+                    <span className="font-black">Pedido {row.requestNumber}</span>
+                  )}
                   {row.customerName ? <span>{row.customerName}</span> : null}
                   <AdminTag>{DEVICE_LABEL[row.device]}</AdminTag>
                   <span className="text-xs text-[#6b5a55]">{formatDate(row.createdAt)}</span>

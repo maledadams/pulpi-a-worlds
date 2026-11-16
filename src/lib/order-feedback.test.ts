@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { signOrderConfirmToken, verifyOrderConfirmToken } from "@/lib/order-confirm-token";
 import {
   FEEDBACK_QUESTIONS,
   classifyDevice,
@@ -57,5 +58,18 @@ describe("orderFeedbackInputSchema", () => {
     const parsed = orderFeedbackInputSchema.parse({ ...base, note: "  hola  " });
     expect(parsed.note).toBe("hola");
     expect(orderFeedbackInputSchema.safeParse({ ...base, note: "x".repeat(501) }).success).toBe(false);
+  });
+});
+
+describe("survey token", () => {
+  const secret = "test-secret";
+  it("verifies for the same order and rejects another order", async () => {
+    const token = await signOrderConfirmToken(feedbackTokenSubject("order-1"), secret);
+    expect(await verifyOrderConfirmToken(feedbackTokenSubject("order-1"), token, secret)).toBe(true);
+    expect(await verifyOrderConfirmToken(feedbackTokenSubject("order-2"), token, secret)).toBe(false);
+  });
+  it("is not interchangeable with the WhatsApp confirm token", async () => {
+    const confirmToken = await signOrderConfirmToken("order-1", secret);
+    expect(await verifyOrderConfirmToken(feedbackTokenSubject("order-1"), confirmToken, secret)).toBe(false);
   });
 });
