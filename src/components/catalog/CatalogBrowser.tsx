@@ -784,7 +784,7 @@ export function CatalogBrowser({
       <p
         className={`mb-3 text-xs text-muted-foreground ${wideProductResultsOnly ? "text-center" : ""}`}
       >
-        {filtered.length} productos
+        {filtered.length} {filtered.length === 1 ? "producto" : "productos"}
       </p>
       {filtered.length === 0 ? (
         <div className="flex min-h-64 w-full flex-col items-center justify-center text-center">
@@ -898,7 +898,7 @@ export function CatalogBrowser({
               onClick={() => setDrawer(false)}
               className="mt-6 w-full rounded-full bg-foreground py-3 text-sm font-bold uppercase tracking-widest text-background"
             >
-              Ver {filtered.length} productos
+              Ver {filtered.length} {filtered.length === 1 ? "producto" : "productos"}
             </button>
           </div>
         </div>
