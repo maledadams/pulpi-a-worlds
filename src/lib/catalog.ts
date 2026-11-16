@@ -413,7 +413,12 @@ async function ensureCatalogStorageReady(db: D1Database) {
           updated_at
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT DO NOTHING
       `);
+      // ON CONFLICT DO NOTHING: on an empty database two module instances (dev
+      // loads catalog.ts twice, plus ?tss-serverfn-split) can both pass the
+      // count check and seed at once. Without it the loser threw a UNIQUE error
+      // and the dev server hung on every request until restarted.
 
       const batch = FALLBACK_PRODUCTS.filter((product) => product.vibe !== "pulpina").map((product, index) => {
         const categories = product.categories?.length ? product.categories : [product.category];
