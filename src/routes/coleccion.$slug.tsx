@@ -86,6 +86,7 @@ function CollectionPage() {
             search: next,
             replace: true,
             resetScroll: false,
+            viewTransition: false,
           })
         }
         mode="sidebar"
@@ -93,7 +94,6 @@ function CollectionPage() {
         soldOutMode="standard"
         showDepartmentFilter={collection.vibe === "store"}
         departmentTitle={collection.name}
-        enableNsfwGate
       />
     </div>
   );

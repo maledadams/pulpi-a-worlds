@@ -9,8 +9,12 @@
   "observability": {
     "enabled": true
   },
+  // 5 12 * * * - birthday emails.
+  // 0 4 * * *  - midnight in the Dominican Republic (UTC-4, no DST): the
+  //              nightly IndexNow submission that keeps Bing/DuckDuckGo
+  //              current on new and restocked products.
   "triggers": {
-    "crons": ["5 12 * * *"]
+    "crons": ["5 12 * * *", "0 4 * * *"]
   },
   // Keep secrets out of this file and use `wrangler secret put`.
   "vars": {

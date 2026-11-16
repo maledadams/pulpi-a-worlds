@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Minus, Plus, Trash2, X } from "lucide-react";
 import { useEffect } from "react";
+import { toast } from "sonner";
 import { StorePineapple } from "@/components/branding/StorePineapple";
 import { useCart } from "@/context/cart";
 import { formatPrice } from "@/data/products";
@@ -175,7 +176,11 @@ export function CartDrawer({ theme = "store" }: { theme?: CartDrawerTheme }) {
                     )}
                     {!availability.available ? (
                       <p className="mt-1 text-xs font-bold text-[#9a233d]">
-                        Fuera de stock · Quitalo antes de continuar
+                        {availability.reason === "insufficient_stock"
+                          ? `Solo quedan ${availability.availableQuantity} · Reduce la cantidad`
+                          : availability.reason === "deleted"
+                            ? "Ya no existe · Quitalo antes de continuar"
+                            : "Fuera de stock · Quitalo antes de continuar"}
                       </p>
                     ) : null}
                     <div className="mt-2 flex items-center gap-3">
@@ -192,7 +197,7 @@ export function CartDrawer({ theme = "store" }: { theme?: CartDrawerTheme }) {
                         <button
                           onClick={() => void cart.update(line.id, line.quantity + 1)}
                           disabled={!availability.available || availability.availableQuantity <= line.quantity}
-                          className="px-2.5 py-1 opacity-80 transition hover:opacity-100"
+                          className="px-2.5 py-1 opacity-80 transition hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30"
                         >
                           <Plus className="h-3 w-3" />
                         </button>
@@ -234,6 +239,9 @@ export function CartDrawer({ theme = "store" }: { theme?: CartDrawerTheme }) {
               disabled={cart.loading}
               onClick={() => {
                 void cart.refreshAvailability().then((available) => {
+                  if (!available) {
+                    toast.error("Hay productos sin stock en tu carrito. Revísalo antes de continuar.", { id: "cart-stock" });
+                  }
                   cart.setOpen(false);
                   void navigate({ to: available ? "/solicitud" : "/carrito" });
                 });

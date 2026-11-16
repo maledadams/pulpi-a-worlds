@@ -12,6 +12,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import type { Vibe } from "@/data/products";
 import appCss from "../styles.css?url";
 import { CartDrawer } from "@/components/cart/CartDrawer";
+import { AgeGate } from "@/components/layout/AgeGate";
+import { Toaster } from "@/components/ui/sonner";
 import { CheckoutSideWaves } from "@/components/layout/CheckoutSideWaves";
 import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
@@ -25,7 +27,14 @@ import {
   getStorefrontSettings,
 } from "@/lib/admin-content";
 import { getStorefrontCatalog } from "@/lib/catalog";
-import { absoluteSiteUrl, SITE_NAME, SITE_NAME_VARIANTS, SITE_URL } from "@/lib/seo";
+import { usePageViewTracking } from "@/hooks/use-page-view-tracking";
+import {
+  absoluteSiteUrl,
+  buildOrganizationJsonLd,
+  buildWebsiteJsonLd,
+  SITE_DESCRIPTION,
+  SITE_NAME,
+} from "@/lib/seo";
 import generalPineapple from "@/assets/PULPINAGENERALPINA.svg";
 import moonPineapple from "@/assets/PULPINAMOONPINA.svg";
 import generalLogo from "@/assets/logo-sunshine.png";
@@ -60,21 +69,22 @@ function ErrorComponent({ error }: { error: Error }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  loader: async () => ({
-    catalogProducts: await getStorefrontCatalog(),
-    announcements: await getStorefrontAnnouncements(),
-    categories: await getStorefrontCategories(),
-    settings: await getStorefrontSettings(),
-  }),
+  loader: async () => {
+    const [catalogProducts, announcements, categories, settings] = await Promise.all([
+      getStorefrontCatalog(),
+      getStorefrontAnnouncements(),
+      getStorefrontCategories(),
+      getStorefrontSettings(),
+    ]);
+    return { catalogProducts, announcements, categories, settings };
+  },
   head: ({ loaderData }) => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: `${SITE_NAME} | Inicio` },
-      {
-        name: "description",
-        content: "Tienda de moda alternativa en República Dominicana.",
-      },
+      // Fallback only - every real route sets its own via createSeoHead.
+      { title: `${SITE_NAME} | Tienda de moda alternativa en República Dominicana` },
+      { name: "description", content: SITE_DESCRIPTION },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -101,28 +111,40 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     scripts: [
       {
-        type: "application/ld+json",
-        children: JSON.stringify({
-          "@context": "https://schema.org",
-          "@type": "WebSite",
-          name: SITE_NAME,
-          alternateName: SITE_NAME_VARIANTS,
-          url: SITE_URL,
-        }),
+        src: "https://www.googletagmanager.com/gtag/js?id=G-N6LGC4Z2PN",
+        async: true,
+      },
+      {
+        children: `window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+
+gtag('config', 'G-N6LGC4Z2PN');`,
       },
       {
         type: "application/ld+json",
-        children: JSON.stringify({
-          "@context": "https://schema.org",
-          "@type": "Organization",
-          name: SITE_NAME,
-          alternateName: SITE_NAME_VARIANTS,
-          url: SITE_URL,
-          logo: absoluteSiteUrl(generalLogo),
-          ...(loaderData?.settings.instagramUrl
-            ? { sameAs: [loaderData.settings.instagramUrl] }
-            : {}),
-        }),
+        children: JSON.stringify(buildWebsiteJsonLd()),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify(
+          buildOrganizationJsonLd({
+            logo: absoluteSiteUrl(generalLogo),
+            // Every profile that verifiably belongs to this brand strengthens
+            // the entity: more corroborating sources for search/LLMs to tie
+            // the name to this shop rather than the cartoon.
+            sameAs: Array.from(
+              new Set(
+                [
+                  loaderData?.settings.instagramUrl,
+                  "https://www.instagram.com/pulpinard/",
+                  "https://www.instagram.com/pulpinamoon/",
+                  "https://www.instagram.com/pulpinamen/",
+                ].filter((entry): entry is string => Boolean(entry)),
+              ),
+            ),
+          }),
+        ),
       },
     ],
   }),
@@ -151,6 +173,10 @@ function RootComponent() {
   const { catalogProducts, announcements, categories, settings } = Route.useLoaderData();
   const location = useLocation();
   const isAdminRoute = isAdminRoutePath(location.pathname);
+
+  // The gtag snippet only ever sees the document load; this reports the
+  // client-side navigations that make up the rest of every visit.
+  usePageViewTracking();
 
   setRuntimeCategoryConfig(categories);
 
@@ -238,7 +264,9 @@ function AppChrome({
   return (
     <div className={`min-h-screen flex flex-col ${hasCheckoutTexture ? "checkout-texture relative isolate" : ""}`}>
       {hasCheckoutTexture ? <CheckoutSideWaves /> : null}
-      <div className={hasCheckoutTexture ? "relative z-10" : undefined}>
+      {/* z-20, one above <main>'s z-10, so the header's dropdown paints over
+          the checkout form instead of under it. */}
+      <div className={hasCheckoutTexture ? "relative z-20" : undefined}>
         <Header announcements={announcements} announcementThemeOverride={themeOverride} />
       </div>
       <main
@@ -257,6 +285,8 @@ function AppChrome({
         <Footer settings={settings} themeOverride={themeOverride} />
       </div>
       <CartDrawer theme={themeOverride ?? "store"} />
+      <Toaster position="top-center" />
+      <AgeGate />
     </div>
   );
 }

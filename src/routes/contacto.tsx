@@ -2,15 +2,34 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Instagram } from "lucide-react";
 import { WhatsAppIcon } from "@/components/layout/Footer";
 import { getStorefrontSettings } from "@/lib/admin-content";
-import { createSeoHead } from "@/lib/seo";
+import { buildBreadcrumbJsonLd, buildFaqJsonLd, createSeoHead } from "@/lib/seo";
+import { STORE_FAQ } from "@/lib/store-faq";
 import phoneBlack from "@/assets/phoneblack.png";
 
 export const Route = createFileRoute("/contacto")({
   loader: async () => ({ settings: await getStorefrontSettings() }),
-  head: () => createSeoHead({
-    pageName: "Contacto",
-    path: "/contacto",
-    description: "Canales de contacto de Pulpiña RD.",
+  head: () => ({
+    ...createSeoHead({
+      pageName: "Contacto",
+      path: "/contacto",
+      description:
+        "Contacta a Pulpiña RD (Pulpina RD) por WhatsApp o Instagram. Boutique de moda alternativa en República Dominicana.",
+    }),
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify(buildFaqJsonLd(STORE_FAQ)),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify(
+          buildBreadcrumbJsonLd([
+            { name: "Inicio", path: "/" },
+            { name: "Contacto", path: "/contacto" },
+          ]),
+        ),
+      },
+    ],
   }),
   component: Contact,
 });
@@ -38,9 +57,23 @@ function Contact() {
       />
       <div className="relative z-10 mx-auto max-w-5xl">
       <div className="text-center">
-        <h1 className="text-4xl sm:text-5xl md:text-7xl" style={{ transform: "none" }}>
-          {settings.contactPageTitle}
-        </h1>
+        <div className="flex items-center justify-center gap-2">
+          <img
+            src={phoneBlack}
+            alt=""
+            aria-hidden="true"
+            className="h-9 w-9 shrink-0 -rotate-[14deg] object-contain sm:hidden"
+          />
+          <h1 className="text-4xl sm:text-5xl md:text-7xl" style={{ transform: "none" }}>
+            {settings.contactPageTitle}
+          </h1>
+          <img
+            src={phoneBlack}
+            alt=""
+            aria-hidden="true"
+            className="h-9 w-9 shrink-0 -scale-x-100 rotate-[14deg] object-contain sm:hidden"
+          />
+        </div>
         <p className="mt-2 w-full text-sm text-muted-foreground sm:text-base">
           {settings.contactPageIntro}
         </p>
@@ -93,7 +126,7 @@ function Contact() {
 
       </div>
       <section className="mt-12 sm:mt-16" aria-labelledby="location-heading">
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div className="mb-4 flex flex-wrap items-center justify-center gap-3 sm:items-end sm:justify-between">
           <h2 id="location-heading" className="text-2xl sm:text-3xl md:text-4xl">
             Dónde Encontrarnos
           </h2>

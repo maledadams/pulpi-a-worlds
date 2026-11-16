@@ -41,7 +41,11 @@ export const Route = createFileRoute("/sitemap.xml")({
           ...collections.map((collection) => ({ path: `/coleccion/${collection.slug}`, priority: 0.6 })),
           ...products.filter((product) => !product.hidden).map((product) => ({
             path: `/producto/${product.slug}`,
-            lastmod: product.createdAt,
+            // Real modification date, not creation. <lastmod> is the only
+            // signal Google has that a product's price, stock or details
+            // changed and the page is worth recrawling - pinning it to the
+            // creation date told Google nothing here ever changes.
+            lastmod: product.updatedAt || product.createdAt,
             image: product.featuredImage?.url || product.images[0]?.url,
           })),
         ];

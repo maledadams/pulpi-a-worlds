@@ -166,10 +166,6 @@ function cloneProduct(product: Product): Product {
   };
 }
 
-function cloneProducts(products: Product[]) {
-  return products.map(cloneProduct);
-}
-
 function localizeVariantTitle(size: string, color: string, hasColor = true) {
   return hasColor ? `${size} / ${color}` : size;
 }
@@ -486,6 +482,7 @@ function productFromRow(row: ProductRow) {
       stock: row.stock,
       category: row.primary_category,
       createdAt: row.created_at,
+      updatedAt: row.updated_at,
     } satisfies Product);
   }
 
@@ -540,6 +537,7 @@ function productFromRow(row: ProductRow) {
       },
     ],
     createdAt: row.created_at,
+    updatedAt: row.updated_at,
     sizes: ["Unica"],
     colors: [{ name: defaultColorName, hex: swatch[0] }],
     salePrice: compareAtPrice ? price : null,
@@ -593,8 +591,14 @@ function normalizeVariants(record: AdminProductRecord, swatch: [string, string],
     const currentVariant = existingVariantsBySize.get(size);
     const quantityAvailable = currentVariant?.quantityAvailable ?? record.stock ?? 0;
     const available = currentVariant?.available ?? record.available;
-    const price = currentVariant?.price ?? record.price;
-    const compareAtPrice = currentVariant?.compareAtPrice ?? record.compareAtPrice;
+    // Pricing is product-wide, not per-Talla (see setProductPricing) - always
+    // take it from the record, never from whatever a variant already had.
+    // A `?? currentVariant?.compareAtPrice` fallback here would let a stale
+    // per-variant compareAtPrice survive forever once "En oferta" is turned
+    // back off, since null on the record side would never win against an
+    // existing number on the variant side.
+    const price = record.price;
+    const compareAtPrice = record.compareAtPrice;
 
     return {
       id:
@@ -708,8 +712,10 @@ export async function listCatalogProductsInternal() {
     `)
     .all<ProductRow>();
 
-  const products = (rows.results ?? []).map(productFromRow).filter((product) => product.vibe !== "pulpina");
-  return cloneProducts(products);
+  // Freshly built from this query's rows, not aliased to memoryCatalog or
+  // any other call's result - no clone needed (unlike listMemoryProducts,
+  // which reads from a shared mutable Map and must clone to protect it).
+  return (rows.results ?? []).map(productFromRow).filter((product) => product.vibe !== "pulpina");
 }
 
 export async function listStorefrontCatalogProductsInternal() {
@@ -1060,6 +1066,49 @@ async function listStockMovementsInternal(limit = 250) {
     referenceId: row.reference_id,
     createdAt: row.created_at,
   } satisfies AdminStockMovement));
+}
+
+export async function getOrderClosureMovementDatesInternal(requestNumbers: string[]) {
+  const uniqueRequestNumbers = Array.from(new Set(requestNumbers.map((value) => value.trim()).filter(Boolean)));
+  if (uniqueRequestNumbers.length === 0) {
+    return new Map<string, string>();
+  }
+
+  const db = await getDatabase();
+  if (!db) {
+    const dates = new Map<string, string>();
+    const requested = new Set(uniqueRequestNumbers);
+    for (const movement of memoryStockMovements) {
+      if (movement.source !== "order" || movement.delta >= 0 || !requested.has(movement.referenceId)) continue;
+      const current = dates.get(movement.referenceId);
+      if (!current || movement.createdAt < current) {
+        dates.set(movement.referenceId, movement.createdAt);
+      }
+    }
+    return dates;
+  }
+
+  await ensureCatalogStorageReady(db);
+  const placeholders = uniqueRequestNumbers.map(() => "?").join(", ");
+  const result = await db
+    .prepare(
+      `
+        SELECT reference_id, MIN(created_at) AS closed_at
+        FROM inventory_movements
+        WHERE source = 'order'
+          AND delta < 0
+          AND reference_id IN (${placeholders})
+        GROUP BY reference_id
+      `,
+    )
+    .bind(...uniqueRequestNumbers)
+    .all<{ reference_id: string; closed_at: string | null }>();
+
+  return new Map(
+    (result.results ?? [])
+      .filter((row) => row.closed_at)
+      .map((row) => [row.reference_id, row.closed_at!]),
+  );
 }
 
 export const getStorefrontCatalog = createServerFn({ method: "GET" }).handler(async () => {

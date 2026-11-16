@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ShoppingBasket } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useCart } from "@/context/cart";
 import type { Product } from "@/data/products";
 import { formatPrice, isOnSale } from "@/data/products";
@@ -44,16 +45,12 @@ export function ProductCard({
   showSubtitle = false,
   tone = "vibe",
   themeVibe,
-  dataVibe,
 }: {
   product: Product;
   soldOutMode?: "standard" | "vibe";
   showSubtitle?: boolean;
   tone?: "store" | "vibe";
   themeVibe?: Product["vibe"];
-  // Set only for a card shown outside its own store (cross-store results):
-  // re-scopes the CSS color variables to the card's home store.
-  dataVibe?: Product["vibe"];
 }) {
   void soldOutMode;
   const cart = useCart();
@@ -64,11 +61,14 @@ export function ProductCard({
   const soldOut = !product.available;
   const visualVibe = themeVibe ?? product.vibe;
   const badgeTheme = PRODUCT_BADGE_THEME[product.vibe];
+  // The discounted price on a sale card uses the general announcement red
+  // everywhere except Sunshine, which keeps its own pink.
+  const saleAccentColor = visualVibe === "sunshine" ? "#ff4ea3" : "#c5475f";
   const isMoonCard = tone === "vibe" && visualVibe === "moon";
   const cardOutlineClassName =
     tone === "store"
       ? "border-foreground/20"
-      : product.vibe === "sunshine"
+      : visualVibe === "sunshine"
         ? "border-[#d2a0ca]"
         : "border-foreground/20";
   const noticeTextClassName =
@@ -90,6 +90,14 @@ export function ProductCard({
       }),
     );
   const onlyVariant = product.variants.length === 1 ? product.variants[0] : null;
+  const colorSwatches = colors.slice(0, 5).map((color, index) => (
+    <span
+      key={`${color.name}-${index}`}
+      className={`ui-circle h-3 w-3 ${isMoonCard ? "border border-[#f2e9e1]/12" : "border border-foreground/15"}`}
+      style={{ backgroundColor: color.hex }}
+      title={color.name}
+    />
+  ));
 
   useEffect(() => () => noticeTimers.current.forEach((timer) => window.clearTimeout(timer)), []);
 
@@ -111,7 +119,9 @@ export function ProductCard({
 
     void cart
       .add({ variantId: onlyVariant.id, quantity: 1, openDrawer: false })
-      .then(showAddedNotice);
+      .then((added) => {
+        if (added) showAddedNotice();
+      });
   };
 
 const cartActionClassName =
@@ -119,10 +129,7 @@ const cartActionClassName =
 
   return (
     <>
-      <div
-        data-vibe={dataVibe}
-        className={`card-lift group relative block h-full rounded-lg ${dataVibe ? "text-foreground" : ""}`}
-      >
+      <div className="card-lift group relative block h-full rounded-lg">
         <Link to="/producto/$slug" params={{ slug: product.slug }} className="block h-full">
           <div
             className={`flex aspect-[4/7] h-full flex-col overflow-hidden rounded-lg border shadow-sm ${cardOutlineClassName} ${
@@ -213,20 +220,34 @@ const cartActionClassName =
                     {formatPrice(product.compareAtPrice!, product.currencyCode)}
                   </span>
                 ) : null}
-                <span className="text-sm font-black sm:text-[0.95rem]">
+                <span
+                  className={`text-sm font-black sm:text-[0.95rem] ${onSale ? "hidden sm:inline" : ""}`}
+                  style={onSale ? { color: saleAccentColor } : undefined}
+                >
                   {formatPrice(product.price, product.currencyCode)}
                 </span>
               </div>
+              {/* Mobile only, sale cards: the strikethrough price already
+                  owns the line above, so the discounted price shares this
+                  line with the color swatches (swatches left, price right)
+                  instead of squeezing next to the strikethrough price and
+                  overflowing the card. Desktop keeps colors on their own
+                  line below, same as non-sale cards. */}
+              {onSale ? (
+                <div className="mt-2 flex items-center justify-between gap-1.5 sm:hidden">
+                  {colors.length > 0 ? (
+                    <div className="flex items-center gap-1.5">{colorSwatches}</div>
+                  ) : (
+                    <span />
+                  )}
+                  <span className="text-sm font-black" style={{ color: saleAccentColor }}>
+                    {formatPrice(product.price, product.currencyCode)}
+                  </span>
+                </div>
+              ) : null}
               {colors.length > 0 ? (
-                <div className="mt-2 flex items-center gap-1.5">
-                  {colors.slice(0, 5).map((color) => (
-                    <span
-                      key={color.name}
-                      className={`ui-circle h-3 w-3 ${isMoonCard ? "border border-[#f2e9e1]/12" : "border border-foreground/15"}`}
-                      style={{ backgroundColor: color.hex }}
-                      title={color.name}
-                    />
-                  ))}
+                <div className={`mt-2 flex items-center justify-end gap-1.5 ${onSale ? "hidden sm:flex" : ""}`}>
+                  {colorSwatches}
                 </div>
               ) : null}
             </div>
@@ -255,16 +276,19 @@ const cartActionClassName =
         )}
       </div>
 
-      {noticePhase ? (
-        <div
-          role="status"
-          className={`pointer-events-none fixed bottom-6 left-1/2 z-[80] w-max max-w-[min(calc(100vw-2rem),42rem)] -translate-x-1/2 whitespace-nowrap bg-white px-6 py-3 text-center text-sm font-semibold ${noticeTextClassName} transition-opacity duration-[1500ms] ease-out ${
-            noticePhase === "fading" ? "opacity-0" : "opacity-100"
-          }`}
-        >
-          {product.name} agregado al carrito
-        </div>
-      ) : null}
+      {noticePhase && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              role="status"
+              className={`pointer-events-none fixed bottom-6 left-1/2 z-[80] w-max max-w-[min(calc(100vw-2rem),42rem)] -translate-x-1/2 border border-black bg-white px-6 py-3 text-center text-sm font-semibold ${noticeTextClassName} transition-opacity duration-[1500ms] ease-out ${
+                noticePhase === "fading" ? "opacity-0" : "opacity-100"
+              }`}
+            >
+              {product.name} agregado al carrito
+            </div>,
+            document.body,
+          )
+        : null}
     </>
   );
 }

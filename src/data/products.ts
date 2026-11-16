@@ -51,6 +51,12 @@ export type Product = {
   options: ProductOption[];
   variants: ProductVariant[];
   createdAt: string;
+  /**
+   * Last time the product row actually changed. Feeds the sitemap's
+   * <lastmod>, which is how Google decides a page is worth recrawling -
+   * sending the creation date there tells it nothing ever changes.
+   */
+  updatedAt?: string;
   sizes?: string[];
   colors?: { name: string; hex: string }[];
   salePrice?: number | null;

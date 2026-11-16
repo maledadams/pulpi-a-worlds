@@ -10,6 +10,11 @@
 // deliberately never touched by this script - those stay empty in the
 // portfolio database forever, isolated in its own separate D1 instance.
 //
+// NSFW categories and products are filtered out here (not just deleted
+// once) so every future re-sync keeps excluding them automatically - the
+// portfolio site never shows adult content, regardless of what's live on
+// the real store.
+//
 // Usage: node scripts/sync-portfolio-db.mjs
 
 import { execSync } from "node:child_process";
@@ -42,6 +47,11 @@ function fetchRows(table) {
   return parsed[0].results;
 }
 
+function filterNsfw(table, rows) {
+  if (table !== "categories" && table !== "products") return rows;
+  return rows.filter((row) => row.is_nsfw !== 1);
+}
+
 function sqlLiteral(value) {
   if (value === null || value === undefined) return "NULL";
   if (typeof value === "number") return String(value);
@@ -61,8 +71,10 @@ console.log(`Syncing ${TABLES.join(", ")} from ${SOURCE_DB} -> ${TARGET_DB} ...`
 
 const statements = [];
 for (const table of TABLES) {
-  const rows = fetchRows(table);
-  console.log(`  ${table}: ${rows.length} row(s)`);
+  const allRows = fetchRows(table);
+  const rows = filterNsfw(table, allRows);
+  const skipped = allRows.length - rows.length;
+  console.log(`  ${table}: ${rows.length} row(s)${skipped ? ` (${skipped} NSFW excluded)` : ""}`);
   statements.push(buildInsertStatements(table, rows));
 }
 

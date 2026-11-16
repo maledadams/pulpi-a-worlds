@@ -4,9 +4,12 @@ import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { ProductCard } from "@/components/product/ProductCard";
 import { useCatalogProducts } from "@/context/catalog";
+import { useIsVerifiedAdult } from "@/lib/age-verification";
+import { isNsfwProduct } from "@/lib/store-filters";
 import { useCart } from "@/context/cart";
 import { formatPrice, type Product } from "@/data/products";
 import { useVibe } from "@/hooks/use-vibe";
+import { trackViewItem } from "@/lib/analytics";
 import { getStorefrontProductBySlug } from "@/lib/catalog";
 import { buildProductColorRecord, normalizeProductColorName } from "@/lib/product-colors";
 import {
@@ -16,6 +19,17 @@ import {
   resolveStructuredDataImage,
   SITE_NAME,
 } from "@/lib/seo";
+
+/**
+ * Google warns on Offers with no priceValidUntil and can stop showing the
+ * price in results once it lapses. Rolling a year out on each render keeps
+ * it from ever going stale, which a hardcoded date would.
+ */
+function getPriceValidUntil() {
+  const oneYearOut = new Date();
+  oneYearOut.setFullYear(oneYearOut.getFullYear() + 1);
+  return oneYearOut.toISOString().slice(0, 10);
+}
 
 const VIBE_CRUMB: Partial<Record<string, { name: string; path: string }>> = {
   moon: { name: "Moon", path: "/moon" },
@@ -64,6 +78,34 @@ export const Route = createFileRoute("/producto/$slug")({
                 ? "https://schema.org/InStock"
                 : "https://schema.org/OutOfStock",
               url: absoluteSiteUrl(`/producto/${params.slug}`),
+              itemCondition: "https://schema.org/NewCondition",
+              priceValidUntil: getPriceValidUntil(),
+              // Destination only, no rate: the cart itself says shipping is
+              // "confirmado por mensaje", so there is no published rate to
+              // declare here and inventing one would be a commitment the
+              // store never made.
+              shippingDetails: {
+                "@type": "OfferShippingDetails",
+                shippingDestination: {
+                  "@type": "DefinedRegion",
+                  addressCountry: "DO",
+                },
+              },
+              // Mirrors /politicas section 11 verbatim ("dentro de los 30
+              // días siguientes a que recibas tu pedido"). This has to keep
+              // matching the visible page: structured data that promises
+              // terms the page doesn't state is both a Google violation and
+              // a promise to a customer the store never actually made.
+              // returnMethod/returnFees are omitted rather than guessed -
+              // returns are arranged case by case over WhatsApp, which maps
+              // to none of Schema.org's fixed method values.
+              hasMerchantReturnPolicy: {
+                "@type": "MerchantReturnPolicy",
+                applicableCountry: "DO",
+                returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+                merchantReturnDays: 30,
+                merchantReturnLink: absoluteSiteUrl("/politicas"),
+              },
             },
           }),
         },
@@ -184,10 +226,42 @@ function ProductPage() {
   const { product } = Route.useLoaderData() as {
     product: Product;
   };
+  const isAdult = useIsVerifiedAdult();
+
+  if (!isAdult && isNsfwProduct(product)) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center px-4 text-center">
+        <div>
+          <h1 className="font-display text-3xl" style={{ transform: "scaleX(1.12)", transformOrigin: "center" }}>
+            Producto no disponible
+          </h1>
+          <p className="mt-2 text-muted-foreground">Este producto es solo para mayores de 18 años.</p>
+          <Link
+            to="/tienda"
+            className="mt-6 inline-block bg-foreground px-5 py-2.5 text-sm font-bold uppercase text-background"
+          >
+            Ir a la tienda
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return <ProductDetails product={product} />;
+}
+
+function ProductDetails({ product }: { product: Product }) {
   const products = useCatalogProducts();
   const cart = useCart();
 
   useVibe(product.vibe);
+
+  useEffect(() => {
+    trackViewItem(
+      { item_id: product.id, item_name: product.name, price: product.price, item_category: product.category },
+      product.currencyCode,
+    );
+  }, [product.id, product.name, product.price, product.category, product.currencyCode]);
 
   const galleryImages =
     product.images.length > 0 ? product.images : product.featuredImage ? [product.featuredImage] : [];
@@ -371,9 +445,9 @@ function ProductPage() {
               <div className="mt-5">
                 <div className="mb-2 text-sm font-bold uppercase">Colores</div>
                 <div className="flex flex-wrap gap-2">
-                  {colors.map((entry) => (
+                  {colors.map((entry, index) => (
                     <button
-                      key={entry.name}
+                      key={`${entry.name}-${index}`}
                       onClick={() => setColor(entry.name)}
                       className={`flex items-center gap-2 rounded-full border border-foreground/20 px-3 py-2 text-sm font-bold ${
                         color === entry.name ? "bg-foreground text-background" : "bg-card"
@@ -392,7 +466,14 @@ function ProductPage() {
                   -
                 </button>
                 <span className="px-2 font-bold">{qty}</span>
-                <button onClick={() => setQty(qty + 1)} className="px-3 py-2">
+                <button
+                  onClick={() => setQty(qty + 1)}
+                  disabled={
+                    typeof selectedVariant.quantityAvailable === "number" &&
+                    qty >= selectedVariant.quantityAvailable
+                  }
+                  className="px-3 py-2 disabled:cursor-not-allowed disabled:opacity-30"
+                >
                   +
                 </button>
               </div>

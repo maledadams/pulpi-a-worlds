@@ -1,9 +1,10 @@
 import { Link } from "@tanstack/react-router";
 import { ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ProductCard } from "@/components/product/ProductCard";
 import { useScrollFollow } from "@/hooks/use-scroll-follow";
 import { getCategoryLabel, type Product, type SubstoreVibe, type Vibe } from "@/data/products";
+import { trackSearch } from "@/lib/analytics";
 import {
   CATALOG_SORTS,
   PRICE_BUCKETS,
@@ -14,8 +15,6 @@ import {
   getColorOptions,
   getDepartmentOptions,
   getShoeSizeOptions,
-  isNsfwCategory,
-  isOwnStoreProduct,
   orderForSubstore,
   parseCatalogSearch,
   sizeLabel,
@@ -163,7 +162,6 @@ type CatalogBrowserProps = {
   emptyCtaLabel?: string;
   vibeScope?: Vibe;
   themeVibe?: Vibe;
-  enableNsfwGate?: boolean;
   resetFiltersOnQuery?: boolean;
   searchPlaceholderClassName?: string;
   wideResults?: boolean;
@@ -188,7 +186,6 @@ export function CatalogBrowser({
   emptyCtaLabel = "Limpiar filtros",
   vibeScope,
   themeVibe,
-  enableNsfwGate = false,
   resetFiltersOnQuery = false,
   searchPlaceholderClassName,
   wideResults = false,
@@ -200,6 +197,14 @@ export function CatalogBrowser({
   const filterFollower = useScrollFollow(768);
   const [openHorizontalFilter, setOpenHorizontalFilter] = useState<string | null>(null);
   const filters = useMemo(() => parseCatalogSearch(search), [search]);
+  // The URL only stores the trimmed query, so the input keeps its own text
+  // (trailing spaces included) and pushes to the URL after a short pause.
+  const [queryInput, setQueryInput] = useState(filters.q);
+  const queryTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => {
+    setQueryInput((current) => (current.trim() === filters.q.trim() ? current : filters.q));
+  }, [filters.q]);
+  useEffect(() => () => clearTimeout(queryTimerRef.current), []);
   const isMoonVibe = (themeVibe ?? vibeScope) === "moon";
   const isSunshineVibe = (themeVibe ?? vibeScope) === "sunshine";
   const scopedVibe = vibeScope ?? themeVibe;
@@ -211,31 +216,20 @@ export function CatalogBrowser({
         : scopedVibe === "men"
           ? '"IM FELL Great Primer SC", serif'
           : "var(--font-display)";
-  const visibleProducts = useMemo(
-    () =>
-      enableNsfwGate && !filters.nsfwEnabled
-        ? products.filter(
-            (p) =>
-              !p.categories?.some((c) => isNsfwCategory(c)) && !isNsfwCategory(p.category),
-          )
-        : products,
-    [enableNsfwGate, filters.nsfwEnabled, products],
-  );
-
   // Facet option counts must reflect every OTHER active filter (department, category,
   // size, color, price, status) so a selected category actually narrows what the other
   // facets show/count - otherwise a badge like "Talla unica (41)" stays global-catalog-wide
   // no matter which category is selected, making it look like that size ignores category.
   const departmentOptions = useMemo(
-    () => getDepartmentOptions(filterCatalogProducts(visibleProducts, { ...filters, departments: new Set() })),
-    [filters, visibleProducts],
+    () => getDepartmentOptions(filterCatalogProducts(products, { ...filters, departments: new Set() })),
+    [filters, products],
   );
   const crossStoreVibe: SubstoreVibe | null =
     crossStoreCatalog && vibeScope && vibeScope !== "pulpina" ? vibeScope : null;
   const categoryOptions = useMemo(() => {
     const options = getCategoryOptions(
-      filterCatalogProducts(visibleProducts, { ...filters, categories: new Set() }),
-    ).filter((c) => filters.nsfwEnabled || !isNsfwCategory(c.id));
+      filterCatalogProducts(products, { ...filters, categories: new Set() }),
+    );
     if (!crossStoreVibe || !crossStoreCatalog) return options;
     return options.map((option) => ({
       ...option,
@@ -245,22 +239,22 @@ export function CatalogBrowser({
         crossStoreVibe,
       ).length,
     }));
-  }, [filters, visibleProducts, crossStoreCatalog, crossStoreVibe]);
+  }, [filters, products, crossStoreCatalog, crossStoreVibe]);
   const sizeOptions = useMemo(
-    () => getApparelSizeOptions(filterCatalogProducts(visibleProducts, { ...filters, apparelSizes: new Set() })),
-    [filters, visibleProducts],
+    () => getApparelSizeOptions(filterCatalogProducts(products, { ...filters, apparelSizes: new Set() })),
+    [filters, products],
   );
   const shoeSizeOptions = useMemo(
-    () => getShoeSizeOptions(filterCatalogProducts(visibleProducts, { ...filters, shoeSizes: new Set() })),
-    [filters, visibleProducts],
+    () => getShoeSizeOptions(filterCatalogProducts(products, { ...filters, shoeSizes: new Set() })),
+    [filters, products],
   );
   const colorOptions = useMemo(
-    () => getColorOptions(filterCatalogProducts(visibleProducts, { ...filters, colors: new Set() })),
-    [filters, visibleProducts],
+    () => getColorOptions(filterCatalogProducts(products, { ...filters, colors: new Set() })),
+    [filters, products],
   );
   const priceFacetProducts = useMemo(
-    () => filterCatalogProducts(visibleProducts, { ...filters, priceBuckets: new Set() }),
-    [filters, visibleProducts],
+    () => filterCatalogProducts(products, { ...filters, priceBuckets: new Set() }),
+    [filters, products],
   );
   const filtered = useMemo(
     () =>
@@ -273,7 +267,6 @@ export function CatalogBrowser({
   const activeFilterCount =
     filters.departments.size +
     filters.categories.size +
-    Number(enableNsfwGate && filters.nsfwEnabled) +
     filters.apparelSizes.size +
     filters.shoeSizes.size +
     filters.colors.size +
@@ -282,14 +275,17 @@ export function CatalogBrowser({
     Number(filters.onlySale) +
     Number(filters.onlyNew);
 
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
   const setFilters = (next: CatalogFilters) => onSearchChange(buildCatalogSearch(next));
 
-  const clearFilters = () =>
+  const clearFilters = () => {
+    clearTimeout(queryTimerRef.current);
+    setQueryInput("");
     setFilters({
       q: "",
       departments: new Set(vibeScope ? [vibeScope] : []),
       categories: new Set(),
-      nsfwEnabled: false,
       apparelSizes: new Set(),
       shoeSizes: new Set(),
       colors: new Set(),
@@ -299,15 +295,16 @@ export function CatalogBrowser({
       onlyNew: false,
       sort: "featured",
     });
+  };
 
   const setQuery = (value: string) => {
+    const filters = filtersRef.current;
     if (resetFiltersOnQuery && value.trim()) {
       setFilters({
         q: value,
         departments: new Set(vibeScope ? [vibeScope] : []),
         categories: new Set(),
-        nsfwEnabled: false,
-        apparelSizes: new Set(),
+          apparelSizes: new Set(),
         shoeSizes: new Set(),
         colors: new Set(),
         priceBuckets: new Set(),
@@ -366,23 +363,6 @@ export function CatalogBrowser({
               />
             ))}
           </div>
-        </FilterGroup>
-      )}
-      {enableNsfwGate && (
-        <FilterGroup title="NSFW">
-          <CheckboxRow
-            checked={filters.nsfwEnabled}
-            label="Mostrar categorías NSFW"
-            onChange={() =>
-              setFilters({
-                ...filters,
-                nsfwEnabled: !filters.nsfwEnabled,
-                categories: filters.nsfwEnabled
-                  ? new Set(Array.from(filters.categories).filter((c) => !isNsfwCategory(c)))
-                  : filters.categories,
-              })
-            }
-          />
         </FilterGroup>
       )}
       <FilterGroup title="Categoría">
@@ -555,8 +535,15 @@ export function CatalogBrowser({
           }`}
         />
         <input
-          value={filters.q}
-          onChange={(e) => setQuery(e.target.value)}
+          type="search"
+          value={queryInput}
+          onChange={(e) => {
+            const value = e.target.value;
+            setQueryInput(value);
+            clearTimeout(queryTimerRef.current);
+            queryTimerRef.current = setTimeout(() => setQuery(value), 250);
+          }}
+          onBlur={(e) => trackSearch(e.target.value)}
           placeholder="Buscar..."
           className={`w-full border py-2.5 pl-9 pr-4 text-sm outline-none ${searchControlFrameClass} ${
             isMoonVibe ? "placeholder:text-[#f2e9e1]/66" : ""
@@ -621,29 +608,6 @@ export function CatalogBrowser({
                 />
               ))}
             </div>
-          </HorizontalFilter>
-        )}
-        {enableNsfwGate && (
-          <HorizontalFilter
-            title="NSFW"
-            open={openHorizontalFilter === "nsfw"}
-            onToggle={() => toggle("nsfw")}
-            activeCount={Number(filters.nsfwEnabled)}
-            theme={horizontalFilterTheme}
-          >
-            <CheckboxRow
-              checked={filters.nsfwEnabled}
-              label="Mostrar NSFW"
-              onChange={() =>
-                setFilters({
-                  ...filters,
-                  nsfwEnabled: !filters.nsfwEnabled,
-                  categories: filters.nsfwEnabled
-                    ? new Set(Array.from(filters.categories).filter((c) => !isNsfwCategory(c)))
-                    : filters.categories,
-                })
-              }
-            />
           </HorizontalFilter>
         )}
         <HorizontalFilter
@@ -834,34 +798,16 @@ export function CatalogBrowser({
         </div>
       ) : (
         <div className={`grid ${wideResults ? "gap-4" : "gap-3"} ${cols} ${lastRowClass}`}>
-          {filtered.map((p) => {
-            const isForeign = crossStoreVibe !== null && !isOwnStoreProduct(p, crossStoreVibe);
-            if (!isForeign) {
-              return (
-                <ProductCard
-                  key={p.id}
-                  product={p}
-                  soldOutMode={soldOutMode}
-                  showSubtitle={false}
-                  tone={tone}
-                  themeVibe={themeVibe}
-                />
-              );
-            }
-            // Render exactly as on the product's own store page.
-            const homeLook = p.vibe === "moon" ? "men" : p.vibe;
-            return (
-              <ProductCard
-                key={p.id}
-                product={p}
-                soldOutMode={soldOutMode}
-                showSubtitle={false}
-                tone={p.vibe === "pulpina" ? "store" : "vibe"}
-                themeVibe={p.vibe === "moon" ? "men" : undefined}
-                dataVibe={homeLook}
-              />
-            );
-          })}
+          {filtered.map((p) => (
+            <ProductCard
+              key={p.id}
+              product={p}
+              soldOutMode={soldOutMode}
+              showSubtitle={false}
+              tone={tone}
+              themeVibe={themeVibe ?? vibeScope}
+            />
+          ))}
         </div>
       )}
     </>

@@ -47,8 +47,7 @@
   --scrollbar-track: transparent;
 }
 
-:root,
-[data-vibe="pulpina"] {
+:root {
   --radius: 0;
   --cream: oklch(0.97 0.02 80);
   --ink: oklch(0.18 0.03 50);

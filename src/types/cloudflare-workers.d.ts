@@ -34,3 +34,7 @@ interface R2Bucket {
   put(key: string, value: ArrayBuffer | ArrayBufferView | string | Blob, options?: R2PutOptions): Promise<unknown>;
   delete(keys: string | string[]): Promise<void>;
 }
+
+interface CacheStorage {
+  readonly default: Cache;
+}

@@ -42,7 +42,6 @@ export type CatalogSearch = {
   q?: string;
   shop?: string;
   category?: string;
-  nsfw?: string;
   size?: string;
   shoe?: string;
   color?: string;
@@ -57,7 +56,6 @@ export type CatalogFilters = {
   q: string;
   departments: Set<Vibe>;
   categories: Set<string>;
-  nsfwEnabled: boolean;
   apparelSizes: Set<string>;
   shoeSizes: Set<string>;
   colors: Set<string>;
@@ -108,7 +106,6 @@ export function validateCatalogSearch(search: Record<string, unknown>): CatalogS
     q: getString(search.q),
     shop: getString(search.shop),
     category: getString(search.category),
-    nsfw: getString(search.nsfw),
     size: getString(search.size),
     shoe: getString(search.shoe),
     color: getString(search.color),
@@ -133,7 +130,6 @@ export function parseCatalogSearch(search: CatalogSearch): CatalogFilters {
       ),
     ),
     categories: new Set(splitCsv(search.category)),
-    nsfwEnabled: search.nsfw === "1",
     apparelSizes: new Set(splitCsv(search.size)),
     shoeSizes: new Set(splitCsv(search.shoe)),
     colors: new Set(splitCsv(search.color)),
@@ -152,7 +148,6 @@ export function buildCatalogSearch(filters: CatalogFilters): CatalogSearch {
     q: filters.q || undefined,
     shop: join(filters.departments),
     category: join(filters.categories),
-    nsfw: filters.nsfwEnabled ? "1" : undefined,
     size: join(filters.apparelSizes),
     shoe: join(filters.shoeSizes),
     color: join(filters.colors),
@@ -279,27 +274,33 @@ export function priceMatches(product: Product, buckets: Set<string>) {
   });
 }
 
+function normalizeSearchText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+}
+
+// Every word of the query must appear somewhere in the product text, in any
+// order, so "negra falda" finds "Falda negra".
+function matchesQuery(product: Product, query: string) {
+  const words = normalizeSearchText(query).split(/\s+/).filter(Boolean);
+  if (words.length === 0) return true;
+  const haystack = normalizeSearchText(
+    [
+      product.name,
+      product.description,
+      ...getProductCategories(product).map((category) => getCategoryLabel(category)),
+      ...getProductColors(product).map((color) => color.name),
+    ].join(" "),
+  );
+  return words.every((word) => haystack.includes(word));
+}
+
 export function filterCatalogProducts(products: Product[], filters: CatalogFilters) {
   let result = products.filter((product) => {
     if (product.hidden) return false;
-    if (filters.q && !`${product.name} ${product.description}`.toLowerCase().includes(filters.q.toLowerCase())) {
-      return false;
-    }
-    if (!filters.nsfwEnabled && isNsfwProduct(product)) {
-      // A product tagged with an adult category (e.g. kinkwear) alongside a
-      // regular one (e.g. accessories) should still surface when someone is
-      // specifically browsing that regular category - the adult gate exists
-      // to keep NSFW content out of casual/general browsing, not to hide an
-      // otherwise-normal item from a category it's legitimately also filed
-      // under. Only let it through this way when a non-adult category is
-      // actively being filtered on; unfiltered/general browsing stays gated.
-      const matchesNonNsfwFilter =
-        filters.categories.size > 0 &&
-        getProductCategories(product).some(
-          (category) => filters.categories.has(category) && !isNsfwCategory(category),
-        );
-      if (!matchesNonNsfwFilter) return false;
-    }
+    if (!matchesQuery(product, filters.q)) return false;
     if (
       filters.departments.size > 0 &&
       !getProductDepartments(product).some((vibe) => filters.departments.has(vibe))
@@ -458,14 +459,13 @@ export function getColorOptions(products: Product[]) {
 }
 
 export function getCategoryLinkSearch(category: string): CatalogSearch {
-  return validateCatalogSearch({ category, nsfw: isNsfwCategory(category) ? "1" : undefined });
+  return validateCatalogSearch({ category });
 }
 
 export function getDepartmentCategoryLinkSearch(vibe: Vibe, category?: string): CatalogSearch {
   return validateCatalogSearch({
     shop: vibe === "pulpina" ? undefined : vibe,
     category,
-    nsfw: category && isNsfwCategory(category) ? "1" : undefined,
   });
 }
 
@@ -473,18 +473,11 @@ export function getProductCategoryKey(product: Product) {
   return getCategoryLabel(getProductCategories(product)[0] ?? product.category);
 }
 
-export function getAvailableMenuCategories(
-  productsOrVibe?: Product[] | Vibe,
-  vibeOrIncludeNsfw?: Vibe | boolean,
-  includeNsfw = true,
-) {
+export function getAvailableMenuCategories(productsOrVibe?: Product[] | Vibe, vibeArg?: Vibe) {
   const products = Array.isArray(productsOrVibe) ? productsOrVibe : [];
   const vibe = Array.isArray(productsOrVibe)
-    ? (typeof vibeOrIncludeNsfw === "string" ? vibeOrIncludeNsfw : undefined)
+    ? vibeArg
     : (typeof productsOrVibe === "string" ? productsOrVibe : undefined);
-  const safeIncludeNsfw = Array.isArray(productsOrVibe)
-    ? includeNsfw
-    : (typeof vibeOrIncludeNsfw === "boolean" ? vibeOrIncludeNsfw : includeNsfw);
   const pool = vibe ? products.filter((product) => getProductDepartments(product).includes(vibe)) : products;
   const available = new Set(pool.flatMap((product) => getProductCategories(product)));
 
@@ -498,6 +491,5 @@ export function getAvailableMenuCategories(
       const config = getCategoryConfig(category.id);
       return !config || config.vibes.includes(vibe);
     })
-    .filter((category) => safeIncludeNsfw || !isNsfwCategory(category.id))
     .sort((a, b) => categorySortKey(a.id) - categorySortKey(b.id) || a.label.localeCompare(b.label));
 }

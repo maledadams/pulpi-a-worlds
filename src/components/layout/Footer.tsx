@@ -147,6 +147,56 @@ export function Footer({
     .replaceAll("(c)", "©")
     .replaceAll("Pulpina", "Pulpiña")
     .replace("{year}", String(new Date().getFullYear()));
+
+  // On mobile only, Ayuda and Redes trade places: Redes moves into the
+  // centered Store/Nuevo/Ofertas row (where Ayuda used to sit), and Ayuda
+  // moves down into Redes' old spot, left-aligned instead of centered.
+  // Defined once here and rendered twice below (one copy per breakpoint,
+  // toggled with hidden/md:hidden) so desktop's layout is untouched.
+  const ayudaContent = (
+    <>
+      <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Ayuda</div>
+      <ul className="space-y-1.5 text-sm">
+        {resolvedSettings.footerHelpLinks
+          .filter((link) => link.to !== "/solicitud")
+          .map((link) => (
+            <li key={link.label}>
+              <Link to={link.to} className="transition hover:underline">
+                {link.label}
+              </Link>
+            </li>
+          ))}
+      </ul>
+    </>
+  );
+  const redesContent = (
+    <>
+      <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Redes</div>
+      <div className="flex gap-3">
+        <Link
+          to="/contacto"
+          className="ui-circle bg-[linear-gradient(135deg,#4f5bd5,#d62976_52%,#feda75)] p-3 text-white transition hover:brightness-110"
+          aria-label="Instagram"
+        >
+          <Instagram className="h-6 w-6" />
+        </Link>
+        <Link
+          to="/contacto"
+          className="ui-circle bg-[linear-gradient(135deg,#25d366,#128c7e)] p-3 text-white transition hover:brightness-110"
+          aria-label="WhatsApp"
+        >
+          <WhatsAppIcon className="h-6 w-6" />
+        </Link>
+      </div>
+      {/* Desktop keeps this text inside Redes, same as always - only mobile
+          detaches it into its own single-line bar at the very bottom. */}
+      <div className="hidden md:block">
+        <p className={`mt-4 text-xs ${theme.textSoft}`}>{resolvedSettings.footerAccent || theme.accent}</p>
+        <p className={`mt-2 text-xs ${theme.textSoft}`}>{footerCopyright}</p>
+      </div>
+    </>
+  );
+
   return (
     <footer className={`${theme.spacing} overflow-hidden border-t-2 ${theme.border} ${theme.bg} ${theme.text}`}>
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 md:grid-cols-[auto_1fr_auto]">
@@ -211,43 +261,23 @@ export function Footer({
             </ul>
           </div>
 
-          <div>
-            <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Ayuda</div>
-            <ul className="space-y-1.5 text-sm">
-              {resolvedSettings.footerHelpLinks
-                .filter((link) => link.to !== "/solicitud")
-                .map((link) => (
-                  <li key={link.label}>
-                    <Link to={link.to} className="transition hover:underline">
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-            </ul>
-          </div>
+          <div className="hidden md:block">{ayudaContent}</div>
         </div>
 
-        <div>
-          <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Redes</div>
-          <div className="flex gap-2">
-            <Link
-              to="/contacto"
-              className="ui-circle bg-[linear-gradient(135deg,#4f5bd5,#d62976_52%,#feda75)] p-2 text-white transition hover:brightness-110"
-              aria-label="Instagram"
-            >
-              <Instagram className="h-5 w-5" />
-            </Link>
-            <Link
-              to="/contacto"
-              className="ui-circle bg-[linear-gradient(135deg,#25d366,#128c7e)] p-2 text-white transition hover:brightness-110"
-              aria-label="WhatsApp"
-            >
-              <WhatsAppIcon className="h-5 w-5" />
-            </Link>
-          </div>
-          <p className={`mt-4 text-xs ${theme.textSoft}`}>{resolvedSettings.footerAccent || theme.accent}</p>
-          <p className={`mt-2 text-xs ${theme.textSoft}`}>{footerCopyright}</p>
+        {/* Ayuda moves down to sit on the same line as Redes on mobile
+            (Ayuda first, then Redes) instead of living in the centered
+            group above - desktop keeps Ayuda up there and Redes alone here. */}
+        <div className="flex items-start gap-10 md:block">
+          <div className="md:hidden">{ayudaContent}</div>
+          <div>{redesContent}</div>
         </div>
+
+        {/* Mobile-only: Redes' WhatsApp blurb + copyright, detached into their
+            own single line at the very bottom of the footer instead of
+            stacking inside Redes. */}
+        <p className={`text-xs md:hidden ${theme.textSoft}`}>
+          {(resolvedSettings.footerAccent || theme.accent)} · {footerCopyright}
+        </p>
       </div>
     </footer>
   );

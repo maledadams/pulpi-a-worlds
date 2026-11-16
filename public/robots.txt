@@ -5,5 +5,64 @@ Disallow: /acceso-admin
 Disallow: /carrito
 Disallow: /solicitud
 
+# AI crawlers and answer engines, allowed explicitly rather than relying on
+# the wildcard above - these are how the store gets cited in AI answers, and
+# an explicit rule keeps a future default change from quietly cutting it off.
+User-agent: GPTBot
+Allow: /
+Disallow: /admin
+Disallow: /acceso-admin
+Disallow: /carrito
+Disallow: /solicitud
+
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /admin
+Disallow: /acceso-admin
+Disallow: /carrito
+Disallow: /solicitud
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /admin
+Disallow: /acceso-admin
+Disallow: /carrito
+Disallow: /solicitud
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /admin
+Disallow: /acceso-admin
+Disallow: /carrito
+Disallow: /solicitud
+
+User-agent: Claude-User
+Allow: /
+Disallow: /admin
+Disallow: /acceso-admin
+Disallow: /carrito
+Disallow: /solicitud
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /admin
+Disallow: /acceso-admin
+Disallow: /carrito
+Disallow: /solicitud
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /admin
+Disallow: /acceso-admin
+Disallow: /carrito
+Disallow: /solicitud
+
+User-agent: Applebot-Extended
+Allow: /
+Disallow: /admin
+Disallow: /acceso-admin
+Disallow: /carrito
+Disallow: /solicitud
+
 Host: pulpinastore.com
 Sitemap: https://pulpinastore.com/sitemap.xml

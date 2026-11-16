@@ -1,7 +1,6 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { ShoppingBag, Search, Menu, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MegaPortal } from "./MegaPortal";
 import { StorePineapple } from "@/components/branding/StorePineapple";
 import { useCart } from "@/context/cart";
 import {
@@ -97,7 +96,7 @@ const STORE_CHILDREN: NavChild[] = [
   { to: "/tienda", label: "Ver todo" },
   { to: "/tienda", label: "Nuevo", search: { fresh: "1" }, hash: "shop" },
   { to: "/tienda", label: "Oferta", search: { sale: "1" }, hash: "shop" },
-  ...getAvailableMenuCategories(undefined, false).map((c) => ({
+  ...getAvailableMenuCategories().map((c) => ({
     to: "/tienda",
     label: c.label,
     search: getCategoryLinkSearch(c.id),
@@ -323,7 +322,10 @@ function AnnouncementBar({ announcements, theme }: { announcements: StoreAnnounc
 
   return (
     <div className={`px-4 py-2 ${theme.background} ${theme.border} ${theme.text}`}>
-      <div className="mx-auto max-w-7xl text-center">
+      {/* Fixed to exactly two lines' height on mobile (overflow-hidden clips
+          anything past that) so a longer rotating message never grows the
+          bar and shoves the rest of the page down - it just crops instead. */}
+      <div className="mx-auto max-h-10 max-w-7xl overflow-hidden text-center sm:max-h-none">
         <div key={active.id} className="announcement-fade font-body text-sm leading-5 sm:text-[0.95rem]">
           {active.text}
         </div>
@@ -363,16 +365,6 @@ export function Header({
     setCategoryPage(0);
   }, [renderedMega]);
 
-  const headerRef = useRef<HTMLElement | null>(null);
-  const [headerHeight, setHeaderHeight] = useState(0);
-
-  useEffect(() => {
-    const update = () => setHeaderHeight(headerRef.current?.getBoundingClientRect().height ?? 0);
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
-
   /* close mobile on route change */
   useEffect(() => {
     setMobileOpen(false);
@@ -398,16 +390,12 @@ export function Header({
     }
   }, [activeMega]);
 
-  /* block page scroll while the mega dropdown is open/hovered, so it stays put */
+  /* scrolling the page closes the mega dropdown */
   useEffect(() => {
     if (!activeMega) return;
-    const preventScroll = (event: WheelEvent | TouchEvent) => event.preventDefault();
-    window.addEventListener("wheel", preventScroll, { passive: false });
-    window.addEventListener("touchmove", preventScroll, { passive: false });
-    return () => {
-      window.removeEventListener("wheel", preventScroll);
-      window.removeEventListener("touchmove", preventScroll);
-    };
+    const close = () => setActiveMega(null);
+    window.addEventListener("scroll", close, { passive: true });
+    return () => window.removeEventListener("scroll", close);
   }, [activeMega]);
 
   const navItems = useMemo<NavItem[]>(() => {
@@ -415,7 +403,7 @@ export function Header({
       { to, label },
       { to, label: "Nuevo", search: { fresh: "1" }, hash: "shop" },
       { to, label: "Oferta", search: { sale: "1" }, hash: "shop" },
-      ...getAvailableMenuCategories(catalogProducts, vibe, vibe ? true : false).map((category) => ({
+      ...getAvailableMenuCategories(catalogProducts, vibe).map((category) => ({
         to,
         label: category.label,
         search: vibe
@@ -478,7 +466,7 @@ export function Header({
     return {
       tienda: build("tienda","General","/tienda","Toda la tienda en un solo lugar.",publicProducts,
         [{to:"/tienda",label:"Ver todo"},{to:"/tienda",label:"Nuevo",search:{fresh:"1"},hash:"shop"},{to:"/tienda",label:"Oferta",search:{sale:"1"},hash:"shop"}],
-        getAvailableMenuCategories(publicProducts, undefined, false)),
+        getAvailableMenuCategories(publicProducts)),
       moon: build("moon","Moon","/moon","Oscuro, dramático, gótico y alternativo.",moonPool,
         [{to:"/moon",label:"Todo Moon"},{to:"/moon",label:"Nuevo",search:{fresh:"1"},hash:"shop"},{to:"/moon",label:"Oferta",search:{sale:"1"},hash:"shop"}],
         getAvailableMenuCategories(publicProducts, "moon")),
@@ -504,8 +492,9 @@ export function Header({
 
   return (
     <header
-      ref={headerRef}
-      className="sticky top-0 z-40 bg-background/95 backdrop-blur transition-colors duration-300"
+      className={`sticky top-0 bg-background/95 backdrop-blur transition-colors duration-300 ${
+        renderedMega ? "z-[99999]" : "z-40"
+      }`}
       onMouseLeave={handleMouseLeaveHeader}
     >
       {/* ── Top bar ── */}
@@ -583,15 +572,17 @@ export function Header({
 
       {/* ── Desktop mega menu ── */}
       <AnnouncementBar announcements={announcements} theme={announcementTheme} />
-      <MegaPortal top={headerHeight}>
-        <div
-          className={`left-0 right-0 hidden overflow-hidden shadow-xl transition-[max-height,opacity,transform] duration-250 md:block ${
+      {/* Hangs off the bottom of the nav row (top-14 = its h-14), so it covers
+          the announcement bar instead of opening below it. Pure CSS on
+          purpose: html has a per-breakpoint `zoom` (styles.css), and JS
+          measurements under zoom disagree between Safari and Chrome. */}
+      <div
+          className={`absolute inset-x-0 top-14 hidden overflow-hidden shadow-xl transition-[max-height,opacity,transform] duration-250 md:block ${
             megaOpen
               ? "pointer-events-auto max-h-[34rem] translate-y-0 opacity-100"
               : "pointer-events-none max-h-0 -translate-y-1 opacity-0"
           }`}
           style={{
-            position: "fixed",
             background: currentMega
               ? (VIBE_PANEL[currentMega.key]?.panelBg ?? "var(--color-background)")
               : "var(--color-background)",
@@ -752,7 +743,6 @@ export function Header({
           );
         })()}
       </div>
-      </MegaPortal>
 
       {/* ── Mobile menu ── */}
       {mobileOpen && (

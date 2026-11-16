@@ -116,6 +116,7 @@ export type AdminInquiryRecord = {
   discount: number;
   total: number;
   createdAt: string;
+  closedAt: string | null;
   notes: string;
   paymentStatus: "pending" | "confirmed" | "cancelled";
   externalReference: string;
