@@ -197,7 +197,7 @@ function CartPage() {
               className={`mt-5 block w-full rounded-full border border-foreground/20 px-6 py-3 text-center font-bold uppercase shadow-none transition-transform hover:-translate-y-0.5 hover:shadow-none disabled:cursor-wait ${
                 cart.hasUnavailableLines
                   ? "bg-[#c5475f] text-white"
-                  : "bg-foreground text-background"
+                  : "bg-foreground text-white"
               }`}
             >
               {cart.loading

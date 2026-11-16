@@ -46,14 +46,21 @@ export function OrderFeedbackForm({ orderId, token }: { orderId: string; token: 
       aria-labelledby="order-feedback-title"
       className="mt-6 rounded-2xl border border-foreground/10 bg-background p-4 sm:p-5"
     >
-      <h2 id="order-feedback-title" className="text-sm font-bold">
+      {/* Headings on general pages get a global scaleX(1.12) from the left edge;
+          centering the stretch and narrowing the box by the same 12% keeps the
+          brand stretch without the text spilling past the card. */}
+      <h2
+        id="order-feedback-title"
+        className="mx-auto max-w-[89%] text-center text-lg font-bold sm:text-xl"
+        style={{ transformOrigin: "center" }}
+      >
         ¿Cómo fue tu experiencia en la página? (opcional)
       </h2>
-      <div className="mt-4 grid gap-4">
+      <div className="mt-5 grid gap-4 text-center">
         {FEEDBACK_QUESTIONS.map((question) => (
-          <fieldset key={question.id} className="grid gap-2">
-            <legend className="text-sm">{question.label}</legend>
-            <div className="flex gap-1">
+          <fieldset key={question.id} className="grid justify-items-center gap-2">
+            <legend className="w-full text-center text-sm">{question.label}</legend>
+            <div className="flex justify-center gap-1">
               {[1, 2, 3, 4, 5].map((value) => {
                 const selected = (ratings[question.id] ?? 0) >= value;
                 return (
@@ -75,14 +82,14 @@ export function OrderFeedbackForm({ orderId, token }: { orderId: string; token: 
             </div>
           </fieldset>
         ))}
-        <label className="grid gap-2 text-sm">
+        <label className="mx-auto grid w-full max-w-xl gap-2 text-sm">
           <span>¿Algo más que quieras contarnos?</span>
           <textarea
             value={note}
             onChange={(event) => setNote(event.target.value.slice(0, 500))}
             maxLength={500}
             rows={3}
-            className="rounded-xl border border-foreground/20 bg-card p-3 text-base"
+            className="rounded-xl border border-foreground/20 bg-card p-3 text-left text-base"
           />
           <span className="text-xs text-muted-foreground">{note.length}/500</span>
         </label>
@@ -97,14 +104,14 @@ export function OrderFeedbackForm({ orderId, token }: { orderId: string; token: 
           type="button"
           onClick={send}
           disabled={state === "sending"}
-          className="flex-1 rounded-full bg-foreground px-5 py-3 text-sm font-bold uppercase tracking-wider text-background disabled:opacity-50"
+          className="flex-1 rounded-full bg-foreground px-5 py-3 text-sm font-bold uppercase tracking-wider text-white transition-transform active:scale-[0.98] disabled:opacity-50"
         >
           {state === "sending" ? "Enviando..." : "Enviar"}
         </button>
         <button
           type="button"
           onClick={() => setState("dismissed")}
-          className="flex-1 rounded-full border border-foreground/20 px-5 py-3 text-sm font-bold uppercase tracking-wider"
+          className="flex-1 rounded-full bg-white px-5 py-3 text-sm font-bold uppercase tracking-wider transition-transform active:scale-[0.98]"
         >
           No, gracias
         </button>

@@ -234,8 +234,9 @@ function InquiryPage() {
               <CheckCircle2 className="h-4 w-4" />
               Pedido creado
             </div>
-            <h1 className="mt-4 font-display text-3xl sm:text-4xl">
-              Tu numero de orden es {createdOrder.order.requestNumber}
+            {/* Center the global heading stretch and leave room for it (see OrderFeedbackForm). */}
+            <h1 className="mt-4 max-w-[89%] font-display text-3xl sm:text-4xl" style={{ transformOrigin: "center" }}>
+              Tu numero de orden es <span className="whitespace-nowrap">{createdOrder.order.requestNumber}</span>
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
               {createdOrder.emailState.customerSent
@@ -332,7 +333,7 @@ function InquiryPage() {
 
           <Link
             to="/tienda"
-            className="mt-5 flex w-full items-center justify-center rounded-full bg-foreground px-5 py-4 text-sm font-bold uppercase tracking-wider text-background"
+            className="mt-5 flex w-full items-center justify-center rounded-full bg-foreground px-5 py-4 text-sm font-bold uppercase tracking-wider text-white"
           >
             Volver a la tienda
           </Link>
@@ -349,7 +350,7 @@ function InquiryPage() {
         <p className="mt-2 text-sm text-muted-foreground">
           Hay productos agotados o eliminados. No se pueden incluir en la solicitud.
         </p>
-        <Link to="/carrito" className="mt-6 inline-block bg-foreground px-6 py-3 text-sm font-bold uppercase text-background">
+        <Link to="/carrito" className="mt-6 inline-block bg-foreground px-6 py-3 text-sm font-bold uppercase text-white">
           Volver al carrito
         </Link>
       </div>
@@ -369,7 +370,7 @@ function InquiryPage() {
         <p className="mt-2 text-sm text-muted-foreground">Agrega productos antes de crear un pedido.</p>
         <Link
           to="/tienda"
-          className="mt-6 inline-block rounded-xl bg-foreground px-6 py-3 text-sm font-bold uppercase tracking-wider text-background"
+          className="mt-6 inline-block rounded-xl bg-foreground px-6 py-3 text-sm font-bold uppercase tracking-wider text-white"
         >
           Ir a la tienda
         </Link>
@@ -761,7 +762,7 @@ function InquiryPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="mt-auto inline-flex items-center justify-center rounded-full bg-foreground px-5 py-3 text-sm font-bold uppercase tracking-wider text-background disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-auto inline-flex items-center justify-center rounded-full bg-foreground px-5 py-3 text-sm font-bold uppercase tracking-wider text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting ? "Creando pedido..." : "Completar pedido"}
             </button>
