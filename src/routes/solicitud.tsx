@@ -114,6 +114,10 @@ function InquiryPage() {
       customerSent: boolean;
       teamSent: boolean;
     };
+    feedback: {
+      orderId: string;
+      token: string;
+    };
     message: string;
     order: {
       createdAt: string;

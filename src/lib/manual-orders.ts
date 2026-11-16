@@ -13,6 +13,7 @@ import { verifyTurnstileToken } from "@/lib/turnstile";
 import { getDominicanDateParts, getDominicanDayStartIso, validateDiscountCodeInternal } from "@/lib/public-forms";
 import { recordDiscountRedemption } from "@/lib/store-discounts";
 import { signOrderConfirmToken, verifyOrderConfirmToken } from "@/lib/order-confirm-token";
+import { createOrderFeedbackToken } from "@/lib/order-feedback";
 import type { AdminInquiryChannel, AdminInquiryRecord, AdminInquiryStatus } from "@/lib/admin-types";
 
 const ORDER_SEQUENCE_KEY = "manual_orders";
@@ -1771,6 +1772,12 @@ export const submitManualOrder = createServerFn({ method: "POST" })
         customerSent,
         teamSent: false,
       };
+      let feedbackToken = "";
+      try {
+        feedbackToken = await createOrderFeedbackToken(record.id);
+      } catch (error) {
+        console.error("[submitManualOrder] failed to sign feedback token", error);
+      }
 
       return {
         emailState,
@@ -1778,6 +1785,10 @@ export const submitManualOrder = createServerFn({ method: "POST" })
           ? "Pedido creado. Revisa tu correo para confirmar por WhatsApp."
           : "Pedido creado. Falta configurar el proveedor de correo para enviar confirmaciones automaticas.",
         ok: true as const,
+        feedback: {
+          orderId: record.id,
+          token: feedbackToken,
+        },
         order: {
           createdAt: record.createdAt,
           customerName: record.customerName,
