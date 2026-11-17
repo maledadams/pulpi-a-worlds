@@ -55,7 +55,7 @@ export function getAdminVibeButtonClassName(
     "inline-flex items-center rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-accent)]/40",
     vibe === "moon" && (active ? "bg-[#7a0e1c] text-white" : "bg-[#f6e7ea] text-[#7a0e1c] hover:bg-[#efd6db]"),
     vibe === "sunshine" && (active ? "bg-[#e0508f] text-white" : "bg-[#fde8f1] text-[#a8336a] hover:bg-[#fad5e5]"),
-    vibe === "men" && (active ? "bg-black text-white ring-2 ring-black/25 ring-offset-1" : "bg-[#1a1a1a] text-white hover:bg-black"),
+    vibe === "men" && (active ? "bg-[#2f2b29] text-white ring-2 ring-[#3d3936]/25 ring-offset-1" : "bg-[#3d3936] text-white hover:bg-[#2f2b29]"),
     className,
   );
 }

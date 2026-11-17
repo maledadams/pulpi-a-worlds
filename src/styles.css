@@ -298,8 +298,8 @@ html:has(.admin-shell) body {
   /* Selection + primary actions: Moon crimson. */
   --admin-accent: #97000f;
   --admin-accent-hover: #7c0006;
-  /* Selected rows / items: a neutral grey highlight. */
-  --admin-accent-soft: #ececec;
+  /* Selected rows / items: a light, warm grey highlight. */
+  --admin-accent-soft: #f3efec;
   --admin-accent-ink: #130808;
   /* Status: green = done, amber = needs attention, red = errors. */
   --admin-ok: #286037;

@@ -402,7 +402,7 @@ function AdminCategoriesPage() {
                           key={category.id}
                           onClick={() => setSelectedId(category.id)}
                           className={`cursor-pointer border-t border-[var(--admin-line)] transition-colors ${
-                            selectedId === category.id ? "bg-[var(--admin-accent-soft)]/60" : "hover:bg-[var(--admin-field)]"
+                            selectedId === category.id ? "border-transparent bg-[var(--admin-accent-soft)] [&+tr]:border-transparent" : "hover:bg-[var(--admin-field)]"
                           }`}
                         >
                           <td className="py-3 pr-3">

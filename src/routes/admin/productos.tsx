@@ -698,7 +698,7 @@ function AdminProductsPage() {
                         key={product.id}
                         onClick={() => setSelectedId(product.id)}
                         className={`cursor-pointer border-t border-[var(--admin-line)] align-top transition-colors ${
-                          selectedId === product.id ? "bg-[var(--admin-accent-soft)]/60" : "hover:bg-[var(--admin-field)]"
+                          selectedId === product.id ? "border-transparent bg-[var(--admin-accent-soft)] [&+tr]:border-transparent" : "hover:bg-[var(--admin-field)]"
                         }`}
                       >
                         <td className="py-3 pr-3">

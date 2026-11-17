@@ -607,7 +607,7 @@ function AdminOrdersPage() {
                         key={inquiry.id}
                         onClick={() => selectOrder(inquiry.id)}
                         className={`cursor-pointer border-t border-[var(--admin-line)] align-top transition-colors ${
-                          selectedId === inquiry.id ? "bg-[var(--admin-accent-soft)]/60" : "hover:bg-[var(--admin-field)]"
+                          selectedId === inquiry.id ? "border-transparent bg-[var(--admin-accent-soft)] [&+tr]:border-transparent" : "hover:bg-[var(--admin-field)]"
                         }`}
                       >
                         <td className="py-3 pr-3">
