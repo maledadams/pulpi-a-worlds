@@ -1,8 +1,8 @@
 import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const STAR_COLOR = "fill-[#c5475f] text-[#c5475f]";
-const EMPTY_COLOR = "text-[#231717]/20";
+const STAR_COLOR = "fill-[var(--admin-accent)] text-[var(--admin-accent)]";
+const EMPTY_COLOR = "text-[var(--admin-line-strong)]";
 
 // Five stars filled to `value` (0-5), including partial stars for averages
 // like 4.6: a filled row is clipped to value/5 of its width over an empty row.
@@ -33,9 +33,9 @@ export function StarMeter({ value, size = "md" }: { value: number; size?: "sm" |
 export function RatingFigure({ value, count, decimals = 1 }: { value: number; count?: number; decimals?: number }) {
   return (
     <span className="inline-flex items-baseline gap-1 whitespace-nowrap tabular-nums">
-      <span className="font-black text-[#231717]">{value.toFixed(decimals)}</span>
-      <span className="font-semibold text-[#6b5a55]">/ 5</span>
-      {count !== undefined ? <span className="text-[11px] text-[#8a7871]">({count})</span> : null}
+      <span className="font-semibold text-[var(--admin-ink)]">{value.toFixed(decimals)}</span>
+      <span className="font-semibold text-[var(--admin-muted)]">/ 5</span>
+      {count !== undefined ? <span className="text-[11px] text-[var(--admin-faint)]">({count})</span> : null}
     </span>
   );
 }

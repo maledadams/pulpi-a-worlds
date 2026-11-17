@@ -203,7 +203,7 @@ function AdminDiscountsPage() {
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Buscar por codigo o nombre"
             />
-            <div className="shrink-0 rounded-xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2.5 text-sm font-semibold">
+            <div className="shrink-0 px-1 py-2.5 text-sm text-[var(--admin-faint)]">
               {filtered.length} descuentos
             </div>
           </div>
@@ -227,23 +227,23 @@ function AdminDiscountsPage() {
                   onClick={() => setSelectedId(discount.id)}
                   className={`rounded-3xl border p-4 text-left transition-colors ${
                     selectedId === discount.id
-                      ? "border-[#231717] bg-[#f7f2ec]"
-                      : "border-[#231717]/10 bg-[#faf6f0] hover:bg-[#f3eadf]"
+                      ? "border-transparent bg-[var(--admin-accent-soft)]"
+                      : "border-[var(--admin-line)] bg-white hover:bg-[var(--admin-field)]"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-sm font-black">{discountTitle(discount)}</div>
-                      <div className="mt-1 text-xs text-[#6b5a55]">
+                      <div className="text-sm font-semibold">{discountTitle(discount)}</div>
+                      <div className="mt-1 text-xs text-[var(--admin-muted)]">
                         {discount.kind === "code" ? discount.label || "Sin nombre" : "Promoción automática"}
                       </div>
                     </div>
                     <AdminTag tone={discount.active ? "dark" : "soft"}>{discount.active ? "Activo" : "Pausado"}</AdminTag>
                   </div>
-                  <div className="mt-4 text-2xl font-black">
+                  <div className="mt-4 text-2xl font-semibold">
                     {discount.type === "percentage" ? `${discount.value}%` : `RD$${discount.value}`}
                   </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.16em] text-[#7c665f]">
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-medium text-[var(--admin-faint)]">
                     <AdminTag tone="info">{discount.kind === "code" ? "Código" : "Promoción"}</AdminTag>
                     {discount.kind === "promotion" ? <span>{getVibeLabel(discount.scope)}</span> : null}
                     {discount.kind === "promotion" && discount.categoryIds.length > 0 ? (
@@ -331,7 +331,7 @@ function AdminDiscountsPage() {
                   </AdminField>
                   <div>
                     <AdminSectionLabel>Categorías (opcional)</AdminSectionLabel>
-                    <p className="mt-1 text-xs text-[#8b756d]">
+                    <p className="mt-1 text-xs text-[var(--admin-faint)]">
                       Deja todas sin marcar para aplicar a todo lo de "{getVibeLabel(draft.scope)}". Marca solo las
                       categorías donde quieres que aplique el descuento.
                     </p>
@@ -343,8 +343,8 @@ function AdminDiscountsPage() {
                             key={category.id}
                             type="button"
                             onClick={() => toggleCategory(category.id)}
-                            className={`rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] transition ${
-                              active ? "border-[#231717] bg-[#231717] text-white" : "border-[#231717]/20 bg-[#faf6f0] text-[#5f4941]"
+                            className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
+                              active ? "border-transparent bg-[var(--admin-accent-soft)] text-[var(--admin-accent-ink)]" : "bg-[var(--admin-soft)] text-[var(--admin-muted)] hover:bg-[var(--admin-soft-hover)]"
                             }`}
                           >
                             {category.label}

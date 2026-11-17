@@ -67,13 +67,13 @@ function SurveyCard({ survey, selected }: { survey: SurveySummary; selected: boo
       search={{ survey: survey.id }}
       className={cn(
         "block rounded-xl border px-3 py-2.5 transition",
-        selected ? "border-[#231717] bg-[#f7f2ec]" : "border-[#231717]/10 bg-white hover:border-[#231717]/30",
+        selected ? "border-transparent bg-[var(--admin-accent-soft)]" : "border-[var(--admin-line)] bg-white hover:bg-[var(--admin-field)]",
       )}
     >
-      <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#7c665f]">{eyebrowFor(survey)}</div>
+      <div className="text-xs font-medium text-[var(--admin-faint)]">{eyebrowFor(survey)}</div>
       <div className="mt-0.5 flex items-baseline justify-between gap-2">
-        <span className="truncate text-sm font-black">{survey.title}</span>
-        <span className="shrink-0 text-xs tabular-nums text-[#6b5a55]">
+        <span className="truncate text-sm font-semibold">{survey.title}</span>
+        <span className="shrink-0 text-xs tabular-nums text-[var(--admin-muted)]">
           {survey.answerCount} resp.
         </span>
       </div>
@@ -188,7 +188,7 @@ function AdminSurveysPage() {
       title="Encuestas"
       subtitle="Crea encuestas para después del pedido, ábrelas por dispositivo y revisa lo que responden."
       actions={
-        <AdminButton tone="active" disabled={busy} onClick={() => void navigate({ to: "/admin/encuestas", search: { editar: "nueva" } })}>
+        <AdminButton tone="primary" disabled={busy} onClick={() => void navigate({ to: "/admin/encuestas", search: { editar: "nueva" } })}>
           <span className="inline-flex items-center gap-1.5">
             <Plus className="h-4 w-4" /> Nueva encuesta
           </span>
@@ -199,14 +199,14 @@ function AdminSurveysPage() {
       <div className="grid items-start gap-4 lg:grid-cols-[17rem_minmax(0,1fr)]">
         <aside className="grid gap-4">
           {surveys.length === 0 ? (
-            <p className="text-sm text-[#6b5a55]">Todavía no hay encuestas.</p>
+            <p className="text-sm text-[var(--admin-on-bg-muted)]">Todavía no hay encuestas.</p>
           ) : (
             GROUPS.map((group) => {
               const items = surveys.filter((survey) => survey.status === group.status);
               if (items.length === 0) return null;
               return (
                 <div key={group.status} className="grid gap-2">
-                  <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[#7c665f]">{group.label}</div>
+                  <div className="px-1 text-xs font-medium text-[var(--admin-on-bg-muted)]">{group.label}</div>
                   {items.map((survey) => (
                     <SurveyCard key={survey.id} survey={survey} selected={!editingNew && survey.id === selected?.id} />
                   ))}
@@ -229,10 +229,10 @@ function AdminSurveysPage() {
           ) : detail && selected ? (
             <>
               <AdminPanel eyebrow={eyebrowFor(selected)} title={selected.title} actions={actionsFor(selected)}>
-                <div className="flex flex-wrap items-center gap-2 text-sm text-[#6b5a55]">
+                <div className="flex flex-wrap items-center gap-2 text-sm text-[var(--admin-muted)]">
                   {/* Same tones as the rest of the admin: live = dark ("Activo", "Publica"),
                       not shown yet = warn ("Oculta"), finished = success (Pedidos "Cerrada"). */}
-                  <AdminTag tone={selected.status === "open" ? "dark" : selected.status === "draft" ? "warn" : "success"}>
+                  <AdminTag tone={selected.status === "open" ? "dark" : selected.status === "draft" ? "warn" : "cocoa"}>
                     {selected.status === "open" ? "Abierta" : selected.status === "draft" ? "Borrador" : "Cerrada"}
                   </AdminTag>
                   <span>{questionCounts(detail.questions)}</span>

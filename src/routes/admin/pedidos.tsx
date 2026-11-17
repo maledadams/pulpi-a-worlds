@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AdminPanel, AdminShell, AdminTag } from "@/components/admin/AdminShell";
+import { AdminPanel, AdminShell, AdminTag, inquiryStatusTone } from "@/components/admin/AdminShell";
 import {  AdminButton,
   AdminEmptyState,
   AdminField,
@@ -12,6 +12,7 @@ import {  AdminButton,
   AdminTextarea,
   confirmAdminDestructiveAction,
   downloadAdminCsv,
+  getAdminChipClassName,
 } from "@/components/admin/AdminControls";
 import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
@@ -60,14 +61,6 @@ function cloneInquiry(inquiry: AdminInquiryRecord): AdminInquiryRecord {
     shippingAddress: { ...inquiry.shippingAddress },
     lines: inquiry.lines.map((line) => ({ ...line })),
   };
-}
-
-function statusTone(status: AdminInquiryStatus) {
-  if (status === "pending_contact") return "info";
-  if (status === "new") return "warn";
-  if (status === "closed") return "success";
-  if (status === "cancelled") return "danger";
-  return "info";
 }
 
 function createDraftLine(products: AdminProductRecord[]): DraftOrderLine {
@@ -150,16 +143,16 @@ function ProductSearchField({
         onChange={(event) => onQueryChange(event.target.value)}
         placeholder="Buscar producto por nombre, id o slug"
       />
-      <div className="grid gap-2 rounded-2xl border border-[#231717]/10 bg-[#faf6f0] p-2">
+      <div className="grid gap-1.5 rounded-xl bg-[var(--admin-field)] p-1.5 ring-1 ring-[var(--admin-line)]">
         {matches.map((match) => (
           <button
             key={match.id}
             type="button"
             onClick={() => onProductSelect(match)}
-            className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
+            className={`rounded-lg px-3 py-2 text-left text-sm transition-colors ${
               line.productId === match.id
-                ? "border-[#231717] bg-[#231717] text-white"
-                : "border-[#231717]/10 bg-white text-[#231717]"
+                ? "bg-[var(--admin-accent-soft)] text-[var(--admin-accent-ink)]"
+                : "bg-white hover:bg-[var(--admin-soft)]"
             }`}
           >
             <div className="font-normal">{match.name}</div>
@@ -460,7 +453,7 @@ function AdminOrdersPage() {
         const variants = getAvailableVariants(product);
 
         return (
-          <div key={line.key} className="rounded-2xl bg-[#faf6f0] p-4">
+          <div key={line.key} className="rounded-2xl border border-[var(--admin-line)] bg-white p-4">
             <div className="grid gap-3">
               <ProductSearchField
                 line={line}
@@ -559,7 +552,7 @@ function AdminOrdersPage() {
           <AdminButton tone="ghost" onClick={handleExportCsv} disabled={filtered.length === 0}>
             Exportar CSV
           </AdminButton>
-          <AdminButton tone={isCreating ? "active" : "secondary"} onClick={() => setIsCreating((current) => !current)}>
+          <AdminButton tone={isCreating ? "secondary" : "primary"} onClick={() => setIsCreating((current) => !current)}>
             {isCreating ? "Cerrar manual" : "Nuevo pedido manual"}
           </AdminButton>
         </>
@@ -571,9 +564,9 @@ function AdminOrdersPage() {
           actions={
             <div className="flex flex-wrap gap-2">
               {(["all", "pending_contact", "new", "follow_up", "quoted", "closed", "cancelled"] as const).map((entry) => (
-                <AdminButton key={entry} tone={statusFilter === entry ? "active" : "ghost"} onClick={() => setStatusFilter(entry)}>
+                <button key={entry} type="button" className={getAdminChipClassName(statusFilter === entry)} onClick={() => setStatusFilter(entry)}>
                   {entry === "all" ? "Todas" : formatAdminInquiryStatus(entry)}
-                </AdminButton>
+                </button>
               ))}
             </div>
           }
@@ -585,7 +578,7 @@ function AdminOrdersPage() {
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Buscar por numero PUL, cliente, email o telefono"
             />
-            <div className="shrink-0 rounded-xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2.5 text-sm font-semibold">
+            <div className="shrink-0 px-1 py-2.5 text-sm text-[var(--admin-faint)]">
               {filtered.length} pedidos
             </div>
           </div>
@@ -599,7 +592,7 @@ function AdminOrdersPage() {
             <>
               <div className="flex-1 overflow-x-auto">
                 <table className="min-w-full text-left text-sm">
-                  <thead className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">
+                  <thead className="text-xs font-medium text-[var(--admin-faint)]">
                     <tr>
                       <th className="pb-3 pr-3">Pedido</th>
                       <th className="pb-3 pr-3">Cliente</th>
@@ -613,23 +606,23 @@ function AdminOrdersPage() {
                       <tr
                         key={inquiry.id}
                         onClick={() => selectOrder(inquiry.id)}
-                        className={`cursor-pointer border-t border-[#231717]/10 align-top transition-colors ${
-                          selectedId === inquiry.id ? "bg-[#f7f2ec]" : "hover:bg-[#faf6f0]"
+                        className={`cursor-pointer border-t border-[var(--admin-line)] align-top transition-colors ${
+                          selectedId === inquiry.id ? "bg-[var(--admin-accent-soft)]/60" : "hover:bg-[var(--admin-field)]"
                         }`}
                       >
                         <td className="py-3 pr-3">
                           <div className="font-bold">{inquiry.requestNumber}</div>
-                          <div className="text-xs text-[#6b5a55]">{new Date(inquiry.createdAt).toLocaleDateString("es-DO")}</div>
+                          <div className="text-xs text-[var(--admin-muted)]">{new Date(inquiry.createdAt).toLocaleDateString("es-DO")}</div>
                         </td>
                         <td className="py-3 pr-3">
                           <div>{inquiry.customerName}</div>
-                          <div className="text-xs text-[#6b5a55]">{inquiry.customerPhone}</div>
+                          <div className="text-xs text-[var(--admin-muted)]">{inquiry.customerPhone}</div>
                         </td>
                         <td className="py-3 pr-3">{formatAdminInquiryChannel(inquiry.channel)}</td>
                         <td className="py-3 pr-3">{inquiry.fulfillmentMethod === "delivery" ? "Delivery" : "Recoger"}</td>
                         <td className="py-3 pr-3">
                           <div className="flex flex-wrap gap-1">
-                            <AdminTag tone={statusTone(inquiry.status)}>{formatAdminInquiryStatus(inquiry.status)}</AdminTag>
+                            <AdminTag tone={inquiryStatusTone(inquiry.status)}>{formatAdminInquiryStatus(inquiry.status)}</AdminTag>
                             {inquiry.adminTags.map((tag) => (
                               <AdminTag key={tag} tone={tag === "Correo no enviado" ? "danger" : "warn"}>
                                 {tag}

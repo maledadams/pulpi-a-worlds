@@ -26,9 +26,9 @@ function formatDateTime(iso: string) {
 }
 
 function OrderLink({ orderId, requestNumber, exists }: { orderId: string; requestNumber: string; exists: boolean }) {
-  if (!exists) return <span className="font-black text-[#6b5a55]">{requestNumber}</span>;
+  if (!exists) return <span className="font-semibold text-[var(--admin-muted)]">{requestNumber}</span>;
   return (
-    <Link to="/admin/pedidos" search={{ order: orderId }} className="font-black underline underline-offset-4">
+    <Link to="/admin/pedidos" search={{ order: orderId }} className="font-semibold underline underline-offset-4">
       {requestNumber}
     </Link>
   );
@@ -36,7 +36,7 @@ function OrderLink({ orderId, requestNumber, exists }: { orderId: string; reques
 
 function AverageCell({ answers, questionId, device }: { answers: AdminSurveyAnswer[]; questionId: string; device?: AnswerDevice }) {
   const result = averageRating(answers, questionId, device);
-  if (!result) return <span className="text-[#8a7871]">—</span>;
+  if (!result) return <span className="text-[var(--admin-faint)]">—</span>;
   return (
     <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
       <StarMeter value={result.value} size="sm" />
@@ -69,12 +69,12 @@ export function SurveyResults({
 
   return (
     <div className="grid gap-4">
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="grid gap-1 text-xs font-bold">
+      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-[var(--admin-line)] bg-[var(--admin-surface)] px-4 py-3">
+        <label className="grid gap-1 text-xs font-medium text-[var(--admin-muted)]">
           Desde
           <AdminInput type="date" value={from} max={to || undefined} onChange={(event) => setFrom(event.target.value)} className="py-2" />
         </label>
-        <label className="grid gap-1 text-xs font-bold">
+        <label className="grid gap-1 text-xs font-medium text-[var(--admin-muted)]">
           Hasta
           <AdminInput type="date" value={to} min={from || undefined} onChange={(event) => setTo(event.target.value)} className="py-2" />
         </label>
@@ -85,12 +85,12 @@ export function SurveyResults({
               setFrom("");
               setTo("");
             }}
-            className="pb-2 text-xs font-black uppercase tracking-[0.14em] text-[#5f4941] underline underline-offset-4"
+            className="pb-2 text-xs font-semibold text-[var(--admin-muted)] underline underline-offset-4"
           >
             Quitar fechas
           </button>
         ) : null}
-        <span className="ml-auto pb-2 text-xs text-[#6b5a55]">
+        <span className="ml-auto pb-2 text-xs text-[var(--admin-faint)]">
           {filtered.length} {filtered.length === 1 ? "respuesta" : "respuestas"}
         </span>
       </div>
@@ -98,21 +98,21 @@ export function SurveyResults({
       {ratingQuestions.length > 0 ? (
         <AdminPanel title="Promedios">
           {filtered.length === 0 ? (
-            <p className="text-sm text-[#6b5a55]">Sin respuestas en estas fechas.</p>
+            <p className="text-sm text-[var(--admin-muted)]">Sin respuestas en estas fechas.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[40rem] text-left text-sm">
                 <thead>
-                  <tr className="border-b border-[#231717]/10 text-xs uppercase tracking-[0.14em] text-[#7c665f]">
-                    <th className="py-2 pr-4 font-black">Categoría</th>
-                    <th className="py-2 pr-4 font-black">Teléfono ({phoneCount})</th>
-                    <th className="py-2 pr-4 font-black">Computadora ({filtered.length - phoneCount})</th>
-                    <th className="py-2 font-black">Todos ({filtered.length})</th>
+                  <tr className="border-b border-[var(--admin-line)] text-xs font-medium text-[var(--admin-faint)]">
+                    <th className="py-2 pr-4 font-semibold">Categoría</th>
+                    <th className="py-2 pr-4 font-semibold">Teléfono ({phoneCount})</th>
+                    <th className="py-2 pr-4 font-semibold">Computadora ({filtered.length - phoneCount})</th>
+                    <th className="py-2 font-semibold">Todos ({filtered.length})</th>
                   </tr>
                 </thead>
                 <tbody>
                   {ratingQuestions.map((question) => (
-                    <tr key={question.id} className="border-b border-[#231717]/5 last:border-0">
+                    <tr key={question.id} className="border-b border-[var(--admin-line)] last:border-0">
                       <td className="py-2.5 pr-4 font-semibold">{question.label}</td>
                       <td className="py-2.5 pr-4"><AverageCell answers={filtered} questionId={question.id} device="phone" /></td>
                       <td className="py-2.5 pr-4"><AverageCell answers={filtered} questionId={question.id} device="desktop" /></td>
@@ -138,15 +138,15 @@ export function SurveyResults({
           />
         ) : (
           <div className="grid gap-3">
-            <ul className="divide-y divide-[#231717]/10">
+            <ul className="divide-y divide-[var(--admin-line)]">
               {pageData.items.map((answer) => (
                 <li key={answer.id} className="py-3 first:pt-0">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
                     <OrderLink orderId={answer.orderId} requestNumber={answer.requestNumber} exists={answer.orderExists} />
-                    {answer.customerName ? <span className="text-[#3a2924]">{answer.customerName}</span> : null}
+                    {answer.customerName ? <span className="text-[var(--admin-ink)]">{answer.customerName}</span> : null}
                     {/* Descriptive label: info tone, like "Código" / "Promoción" in Promociones. */}
                     <AdminTag tone="info">{DEVICE_SHORT[answer.device]}</AdminTag>
-                    <span className="ml-auto text-xs text-[#6b5a55]">{formatDateTime(answer.createdAt)}</span>
+                    <span className="ml-auto text-xs text-[var(--admin-muted)]">{formatDateTime(answer.createdAt)}</span>
                   </div>
                   {ratingQuestions.some((question) => typeof answer.answers[question.id] === "number") ? (
                     <dl className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2">
@@ -155,10 +155,10 @@ export function SurveyResults({
                         if (typeof value !== "number") return null;
                         return (
                           <div key={question.id} className="flex items-center justify-between gap-3 text-sm">
-                            <dt className="truncate text-[#6b5a55]">{question.label}</dt>
+                            <dt className="truncate text-[var(--admin-muted)]">{question.label}</dt>
                             <dd className="flex shrink-0 items-center gap-1.5">
                               <StarMeter value={value} size="sm" />
-                              <span className="text-xs font-black tabular-nums">{value}/5</span>
+                              <span className="text-xs font-semibold tabular-nums">{value}/5</span>
                             </dd>
                           </div>
                         );
@@ -169,8 +169,8 @@ export function SurveyResults({
                     const value = answer.answers[question.id];
                     if (typeof value !== "string" || !value) return null;
                     return (
-                      <div key={question.id} className="mt-2 rounded-lg bg-[#faf6f0] px-3 py-2 text-sm">
-                        <div className="text-[11px] font-black uppercase tracking-[0.14em] text-[#7c665f]">{question.label}</div>
+                      <div key={question.id} className="mt-2 rounded-lg bg-[var(--admin-soft)] px-3 py-2 text-sm">
+                        <div className="text-xs font-medium text-[var(--admin-faint)]">{question.label}</div>
                         <p className="mt-0.5 whitespace-pre-wrap">{value}</p>
                       </div>
                     );
@@ -186,15 +186,15 @@ export function SurveyResults({
       {survey.status === "open" ? (
         <AdminPanel title={`Pedidos recientes sin encuesta (${unanswered.length})`}>
           {unanswered.length === 0 ? (
-            <p className="text-sm text-[#6b5a55]">Todos los pedidos recientes tienen respuesta.</p>
+            <p className="text-sm text-[var(--admin-muted)]">Todos los pedidos recientes tienen respuesta.</p>
           ) : (
-            <ul className="divide-y divide-[#231717]/10 text-sm">
+            <ul className="divide-y divide-[var(--admin-line)] text-sm">
               {unanswered.map((row) => (
                 <li key={row.orderId} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 first:pt-0">
                   <OrderLink orderId={row.orderId} requestNumber={row.requestNumber} exists />
                   {row.customerName ? <span>{row.customerName}</span> : null}
-                  {row.customerPhone ? <span className="text-[#6b5a55]">{row.customerPhone}</span> : null}
-                  <span className="ml-auto text-xs text-[#6b5a55]">{formatDateTime(row.createdAt)}</span>
+                  {row.customerPhone ? <span className="text-[var(--admin-muted)]">{row.customerPhone}</span> : null}
+                  <span className="ml-auto text-xs text-[var(--admin-muted)]">{formatDateTime(row.createdAt)}</span>
                 </li>
               ))}
             </ul>

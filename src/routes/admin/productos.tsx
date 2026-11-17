@@ -632,7 +632,7 @@ function AdminProductsPage() {
           <AdminButton tone="secondary" onClick={handleDuplicate} disabled={!draft}>
             Duplicar
           </AdminButton>
-          <AdminButton tone="primary" onClick={handleCreate}>
+          <AdminButton tone="secondary" onClick={handleCreate}>
             Nuevo producto
           </AdminButton>
           <AdminButton tone="danger" onClick={handleDelete} disabled={!draft || isSaving || isDeleting || isUploadingImage}>
@@ -667,7 +667,7 @@ function AdminProductsPage() {
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Buscar por nombre, slug, id o categoria"
             />
-            <div className="shrink-0 rounded-xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2.5 text-sm font-semibold">
+            <div className="shrink-0 px-1 py-2.5 text-sm text-[var(--admin-faint)]">
               {filtered.length} resultados
             </div>
           </div>
@@ -682,7 +682,7 @@ function AdminProductsPage() {
             <>
               <div className="overflow-x-auto">
                 <table className="min-w-full text-left text-sm">
-                  <thead className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">
+                  <thead className="text-xs font-medium text-[var(--admin-faint)]">
                     <tr>
                       <th className="pb-3 pr-3">Producto</th>
                       <th className="pb-3 pr-3">Subtienda</th>
@@ -697,13 +697,13 @@ function AdminProductsPage() {
                       <tr
                         key={product.id}
                         onClick={() => setSelectedId(product.id)}
-                        className={`cursor-pointer border-t border-[#231717]/10 align-top transition-colors ${
-                          selectedId === product.id ? "bg-[#f7f2ec]" : "hover:bg-[#faf6f0]"
+                        className={`cursor-pointer border-t border-[var(--admin-line)] align-top transition-colors ${
+                          selectedId === product.id ? "bg-[var(--admin-accent-soft)]/60" : "hover:bg-[var(--admin-field)]"
                         }`}
                       >
                         <td className="py-3 pr-3">
                           <div className="font-normal">{product.name || "Sin nombre"}</div>
-                          <div className="text-xs text-[#6b5a55]">{product.id}</div>
+                          <div className="text-xs text-[var(--admin-muted)]">{product.id}</div>
                         </td>
                         <td className="py-3 pr-3">
                           <div className="flex flex-wrap gap-1">
@@ -712,10 +712,10 @@ function AdminProductsPage() {
                                 product.vibe === "moon" || product.vibe === "sunshine" || product.vibe === "men"
                                   ? getAdminVibeButtonClassName(
                                       product.vibe,
-                                      true,
-                                      "pointer-events-none cursor-default rounded-[10px] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.16em]",
+                                      false,
+                                      "pointer-events-none cursor-default rounded-full px-2.5 py-0.5 text-xs font-medium",
                                     )
-                                  : "pointer-events-none cursor-default rounded-[10px] bg-[#f3eadf] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-[#5f4941]"
+                                  : "pointer-events-none cursor-default rounded-full bg-[var(--admin-soft)] px-2.5 py-0.5 text-xs font-medium text-[var(--admin-muted)]"
                               }
                             >
                               {getVibeLabel(product.vibe)}
@@ -725,7 +725,7 @@ function AdminProductsPage() {
                                 className={getAdminVibeButtonClassName(
                                   product.secondaryVibe,
                                   false,
-                                  "pointer-events-none cursor-default rounded-[10px] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.16em]",
+                                  "pointer-events-none cursor-default rounded-full px-2.5 py-0.5 text-xs font-medium",
                                 )}
                               >
                                 + {getVibeLabel(product.secondaryVibe)}
@@ -742,12 +742,12 @@ function AdminProductsPage() {
                         </td>
                         <td className="py-3 pr-3 font-bold">{formatPrice(product.price)}</td>
                         <td className="py-3 pr-3">
-                          <div className={`inline-flex items-center ${product.hidden ? "text-[#9a3423]" : "text-emerald-700"}`}>
+                          <div className={`inline-flex items-center ${product.hidden ? "text-[var(--admin-danger)]" : "text-[var(--admin-ok)]"}`}>
                             {product.hidden ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}
                           </div>
                         </td>
                         <td className="py-3 pr-3">
-                          <span className={`inline-flex rounded-xl px-2.5 py-1 text-[11px] font-black uppercase ${getInventoryStatusTone(product)}`}>
+                          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${getInventoryStatusTone(product)}`}>
                             {getInventoryStatus(product)}
                           </span>
                         </td>
@@ -956,7 +956,7 @@ function AdminProductsPage() {
               <AdminPanel title="Imagenes" className="flex flex-col">
                 <div className="flex h-full flex-col gap-4">
                   <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm text-[#5f4941]">
+                    <div className="text-sm text-[var(--admin-muted)]">
                       Sube entre 1 y 5 imagenes. La portada sale de la marcada como principal.
                     </div>
                     <AdminTag>{draft.images.length}/5</AdminTag>
@@ -966,21 +966,21 @@ function AdminProductsPage() {
                     {draft.images.length > 0 ? (
                       <div className="grid gap-3">
                         {draft.images.map((image, index) => (
-                          <div key={image.url} className="overflow-hidden rounded-2xl bg-[#faf6f0]">
+                          <div key={image.url} className="overflow-hidden rounded-2xl border border-[var(--admin-line)] bg-white">
                             <div className="grid gap-3 p-3 sm:grid-cols-[72px_minmax(0,1fr)]">
-                              <div className="h-[72px] w-[72px] shrink-0 overflow-hidden rounded-2xl bg-[#f7f2ec]">
+                              <div className="h-[72px] w-[72px] shrink-0 overflow-hidden rounded-2xl bg-[var(--admin-soft)]">
                                 <img src={image.url} alt={draft.name} className="h-full w-full object-cover" />
                               </div>
                               <div className="grid gap-3">
                                 <div className="min-w-0">
-                                  <div className="text-xs font-semibold text-[#6b5a55]">
+                                  <div className="text-xs font-semibold text-[var(--admin-muted)]">
                                     Imagen {index + 1}
                                     {draft.featuredImage?.url === image.url ? " · Portada" : ""}
                                   </div>
-                                  <div className="mt-1 truncate text-xs text-[#8b756d]">
+                                  <div className="mt-1 truncate text-xs text-[var(--admin-faint)]">
                                     {image.altText || draft.name || "Sin nombre"}
                                   </div>
-                                  <div className="mt-1 truncate text-[11px] text-[#a08f87]">{image.url}</div>
+                                  <div className="mt-1 truncate text-[11px] text-[var(--admin-faint)]">{image.url}</div>
                                 </div>
                                 <div className="flex flex-wrap gap-2">
                                   <AdminButton tone="ghost" onClick={() => moveImage(image.url, -1)}>
@@ -1002,7 +1002,7 @@ function AdminProductsPage() {
                         ))}
                       </div>
                     ) : (
-                      <div className="rounded-2xl border border-dashed border-[#231717]/20 bg-[#faf6f0] px-4 py-8 text-sm text-[#6b5a55]">
+                      <div className="rounded-2xl border border-dashed border-[var(--admin-line-strong)] bg-white px-4 py-8 text-sm text-[var(--admin-muted)]">
                         Este producto todavia no tiene imagenes.
                       </div>
                     )}
@@ -1015,10 +1015,10 @@ function AdminProductsPage() {
                       accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
                       onChange={(event) => setSelectedImageFile(event.target.files?.[0] ?? null)}
                       disabled={draft.images.length >= 5}
-                      className="block w-full rounded-xl border border-dashed border-[#231717]/20 bg-[#faf6f0] px-4 py-3 text-sm file:mr-3 file:rounded-xl file:border-0 file:bg-[#231717] file:px-3 file:py-2 file:text-xs file:font-black file:uppercase file:tracking-[0.14em] file:text-white"
+                      className="block w-full rounded-xl border border-dashed border-[var(--admin-line-strong)] bg-white px-4 py-3 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--admin-soft)] file:px-3 file:py-2 file:text-xs file:font-semibold file:text-[var(--admin-ink)]"
                     />
                     {!persistedIds.has(draft.id) ? (
-                      <div className="rounded-2xl border border-dashed border-[#231717]/20 px-3 py-3 text-xs leading-5 text-[#6b5a55]">
+                      <div className="rounded-2xl border border-dashed border-[var(--admin-line-strong)] px-3 py-3 text-xs leading-5 text-[var(--admin-muted)]">
                         El producto se guardara automaticamente al subir la primera imagen.
                       </div>
                     ) : null}
@@ -1066,7 +1066,7 @@ function AdminProductsPage() {
 
                 <div>
                   <AdminSectionLabel>Color del producto</AdminSectionLabel>
-                  <p className="mt-1 text-xs text-[#8b756d]">
+                  <p className="mt-1 text-xs text-[var(--admin-faint)]">
                     Cada producto tiene un solo color. Cambiarlo solo actualiza como se muestra - no afecta el stock.
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">

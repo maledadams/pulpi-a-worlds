@@ -1,9 +1,10 @@
 import { Link } from "@tanstack/react-router";
-import { BarChart3, Boxes, Cake, FolderKanban, LayoutGrid, MessageSquareHeart, Package2, Percent, Settings2, ShoppingBag, Store, Warehouse } from "lucide-react";
+import { BarChart3, Boxes, Cake, FolderKanban, LayoutGrid, MessageSquareHeart, Package2, Percent, Settings2, ShoppingBag, Warehouse } from "lucide-react";
 import type { ReactNode } from "react";
+import storePineapple from "@/assets/PULPINAGENERALPINA.svg";
 import { AdminConfirmHost } from "@/components/admin/AdminControls";
 import { shouldShowAdminAccessNotice } from "@/lib/admin-access";
-import type { AdminSection } from "@/lib/admin-types";
+import type { AdminInquiryStatus, AdminSection } from "@/lib/admin-types";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS: Array<{
@@ -24,18 +25,7 @@ const NAV_ITEMS: Array<{
   { section: "configuracion", label: "Configuracion", to: "/admin/configuracion", icon: Settings2 },
 ];
 
-const SECTION_BACKGROUNDS: Record<AdminSection, string> = {
-  resumen: "linear-gradient(160deg, rgba(255, 204, 222, 0.35) 0%, rgba(255, 236, 162, 0.28) 45%, rgba(253, 249, 244, 1) 100%)",
-  productos: "linear-gradient(160deg, rgba(206, 244, 143, 0.35) 0%, rgba(255, 210, 178, 0.28) 45%, rgba(253, 249, 244, 1) 100%)",
-  stock: "linear-gradient(160deg, rgba(199, 239, 224, 0.38) 0%, rgba(213, 240, 158, 0.28) 45%, rgba(253, 249, 244, 1) 100%)",
-  categorias: "linear-gradient(160deg, rgba(255, 197, 219, 0.35) 0%, rgba(255, 223, 156, 0.28) 45%, rgba(253, 249, 244, 1) 100%)",
-  colecciones: "linear-gradient(160deg, rgba(255, 210, 228, 0.35) 0%, rgba(255, 191, 214, 0.26) 45%, rgba(253, 249, 244, 1) 100%)",
-  pedidos: "linear-gradient(160deg, rgba(255, 221, 176, 0.38) 0%, rgba(255, 201, 146, 0.28) 45%, rgba(253, 249, 244, 1) 100%)",
-  encuestas: "linear-gradient(160deg, rgba(255, 214, 226, 0.36) 0%, rgba(255, 228, 170, 0.26) 45%, rgba(253, 249, 244, 1) 100%)",
-  descuentos: "linear-gradient(160deg, rgba(214, 245, 164, 0.38) 0%, rgba(191, 239, 119, 0.28) 45%, rgba(253, 249, 244, 1) 100%)",
-  cumpleanos: "linear-gradient(160deg, rgba(255, 202, 212, 0.38) 0%, rgba(255, 231, 158, 0.28) 45%, rgba(253, 249, 244, 1) 100%)",
-  configuracion: "linear-gradient(160deg, rgba(214, 245, 164, 0.32) 0%, rgba(255, 205, 221, 0.28) 45%, rgba(253, 249, 244, 1) 100%)",
-};
+// Colors live in the .admin-shell palette (Moon, light mode) in styles.css.
 
 export function AdminShell({
   section,
@@ -53,19 +43,17 @@ export function AdminShell({
   const showAccessNotice = shouldShowAdminAccessNotice();
 
   return (
-    <div className="admin-shell min-h-screen text-[#231717]" style={{ background: SECTION_BACKGROUNDS[section] }}>
+    <div className="admin-shell min-h-screen bg-[var(--admin-bg)]" data-admin-section={section}>
       <AdminConfirmHost />
       <div className="mx-auto grid max-w-[1880px] grid-cols-1 gap-3 px-3 py-3 sm:gap-4 sm:px-4 sm:py-4 xl:grid-cols-[250px_minmax(0,1fr)] 2xl:grid-cols-[270px_minmax(0,1fr)]">
-        <aside className="self-start rounded-[20px] border border-[#231717]/15 bg-white/90 p-3 shadow-[0_12px_28px_-24px_rgba(35,23,23,0.35)] xl:p-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto">
+        <aside className="self-start rounded-2xl border border-[var(--admin-line)] bg-white p-3 text-[var(--admin-muted)] xl:p-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto">
           <div className="flex items-center gap-3 px-1">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] bg-[#231717] text-white xl:h-10 xl:w-10">
-              <Store className="h-4 w-4 xl:h-5 xl:w-5" />
-            </div>
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--admin-soft)]">
+              <img src={storePineapple} alt="" aria-hidden="true" className="h-8 w-auto" />
+            </span>
             <div className="min-w-0">
-              <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#7c665f] xl:text-[11px]">
-                Admin
-              </div>
-              <div className="truncate text-sm font-bold">Pulpiña Store</div>
+              <div className="text-[11px] font-medium">Admin</div>
+              <div className="truncate text-sm font-semibold text-[var(--admin-ink)]">Pulpiña Store</div>
             </div>
           </div>
 
@@ -77,10 +65,10 @@ export function AdminShell({
                   key={item.to}
                   to={item.to}
                   className={cn(
-                    "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-[14px] px-3 py-2 text-xs font-semibold transition-colors xl:shrink xl:gap-3 xl:px-3 xl:py-2.5 xl:text-sm",
+                    "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-[10px] px-3 py-2 text-xs font-medium transition-colors xl:shrink xl:gap-3 xl:px-3 xl:py-2.5 xl:text-sm",
                     item.section === section
-                      ? "bg-[#231717] text-white"
-                      : "text-[#3a2924] hover:bg-[#f3eadf]",
+                      ? "bg-[var(--admin-accent-soft)] font-semibold text-[var(--admin-accent-ink)]"
+                      : "hover:bg-[var(--admin-soft)] hover:text-[var(--admin-ink)]",
                   )}
                 >
                   <Icon className="h-4 w-4 shrink-0" />
@@ -91,10 +79,10 @@ export function AdminShell({
           </nav>
 
           {showAccessNotice ? (
-            <div className="mt-5 hidden rounded-[16px] border border-[#231717]/10 bg-[#f7f2ec] p-3 text-xs leading-5 text-[#624d47] xl:block">
+            <div className="mt-5 hidden rounded-xl bg-[var(--admin-soft)] p-3 text-xs leading-5 xl:block">
               Protege esta ruta con Cloudflare Access y login Google.
               <div className="mt-2">
-                <Link to="/tienda" className="font-black uppercase tracking-[0.16em] text-[#231717] underline underline-offset-4">
+                <Link to="/tienda" className="font-semibold text-[var(--admin-accent-ink)] underline underline-offset-4">
                   Volver a tienda
                 </Link>
               </div>
@@ -103,11 +91,11 @@ export function AdminShell({
         </aside>
 
         <div className="min-w-0">
-          <header className="rounded-[20px] border border-[#231717]/15 bg-white px-4 py-3 shadow-[0_12px_28px_-24px_rgba(35,23,23,0.35)] sm:px-5 sm:py-4">
+          <header className="px-1 pt-1 sm:pt-2">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
               <div className="min-w-0 flex-1">
-                <h1 className="text-xl font-black sm:text-2xl md:text-3xl">{title}</h1>
-                {subtitle ? <p className="mt-1 max-w-3xl text-sm text-[#6b5a55]">{subtitle}</p> : null}
+                <h1 className="text-xl sm:text-2xl">{title}</h1>
+                {subtitle ? <p className="mt-1 max-w-3xl text-sm text-[var(--admin-muted)]">{subtitle}</p> : null}
               </div>
               {actions ? (
                 <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1 sm:shrink-0 sm:justify-end sm:pr-1">
@@ -138,14 +126,14 @@ export function AdminStatCard({
   iconClassName?: string;
 }) {
   return (
-    <div className="rounded-[18px] border border-[#231717]/15 bg-white p-4 shadow-[0_10px_22px_-20px_rgba(35,23,23,0.3)]">
+    <div className="rounded-2xl border border-[var(--admin-line)] bg-[var(--admin-surface)] p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-[11px] font-black uppercase tracking-[0.2em] text-[#7c665f]">{label}</div>
-          <div className="mt-2 text-2xl font-black">{value}</div>
-          {help ? <div className="mt-1 text-xs text-[#6b5a55]">{help}</div> : null}
+          <div className="text-xs font-medium text-[var(--admin-faint)]">{label}</div>
+          <div className="mt-1.5 text-2xl font-semibold tabular-nums">{value}</div>
+          {help ? <div className="mt-1 text-xs text-[var(--admin-muted)]">{help}</div> : null}
         </div>
-        <div className={cn("flex h-10 w-10 items-center justify-center rounded-[14px] bg-[#f5eadf] text-[#231717]", iconClassName)}>
+        <div className={cn("flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--admin-accent-soft)] text-[var(--admin-accent-ink)]", iconClassName)}>
           <Icon className="h-5 w-5" />
         </div>
       </div>
@@ -171,15 +159,15 @@ export function AdminPanel({
   const showHeader = Boolean(title || eyebrow || actions);
 
   return (
-    <section className={cn("flex flex-col rounded-[18px] border border-[#231717]/15 bg-white shadow-[0_10px_22px_-20px_rgba(35,23,23,0.3)]", className)}>
+    <section className={cn("flex flex-col rounded-2xl border border-[var(--admin-line)] bg-[var(--admin-surface)]", className)}>
       {showHeader ? (
-        <div className="flex flex-col gap-2 border-b border-[#231717]/10 px-3 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-3 sm:px-4">
+        <div className="flex flex-col gap-2 border-b border-[var(--admin-line)] px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4">
           {title || eyebrow ? (
             <div>
               {eyebrow ? (
-                <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[#7c665f]">{eyebrow}</div>
+                <div className="text-xs font-medium text-[var(--admin-faint)]">{eyebrow}</div>
               ) : null}
-              {title ? <h2 className={cn("mt-1 text-lg font-black", titleClassName)}>{title}</h2> : null}
+              {title ? <h2 className={cn("text-base", eyebrow && "mt-0.5", titleClassName)}>{title}</h2> : null}
             </div>
           ) : (
             <div />
@@ -192,25 +180,40 @@ export function AdminPanel({
   );
 }
 
-export function AdminTag({
-  children,
-  tone = "soft",
-}: {
-  children: ReactNode;
-  tone?: "soft" | "dark" | "warn" | "success" | "danger" | "info";
-}) {
+type AdminTagTone = "soft" | "dark" | "warn" | "success" | "danger" | "info" | "plum" | "violet" | "cinnamon" | "cocoa";
+
+// Deep status colors that sit with Moon crimson; each status its own hue.
+const TAG_TONES: Record<AdminTagTone, string> = {
+  // "dark" = live/active (Activo, Publica, Abierta): solid Moon black.
+  dark: "bg-[var(--admin-ink)] text-white",
+  success: "bg-[var(--admin-ok-soft)] text-[var(--admin-ok)]",
+  warn: "bg-[var(--admin-warn-soft)] text-[var(--admin-warn)]",
+  danger: "bg-[var(--admin-danger-soft)] text-[var(--admin-danger)]",
+  info: "bg-[#e2edf8] text-[#334f6d]",
+  soft: "bg-[var(--admin-soft)] text-[var(--admin-muted)]",
+  plum: "bg-[#fce3ee] text-[#742651]",
+  violet: "bg-[#eae8ff] text-[#4d4084]",
+  cinnamon: "bg-[#ffe1d1] text-[#903a03]",
+  cocoa: "bg-[#eee1df] text-[#5b403b]",
+};
+
+// One color per pedido status, everywhere a status shows.
+const INQUIRY_STATUS_TONE: Record<AdminInquiryStatus, AdminTagTone> = {
+  pending_contact: "plum",
+  new: "warn",
+  follow_up: "violet",
+  quoted: "cinnamon",
+  closed: "success",
+  cancelled: "cocoa",
+};
+
+export function inquiryStatusTone(status: AdminInquiryStatus): AdminTagTone {
+  return INQUIRY_STATUS_TONE[status] ?? "info";
+}
+
+export function AdminTag({ children, tone = "soft" }: { children: ReactNode; tone?: AdminTagTone }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-[10px] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.16em]",
-        tone === "dark" && "bg-[#231717] text-white",
-        tone === "warn" && "bg-[#ffd8c4] text-[#7e2f17]",
-        tone === "success" && "bg-[#d8f0df] text-[#1f5b33]",
-        tone === "danger" && "bg-[#f4d5cf] text-[#7d291b]",
-        tone === "info" && "bg-[#dce9f8] text-[#214c77]",
-        tone === "soft" && "bg-[#f3eadf] text-[#5f4941]",
-      )}
-    >
+    <span className={cn("inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium", TAG_TONES[tone])}>
       {children}
     </span>
   );

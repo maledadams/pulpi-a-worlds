@@ -272,12 +272,51 @@ video {
   }
 }
 
+/* The site scales the page down on desktop (html zoom), so the admin's
+   min-h-screen ends before the viewport does; paint the page itself too. */
+html:has(.admin-shell),
+html:has(.admin-shell) body {
+  background-color: #ffffff;
+}
+
+/* Admin palette: Moon in light mode. White surfaces (no cream), Moon's
+   red-black for text, Moon's crimson as the one selection/action color.
+   Every shared admin component reads these. */
+.admin-shell {
+  --admin-bg: #ffffff;
+  --admin-on-bg: #130808;
+  --admin-on-bg-muted: #705251;
+  --admin-surface: #ffffff;
+  --admin-line: #f2e0df;
+  --admin-line-strong: #e7c9c7;
+  --admin-ink: #130808;
+  --admin-muted: #705251;
+  --admin-faint: #9e8584;
+  --admin-soft: #fcf0f0;
+  --admin-soft-hover: #f8e6e6;
+  --admin-field: #ffffff;
+  /* Selection + primary actions: Moon crimson. */
+  --admin-accent: #97000f;
+  --admin-accent-hover: #7c0006;
+  /* Selected rows / items: a neutral grey highlight. */
+  --admin-accent-soft: #ececec;
+  --admin-accent-ink: #130808;
+  /* Status: green = done, amber = needs attention, red = errors. */
+  --admin-ok: #286037;
+  --admin-ok-soft: #d9f3dd;
+  --admin-warn: #844b00;
+  --admin-warn-soft: #fde8c6;
+  --admin-danger: #be0025;
+  --admin-danger-soft: #ffe3e1;
+  color: var(--admin-ink);
+}
+
 .admin-shell h1,
 .admin-shell h2,
 .admin-shell h3,
 .admin-shell .font-display {
   font-family: var(--font-body) !important;
-  font-weight: 700 !important;
+  font-weight: 600 !important;
   transform: none !important;
 }
 

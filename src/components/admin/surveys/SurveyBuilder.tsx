@@ -93,13 +93,13 @@ export function SurveyBuilder({
             onChange={(event) => update(item.key, event.target.value)}
           />
           {!locked ? (
-            <div className="flex shrink-0 items-center gap-1 text-[#5f4941]">
+            <div className="flex shrink-0 items-center gap-1 text-[var(--admin-muted)]">
               <button
                 type="button"
                 aria-label="Subir"
                 disabled={index === 0}
                 onClick={() => move(item.key, -1)}
-                className="rounded-lg p-1.5 hover:bg-[#f2ede7] disabled:opacity-30"
+                className="rounded-lg p-1.5 hover:bg-[var(--admin-soft)] disabled:opacity-30"
               >
                 <ArrowUp className="h-4 w-4" />
               </button>
@@ -108,7 +108,7 @@ export function SurveyBuilder({
                 aria-label="Bajar"
                 disabled={index === group.length - 1}
                 onClick={() => move(item.key, 1)}
-                className="rounded-lg p-1.5 hover:bg-[#f2ede7] disabled:opacity-30"
+                className="rounded-lg p-1.5 hover:bg-[var(--admin-soft)] disabled:opacity-30"
               >
                 <ArrowDown className="h-4 w-4" />
               </button>
@@ -116,7 +116,7 @@ export function SurveyBuilder({
                 type="button"
                 aria-label="Quitar"
                 onClick={() => remove(item.key)}
-                className="rounded-lg p-1.5 text-[#9a3423] hover:bg-[#f4d5cf]"
+                className="rounded-lg p-1.5 text-[var(--admin-danger)] hover:bg-[var(--admin-danger-soft)]"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -129,7 +129,7 @@ export function SurveyBuilder({
           type="button"
           disabled={!canAdd}
           onClick={() => add(kind)}
-          className="inline-flex w-fit items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-black uppercase tracking-[0.14em] text-[#5f4941] hover:bg-[#f2ede7] disabled:opacity-40"
+          className="inline-flex w-fit items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-semibold text-[var(--admin-muted)] hover:bg-[var(--admin-soft)] disabled:opacity-40"
         >
           <Plus className="h-4 w-4" />
           {kind === "rating" ? "Agregar categoría" : "Agregar pregunta"}
@@ -173,17 +173,17 @@ export function SurveyBuilder({
         </div>
 
         {locked ? (
-          <p className="rounded-xl bg-[#f3eadf] px-3 py-2 text-xs font-semibold text-[#5f4941]">
+          <p className="rounded-xl bg-[var(--admin-accent-soft)] px-3 py-2 text-xs font-medium text-[var(--admin-accent-ink)]">
             Esta encuesta ya se abrió, así que sus preguntas no se pueden cambiar. Usa "Duplicar" para hacer una copia editable.
           </p>
         ) : null}
 
         <div className="grid gap-2">
-          <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[#7c665f]">Categorías · estrellas</div>
+          <div className="text-xs font-medium text-[var(--admin-faint)]">Categorías · estrellas</div>
           {renderGroup(ratings, "rating")}
         </div>
         <div className="grid gap-2">
-          <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[#7c665f]">Preguntas · texto libre</div>
+          <div className="text-xs font-medium text-[var(--admin-faint)]">Preguntas · texto libre</div>
           {renderGroup(texts, "text")}
         </div>
       </div>

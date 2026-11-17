@@ -156,7 +156,7 @@ function AdminSettingsPage() {
         >
           <div className="grid gap-3">
             {form.contactFaqs.map((faq) => (
-              <div key={faq.id} className="rounded-[18px] bg-[#faf6f0] p-4">
+              <div key={faq.id} className="rounded-2xl border border-[var(--admin-line)] bg-white p-4">
                 <div className="grid gap-3">
                   <div className="flex justify-end">
                     <AdminButton
@@ -285,17 +285,17 @@ function AdminSettingsPage() {
             {form.legalSections.map((section) => {
               const isOpen = expandedLegalId === section.id;
               return (
-                <div key={section.id} className="rounded-[18px] border border-[#231717]/15 bg-[#faf6f0]">
+                <div key={section.id} className="rounded-2xl border border-[var(--admin-line)] bg-white">
                   <button
                     type="button"
                     onClick={() => setExpandedLegalId(isOpen ? null : section.id)}
                     className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
                   >
                     <span className="min-w-0 truncate text-sm font-bold">{section.title || "Bloque sin titulo"}</span>
-                    <ChevronDown className={`h-4 w-4 shrink-0 text-[#7c665f] transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                    <ChevronDown className={`h-4 w-4 shrink-0 text-[var(--admin-muted)] transition-transform ${isOpen ? "rotate-180" : ""}`} />
                   </button>
                   {isOpen ? (
-                    <div className="grid gap-3 border-t border-[#231717]/10 p-4">
+                    <div className="grid gap-3 border-t border-[var(--admin-line)] p-4">
                       <div className="flex justify-end">
                         <AdminButton
                           tone="ghost"

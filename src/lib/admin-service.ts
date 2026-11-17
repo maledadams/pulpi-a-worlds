@@ -617,9 +617,9 @@ export function getInventoryStatus(product: AdminProductRecord) {
 }
 
 export function getInventoryStatusTone(product: AdminProductRecord) {
-  if (!product.available || (product.stock ?? 0) <= 0) return "bg-zinc-200 text-zinc-800";
-  if ((product.stock ?? 0) <= 4) return "bg-amber-200 text-amber-950";
-  return "bg-emerald-200 text-emerald-950";
+  if (!product.available || (product.stock ?? 0) <= 0) return "bg-[#eee1df] text-[#5b403b]";
+  if ((product.stock ?? 0) <= 4) return "bg-[var(--admin-warn-soft)] text-[var(--admin-warn)]";
+  return "bg-[var(--admin-ok-soft)] text-[var(--admin-ok)]";
 }
 
 export function getAdminCollectionProducts(collection: AdminCollectionRecord) {

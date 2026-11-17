@@ -58,7 +58,7 @@ function AdminBirthdaysPage() {
   return (
     <AdminShell section="cumpleanos" title="Cumpleaños">
       <AdminPanel title={`Suscriptores (${rows.length})`}>
-        <div className="mb-4 rounded-xl bg-[#f7f2ec] px-3 py-2.5 text-sm font-semibold">
+        <div className="mb-4 rounded-xl bg-[var(--admin-soft)] px-3 py-2.5 text-sm font-semibold">
           {todayCount > 0
             ? `${todayCount} persona(s) cumplen años hoy.`
             : "Nadie cumple años hoy."}
@@ -74,11 +74,11 @@ function AdminBirthdaysPage() {
             {rows.map((row) => (
               <div
                 key={row.email}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#faf6f0] px-4 py-3"
+                className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--admin-line)] px-1 last:border-0 py-3"
               >
                 <div>
                   <div className="text-sm font-bold">{row.email}</div>
-                  <div className="mt-1 text-xs text-[#6b5a55]">Cumpleaños: {formatBirthDate(row.birthDate)}</div>
+                  <div className="mt-1 text-xs text-[var(--admin-muted)]">Cumpleaños: {formatBirthDate(row.birthDate)}</div>
                 </div>
                 <div className="flex items-center gap-2">
                   {row.isBirthdayToday ? <AdminTag tone="dark">Hoy</AdminTag> : null}
