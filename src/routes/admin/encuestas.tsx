@@ -1,150 +1,251 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
-import { AdminPanel, AdminShell, AdminTag } from "@/components/admin/AdminShell";
-import { AdminEmptyState } from "@/components/admin/AdminControls";
-import { enforceAdminAccess } from "@/lib/admin-access";
+import { Link, createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
+import { Plus } from "lucide-react";
+import { useEffect, useState } from "react";
 import {
-  FEEDBACK_QUESTIONS,
-  type AdminOrderFeedbackRow,
-  type FeedbackDevice,
-  type FeedbackQuestionId,
-  getAdminOrderFeedback,
+  AdminButton,
+  AdminEmptyState,
+  AdminToast,
+  type AdminToastTone,
+  confirmAdminDestructiveAction,
+} from "@/components/admin/AdminControls";
+import { AdminPanel, AdminShell, AdminTag } from "@/components/admin/AdminShell";
+import { SurveyBuilder } from "@/components/admin/surveys/SurveyBuilder";
+import { SurveyResults } from "@/components/admin/surveys/SurveyResults";
+import { enforceAdminAccess } from "@/lib/admin-access";
+import { getAdminErrorMessage } from "@/lib/admin-errors";
+import {
+  closeAdminSurvey,
+  deleteAdminSurvey,
+  duplicateAdminSurvey,
+  getAdminSurveyDetail,
+  listAdminSurveys,
+  openAdminSurvey,
+  saveAdminSurvey,
 } from "@/lib/order-feedback";
+import { SURVEY_DEVICE_LABEL, type SurveyEditInput, type SurveySummary, surveyDateLabel } from "@/lib/order-feedback-shared";
+import { cn } from "@/lib/utils";
+
+type EncuestasSearch = { survey?: string; editar?: "nueva" | "1" };
 
 export const Route = createFileRoute("/admin/encuestas")({
+  validateSearch: (search: Record<string, unknown>): EncuestasSearch => ({
+    survey: typeof search.survey === "string" && search.survey.trim() ? search.survey.trim() : undefined,
+    editar: search.editar === "nueva" || search.editar === "1" ? search.editar : undefined,
+  }),
   beforeLoad: () => enforceAdminAccess(),
-  loader: async () => getAdminOrderFeedback(),
+  loaderDeps: ({ search }) => ({ survey: search.survey }),
+  loader: async ({ deps }) => {
+    const surveys = await listAdminSurveys();
+    const selectedId = deps.survey ?? surveys[0]?.id;
+    const detail = selectedId ? await getAdminSurveyDetail({ data: { id: selectedId } }) : null;
+    return { surveys, detail };
+  },
   head: () => ({ meta: [{ title: "Admin - Encuestas" }] }),
   component: AdminSurveysPage,
 });
 
-const DEVICE_LABEL: Record<FeedbackDevice, string> = {
-  phone: "Teléfono",
-  tablet: "Tablet",
-  desktop: "Computadora",
-};
+const GROUPS: Array<{ status: SurveySummary["status"]; label: string }> = [
+  { status: "open", label: "Abiertas" },
+  { status: "draft", label: "Borradores" },
+  { status: "closed", label: "Archivo" },
+];
 
-function average(rows: AdminOrderFeedbackRow[], id: FeedbackQuestionId) {
-  const values = rows.map((row) => row.ratings[id]).filter((value): value is number => typeof value === "number");
-  if (values.length === 0) return null;
-  return { value: values.reduce((sum, value) => sum + value, 0) / values.length, count: values.length };
+function questionCounts(questions: Array<{ kind: string }>) {
+  const ratings = questions.filter((question) => question.kind === "rating").length;
+  const texts = questions.length - ratings;
+  return `${ratings} ${ratings === 1 ? "categoría" : "categorías"} · ${texts} ${texts === 1 ? "pregunta" : "preguntas"}`;
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleString("es-DO", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Santo_Domingo" });
+function eyebrowFor(survey: SurveySummary) {
+  return `${SURVEY_DEVICE_LABEL[survey.device]} · ${surveyDateLabel(survey)}`;
 }
 
-function AverageCell({ rows, id }: { rows: AdminOrderFeedbackRow[]; id: FeedbackQuestionId }) {
-  const result = average(rows, id);
-  if (!result) return <span className="text-[#6b5a55]">-</span>;
+function SurveyCard({ survey, selected }: { survey: SurveySummary; selected: boolean }) {
   return (
-    <span>
-      <span className="font-black">{result.value.toFixed(1)}</span>
-      <span className="text-xs text-[#6b5a55]"> / 5 ({result.count})</span>
-    </span>
+    <Link
+      to="/admin/encuestas"
+      search={{ survey: survey.id }}
+      className={cn(
+        "block rounded-xl border px-3 py-2.5 transition",
+        selected ? "border-[#231717] bg-[#f7f2ec]" : "border-[#231717]/10 bg-white hover:border-[#231717]/30",
+      )}
+    >
+      <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#7c665f]">{eyebrowFor(survey)}</div>
+      <div className="mt-0.5 flex items-baseline justify-between gap-2">
+        <span className="truncate text-sm font-black">{survey.title}</span>
+        <span className="shrink-0 text-xs tabular-nums text-[#6b5a55]">
+          {survey.answerCount} resp.
+        </span>
+      </div>
+    </Link>
   );
 }
 
 function AdminSurveysPage() {
-  const { answers, unanswered } = Route.useLoaderData();
-  const phone = answers.filter((row) => row.device === "phone");
-  const desktop = answers.filter((row) => row.device !== "phone");
+  const { surveys, detail } = Route.useLoaderData();
+  const search = Route.useSearch();
+  const navigate = useNavigate();
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [tone, setTone] = useState<AdminToastTone>("info");
+
+  useEffect(() => {
+    if (!message) return;
+    const timeout = window.setTimeout(() => setMessage(""), 3600);
+    return () => window.clearTimeout(timeout);
+  }, [message]);
+
+  const show = (text: string, nextTone: AdminToastTone) => {
+    setTone(nextTone);
+    setMessage(text);
+  };
+
+  const run = async (action: () => Promise<unknown>, success: string, after?: (result: unknown) => EncuestasSearch) => {
+    setBusy(true);
+    try {
+      const result = await action();
+      show(success, "success");
+      if (after) await navigate({ to: "/admin/encuestas", search: after(result) });
+      await router.invalidate();
+    } catch (error) {
+      show(getAdminErrorMessage(error), "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const selected = detail?.survey ?? null;
+  const editingNew = search.editar === "nueva";
+  const editingSelected = search.editar === "1" && selected !== null;
+
+  const save = (input: SurveyEditInput) =>
+    run(
+      () => saveAdminSurvey({ data: input }),
+      "Encuesta guardada.",
+      (result) => ({ survey: (result as { id: string }).id }),
+    );
+
+  const remove = (survey: SurveySummary) => {
+    const answers =
+      survey.answerCount === 0
+        ? "No tiene respuestas."
+        : `Se borrarán para siempre sus ${survey.answerCount} ${survey.answerCount === 1 ? "respuesta" : "respuestas"}.`;
+    if (
+      !confirmAdminDestructiveAction(
+        `Vas a borrar la encuesta "${survey.title}". ${answers} Los pedidos no se borran. Esto no se puede deshacer. ¿Continuar?`,
+      )
+    ) {
+      return;
+    }
+    void run(() => deleteAdminSurvey({ data: { id: survey.id } }), "Encuesta borrada.", () => ({}));
+  };
+
+  const close = (survey: SurveySummary) => {
+    if (!confirmAdminDestructiveAction(`¿Cerrar "${survey.title}"? Dejará de mostrarse y pasará al archivo con sus respuestas.`)) return;
+    void run(() => closeAdminSurvey({ data: { id: survey.id } }), "Encuesta cerrada.");
+  };
+
+  const actionsFor = (survey: SurveySummary) => (
+    <>
+      {survey.status !== "closed" ? (
+        <AdminButton tone="ghost" disabled={busy} onClick={() => void navigate({ to: "/admin/encuestas", search: { survey: survey.id, editar: "1" } })}>
+          Editar
+        </AdminButton>
+      ) : null}
+      {survey.status === "draft" ? (
+        <AdminButton tone="primary" disabled={busy} onClick={() => void run(() => openAdminSurvey({ data: { id: survey.id } }), "Encuesta abierta.")}>
+          Abrir
+        </AdminButton>
+      ) : null}
+      {survey.status === "open" ? (
+        <AdminButton tone="warning" disabled={busy} onClick={() => close(survey)}>
+          Cerrar
+        </AdminButton>
+      ) : null}
+      <AdminButton
+        tone="secondary"
+        disabled={busy}
+        onClick={() =>
+          void run(
+            () => duplicateAdminSurvey({ data: { id: survey.id } }),
+            "Copia creada como borrador.",
+            (result) => ({ survey: (result as { id: string }).id, editar: "1" }),
+          )
+        }
+      >
+        Duplicar
+      </AdminButton>
+      <AdminButton tone="danger" disabled={busy} onClick={() => remove(survey)}>
+        Eliminar
+      </AdminButton>
+    </>
+  );
 
   return (
-    <AdminShell section="encuestas" title="Encuestas" subtitle="Opiniones opcionales que dejan los clientes después de hacer un pedido.">
-      <AdminPanel title="Promedios">
-        {answers.length === 0 ? (
-          <AdminEmptyState
-            title="Todavía no hay respuestas"
-            body="Cuando un cliente complete la encuesta después de su pedido, aparecerá aquí."
-          />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[32rem] text-left text-sm">
-              <thead>
-                <tr className="border-b border-[#231717]/10">
-                  <th className="py-2 pr-4 font-bold">Pregunta</th>
-                  <th className="py-2 pr-4 font-bold">Teléfono ({phone.length})</th>
-                  <th className="py-2 pr-4 font-bold">Tablet y computadora ({desktop.length})</th>
-                  <th className="py-2 font-bold">Todos ({answers.length})</th>
-                </tr>
-              </thead>
-              <tbody>
-                {FEEDBACK_QUESTIONS.map((question) => (
-                  <tr key={question.id} className="border-b border-[#231717]/5">
-                    <td className="py-2 pr-4">{question.label}</td>
-                    <td className="py-2 pr-4"><AverageCell rows={phone} id={question.id} /></td>
-                    <td className="py-2 pr-4"><AverageCell rows={desktop} id={question.id} /></td>
-                    <td className="py-2"><AverageCell rows={answers} id={question.id} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </AdminPanel>
-
-      {answers.length > 0 ? (
-        <AdminPanel title={`Respuestas (${answers.length})`}>
-          <ul className="grid gap-3">
-            {answers.map((row) => (
-              <li key={row.id} className="rounded-2xl border border-[#231717]/10 bg-white p-4">
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                  {row.orderExists ? (
-                    <Link
-                      to="/admin/pedidos"
-                      search={{ order: row.orderId }}
-                      className="font-black underline underline-offset-4"
-                    >
-                      Pedido {row.requestNumber}
-                    </Link>
-                  ) : (
-                    <span className="font-black">Pedido {row.requestNumber}</span>
-                  )}
-                  {row.customerName ? <span>{row.customerName}</span> : null}
-                  <AdminTag>{DEVICE_LABEL[row.device]}</AdminTag>
-                  <span className="text-xs text-[#6b5a55]">{formatDate(row.createdAt)}</span>
+    <AdminShell
+      section="encuestas"
+      title="Encuestas"
+      subtitle="Crea encuestas para después del pedido, ábrelas por dispositivo y revisa lo que responden."
+      actions={
+        <AdminButton tone="active" disabled={busy} onClick={() => void navigate({ to: "/admin/encuestas", search: { editar: "nueva" } })}>
+          <span className="inline-flex items-center gap-1.5">
+            <Plus className="h-4 w-4" /> Nueva encuesta
+          </span>
+        </AdminButton>
+      }
+    >
+      {message ? <AdminToast message={message} tone={tone} /> : null}
+      <div className="grid items-start gap-4 lg:grid-cols-[17rem_minmax(0,1fr)]">
+        <aside className="grid gap-4">
+          {surveys.length === 0 ? (
+            <p className="text-sm text-[#6b5a55]">Todavía no hay encuestas.</p>
+          ) : (
+            GROUPS.map((group) => {
+              const items = surveys.filter((survey) => survey.status === group.status);
+              if (items.length === 0) return null;
+              return (
+                <div key={group.status} className="grid gap-2">
+                  <div className="text-[11px] font-black uppercase tracking-[0.22em] text-[#7c665f]">{group.label}</div>
+                  {items.map((survey) => (
+                    <SurveyCard key={survey.id} survey={survey} selected={!editingNew && survey.id === selected?.id} />
+                  ))}
                 </div>
-                <dl className="mt-3 grid gap-1 text-sm sm:grid-cols-2">
-                  {FEEDBACK_QUESTIONS.map((question) =>
-                    row.ratings[question.id] ? (
-                      <div key={question.id} className="flex justify-between gap-3">
-                        <dt className="text-[#6b5a55]">{question.label}</dt>
-                        <dd className="font-bold">{row.ratings[question.id]} / 5</dd>
-                      </div>
-                    ) : null,
-                  )}
-                </dl>
-                {row.note ? (
-                  <p className="mt-3 whitespace-pre-wrap rounded-xl bg-[#faf6f0] p-3 text-sm">{row.note}</p>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </AdminPanel>
-      ) : null}
+              );
+            })
+          )}
+        </aside>
 
-      <AdminPanel title={`Pedidos recientes sin encuesta (${unanswered.length})`}>
-        {unanswered.length === 0 ? (
-          <p className="text-sm text-[#6b5a55]">Todos los pedidos recientes tienen respuesta.</p>
-        ) : (
-          <ul className="grid gap-2 text-sm">
-            {unanswered.map((row) => (
-              <li key={row.orderId} className="flex flex-wrap items-center gap-3">
-                <Link
-                  to="/admin/pedidos"
-                  search={{ order: row.orderId }}
-                  className="font-black underline underline-offset-4"
-                >
-                  Pedido {row.requestNumber}
-                </Link>
-                {row.customerName ? <span>{row.customerName}</span> : null}
-                {row.customerPhone ? <span className="text-[#6b5a55]">{row.customerPhone}</span> : null}
-                <span className="text-xs text-[#6b5a55]">{formatDate(row.createdAt)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </AdminPanel>
+        <div className="grid min-w-0 gap-4">
+          {editingNew || editingSelected ? (
+            <SurveyBuilder
+              key={editingNew ? "new" : selected?.id}
+              survey={editingNew ? null : selected}
+              questions={editingNew ? [] : (detail?.questions ?? [])}
+              saving={busy}
+              onSave={(input) => void save(input)}
+              onCancel={() => void navigate({ to: "/admin/encuestas", search: selected && !editingNew ? { survey: selected.id } : {} })}
+            />
+          ) : detail && selected ? (
+            <>
+              <AdminPanel eyebrow={eyebrowFor(selected)} title={selected.title} actions={actionsFor(selected)}>
+                <div className="flex flex-wrap items-center gap-2 text-sm text-[#6b5a55]">
+                  <AdminTag tone={selected.status === "open" ? "success" : selected.status === "draft" ? "info" : "soft"}>
+                    {selected.status === "open" ? "Abierta" : selected.status === "draft" ? "Borrador" : "Cerrada"}
+                  </AdminTag>
+                  <span>{questionCounts(detail.questions)}</span>
+                </div>
+              </AdminPanel>
+              <SurveyResults survey={selected} questions={detail.questions} answers={detail.answers} unanswered={detail.unanswered} />
+            </>
+          ) : (
+            <AdminEmptyState
+              title="Crea tu primera encuesta"
+              body="Elige sus categorías de estrellas y preguntas, para qué dispositivo es, y ábrela cuando quieras que los clientes la vean."
+            />
+          )}
+        </div>
+      </div>
     </AdminShell>
   );
 }
