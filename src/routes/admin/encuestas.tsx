@@ -230,7 +230,9 @@ function AdminSurveysPage() {
             <>
               <AdminPanel eyebrow={eyebrowFor(selected)} title={selected.title} actions={actionsFor(selected)}>
                 <div className="flex flex-wrap items-center gap-2 text-sm text-[#6b5a55]">
-                  <AdminTag tone={selected.status === "open" ? "success" : selected.status === "draft" ? "info" : "soft"}>
+                  {/* Same tones as the rest of the admin: live = dark ("Activo", "Publica"),
+                      not shown yet = warn ("Oculta"), finished = success (Pedidos "Cerrada"). */}
+                  <AdminTag tone={selected.status === "open" ? "dark" : selected.status === "draft" ? "warn" : "success"}>
                     {selected.status === "open" ? "Abierta" : selected.status === "draft" ? "Borrador" : "Cerrada"}
                   </AdminTag>
                   <span>{questionCounts(detail.questions)}</span>

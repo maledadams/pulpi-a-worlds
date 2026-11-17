@@ -144,7 +144,8 @@ export function SurveyResults({
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
                     <OrderLink orderId={answer.orderId} requestNumber={answer.requestNumber} exists={answer.orderExists} />
                     {answer.customerName ? <span className="text-[#3a2924]">{answer.customerName}</span> : null}
-                    <AdminTag>{DEVICE_SHORT[answer.device]}</AdminTag>
+                    {/* Descriptive label: info tone, like "Código" / "Promoción" in Promociones. */}
+                    <AdminTag tone="info">{DEVICE_SHORT[answer.device]}</AdminTag>
                     <span className="ml-auto text-xs text-[#6b5a55]">{formatDateTime(answer.createdAt)}</span>
                   </div>
                   {ratingQuestions.some((question) => typeof answer.answers[question.id] === "number") ? (
