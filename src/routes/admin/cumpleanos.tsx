@@ -41,8 +41,8 @@ function AdminBirthdaysPage() {
     return () => window.clearTimeout(timeout);
   }, [message]);
 
-  const handleRemove = (email: string) => {
-    if (!confirmAdminDestructiveAction(`Vas a quitar a ${email} de la lista de cumpleaños. ¿Quieres continuar?`)) {
+  const handleRemove = async (email: string) => {
+    if (!(await confirmAdminDestructiveAction(`Vas a quitar a ${email} de la lista de cumpleaños. ¿Quieres continuar?`))) {
       return;
     }
     setRemovingEmail(email);

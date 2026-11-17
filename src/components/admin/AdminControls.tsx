@@ -1,5 +1,6 @@
+import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Info, Loader2 } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { AdminAutosaveStatus } from "@/hooks/use-admin-autosave";
 
@@ -69,9 +70,65 @@ export function getAdminVibeButtonClassName(
   );
 }
 
-export function confirmAdminDestructiveAction(message: string) {
-  if (typeof window === "undefined") return true;
-  return window.confirm(message);
+// Opens the admin's own confirmation dialog and resolves to the answer.
+// window.confirm() is not used directly: embedded browsers (e.g. in-app
+// webviews) block it and silently return false, which made "Cerrar",
+// "Eliminar", etc. do nothing. Falls back to window.confirm only if no
+// AdminConfirmHost is mounted (AdminShell mounts one on every admin page).
+let showAdminConfirm: ((message: string) => Promise<boolean>) | null = null;
+
+export function confirmAdminDestructiveAction(message: string): Promise<boolean> {
+  if (typeof window === "undefined") return Promise.resolve(true);
+  if (showAdminConfirm) return showAdminConfirm(message);
+  return Promise.resolve(window.confirm(message));
+}
+
+export function AdminConfirmHost() {
+  const [message, setMessage] = useState<string | null>(null);
+  const resolveRef = useRef<((ok: boolean) => void) | null>(null);
+
+  const settle = (ok: boolean) => {
+    resolveRef.current?.(ok);
+    resolveRef.current = null;
+    setMessage(null);
+  };
+
+  useEffect(() => {
+    showAdminConfirm = (next) =>
+      new Promise<boolean>((resolve) => {
+        // A new question cancels one that was still open.
+        resolveRef.current?.(false);
+        resolveRef.current = resolve;
+        setMessage(next);
+      });
+    return () => {
+      showAdminConfirm = null;
+      resolveRef.current?.(false);
+      resolveRef.current = null;
+    };
+  }, []);
+
+  return (
+    <AlertDialog.Root open={message !== null} onOpenChange={(open) => (open ? undefined : settle(false))}>
+      <AlertDialog.Portal>
+        <AlertDialog.Overlay className="fixed inset-0 z-[100] bg-[#231717]/40 backdrop-blur-[2px]" />
+        {/* admin-shell: the dialog renders in a portal outside the admin layout,
+            so it needs the class to get the admin's heading font. */}
+        <AlertDialog.Content className="admin-shell fixed left-1/2 top-1/2 z-[101] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-[18px] border border-[#231717]/15 bg-white p-5 text-[#231717] shadow-[0_24px_48px_-24px_rgba(35,23,23,0.45)] focus:outline-none">
+          <AlertDialog.Title className="text-base font-black">¿Seguro?</AlertDialog.Title>
+          <AlertDialog.Description className="mt-2 text-sm leading-6 text-[#5f4941]">{message}</AlertDialog.Description>
+          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <AlertDialog.Cancel className={getAdminButtonClassName("ghost")} onClick={() => settle(false)}>
+              Cancelar
+            </AlertDialog.Cancel>
+            <AlertDialog.Action className={getAdminButtonClassName("danger")} onClick={() => settle(true)}>
+              Sí, continuar
+            </AlertDialog.Action>
+          </div>
+        </AlertDialog.Content>
+      </AlertDialog.Portal>
+    </AlertDialog.Root>
+  );
 }
 
 export function AdminButton({

@@ -162,11 +162,14 @@ function AdminSettingsPage() {
                     <AdminButton
                       tone="ghost"
                       onClick={() =>
-                        confirmAdminDestructiveAction("Vas a eliminar esta pregunta frecuente. ¿Quieres continuar?") &&
-                        setForm((current) => ({
-                          ...current,
-                          contactFaqs: current.contactFaqs.filter((entry) => entry.id !== faq.id),
-                        }))
+                        void confirmAdminDestructiveAction("Vas a eliminar esta pregunta frecuente. ¿Quieres continuar?").then(
+                          (ok) =>
+                            ok &&
+                            setForm((current) => ({
+                              ...current,
+                              contactFaqs: current.contactFaqs.filter((entry) => entry.id !== faq.id),
+                            })),
+                        )
                       }
                     >
                       Quitar
@@ -297,11 +300,14 @@ function AdminSettingsPage() {
                         <AdminButton
                           tone="ghost"
                           onClick={() =>
-                            confirmAdminDestructiveAction("Vas a eliminar este bloque legal. ¿Quieres continuar?") &&
-                            setForm((current) => ({
-                              ...current,
-                              legalSections: current.legalSections.filter((entry) => entry.id !== section.id),
-                            }))
+                            void confirmAdminDestructiveAction("Vas a eliminar este bloque legal. ¿Quieres continuar?").then(
+                              (ok) =>
+                                ok &&
+                                setForm((current) => ({
+                                  ...current,
+                                  legalSections: current.legalSections.filter((entry) => entry.id !== section.id),
+                                })),
+                            )
                           }
                         >
                           Quitar

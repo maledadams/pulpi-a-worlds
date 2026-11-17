@@ -204,9 +204,9 @@ function AdminCategoriesPage() {
       .finally(() => setUploadingVibe(null));
   };
 
-  const handleDeleteCategoryImage = (vibe: SubstoreVibe) => {
+  const handleDeleteCategoryImage = async (vibe: SubstoreVibe) => {
     if (!draft?.images[vibe]) return;
-    if (!confirmAdminDestructiveAction(`Vas a quitar la imagen de ${getVibeLabel(vibe)}. ¿Quieres continuar?`)) {
+    if (!(await confirmAdminDestructiveAction(`Vas a quitar la imagen de ${getVibeLabel(vibe)}. ¿Quieres continuar?`))) {
       return;
     }
     setUploadingVibe(vibe);
@@ -270,12 +270,12 @@ function AdminCategoriesPage() {
     });
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!draft) return;
     if (
-      !confirmAdminDestructiveAction(
+      !(await confirmAdminDestructiveAction(
         `Vas a eliminar la categoria ${draft.label || draft.id}. Esta accion puede afectar productos enlazados. ¿Quieres continuar?`,
-      )
+      ))
     ) {
       return;
     }
@@ -321,12 +321,12 @@ function AdminCategoriesPage() {
     setNewSize("");
   };
 
-  const handleRemoveSize = (size: string) => {
+  const handleRemoveSize = async (size: string) => {
     if (usedSizesForSelectedFormat.has(size)) {
       showToast("No puedes quitar una talla que ya esta en uso en productos guardados.", "error");
       return;
     }
-    if (!confirmAdminDestructiveAction(`Vas a quitar la talla ${size} de este formato. ¿Quieres continuar?`)) {
+    if (!(await confirmAdminDestructiveAction(`Vas a quitar la talla ${size} de este formato. ¿Quieres continuar?`))) {
       return;
     }
 

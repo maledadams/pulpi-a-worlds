@@ -148,12 +148,12 @@ function AdminDiscountsPage() {
       });
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!draft) return;
     if (
-      !confirmAdminDestructiveAction(
+      !(await confirmAdminDestructiveAction(
         `Vas a eliminar ${discountTitle(draft)}. Esta acción no se puede deshacer. ¿Quieres continuar?`,
-      )
+      ))
     ) {
       return;
     }

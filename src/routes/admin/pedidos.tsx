@@ -289,15 +289,15 @@ function AdminOrdersPage() {
     }));
   };
 
-  const removeDraftLine = (key: string) => {
-    if (!confirmAdminDestructiveAction("Vas a quitar esta linea del pedido. ¿Quieres continuar?")) {
+  const removeDraftLine = async (key: string) => {
+    if (!(await confirmAdminDestructiveAction("Vas a quitar esta linea del pedido. ¿Quieres continuar?"))) {
       return;
     }
     setDraftLines((current) => (current.length > 1 ? current.filter((line) => line.key !== key) : current));
   };
 
-  const removeCreateLine = (key: string) => {
-    if (!confirmAdminDestructiveAction("Vas a quitar esta linea del pedido manual. ¿Quieres continuar?")) {
+  const removeCreateLine = async (key: string) => {
+    if (!(await confirmAdminDestructiveAction("Vas a quitar esta linea del pedido manual. ¿Quieres continuar?"))) {
       return;
     }
     setNewOrder((current) => ({
@@ -405,12 +405,12 @@ function AdminOrdersPage() {
       .finally(() => setCreating(false));
   };
 
-  const handleDeleteOrder = () => {
+  const handleDeleteOrder = async () => {
     if (!draft) return;
     if (
-      !confirmAdminDestructiveAction(
+      !(await confirmAdminDestructiveAction(
         `Vas a eliminar el pedido ${draft.requestNumber}. Esta accion no se puede deshacer. ¿Quieres continuar?`,
-      )
+      ))
     ) {
       return;
     }

@@ -126,23 +126,23 @@ function AdminSurveysPage() {
       (result) => ({ survey: (result as { id: string }).id }),
     );
 
-  const remove = (survey: SurveySummary) => {
+  const remove = async (survey: SurveySummary) => {
     const answers =
       survey.answerCount === 0
         ? "No tiene respuestas."
         : `Se borrarán para siempre sus ${survey.answerCount} ${survey.answerCount === 1 ? "respuesta" : "respuestas"}.`;
     if (
-      !confirmAdminDestructiveAction(
+      !(await confirmAdminDestructiveAction(
         `Vas a borrar la encuesta "${survey.title}". ${answers} Los pedidos no se borran. Esto no se puede deshacer. ¿Continuar?`,
-      )
+      ))
     ) {
       return;
     }
     void run(() => deleteAdminSurvey({ data: { id: survey.id } }), "Encuesta borrada.", () => ({}));
   };
 
-  const close = (survey: SurveySummary) => {
-    if (!confirmAdminDestructiveAction(`¿Cerrar "${survey.title}"? Dejará de mostrarse y pasará al archivo con sus respuestas.`)) return;
+  const close = async (survey: SurveySummary) => {
+    if (!(await confirmAdminDestructiveAction(`¿Cerrar "${survey.title}"? Dejará de mostrarse y pasará al archivo con sus respuestas.`))) return;
     void run(() => closeAdminSurvey({ data: { id: survey.id } }), "Encuesta cerrada.");
   };
 

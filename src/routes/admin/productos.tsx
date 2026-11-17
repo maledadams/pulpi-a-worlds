@@ -303,25 +303,26 @@ function AdminProductsPage() {
     );
   };
 
-  const applyPrimaryCategory = (nextCategoryId: string) => {
+  // Asks before changing state: the confirmation is an async dialog, which
+  // can't run inside a setDraft updater (and updaters may run twice).
+  const applyPrimaryCategory = async (nextCategoryId: string) => {
+    if (!draft) return;
+    const allowedSizes = getAllowedSizes(categories, sizeFormats, nextCategoryId);
+    const droppedSizes = draft.sizes.filter((size) => !allowedSizes.includes(size));
+
+    if (droppedSizes.length > 0) {
+      const droppedHasStock = draft.variants.some((variant) => {
+        const size = variant.selectedOptions.find((option) => option.name === "Talla")?.value ?? "";
+        return droppedSizes.includes(size) && (variant.quantityAvailable ?? 0) > 0;
+      });
+      const warning = droppedHasStock
+        ? `Esta categoria usa otro formato de tallas: se van a quitar ${droppedSizes.join(", ")}, incluyendo variantes con stock. Esta accion no se puede deshacer facilmente. ¿Quieres continuar?`
+        : `Esta categoria usa otro formato de tallas: se van a quitar ${droppedSizes.join(", ")}. ¿Quieres continuar?`;
+      if (!(await confirmAdminDestructiveAction(warning))) return;
+    }
+
     setDraft((current) => {
       if (!current) return current;
-      const allowedSizes = getAllowedSizes(categories, sizeFormats, nextCategoryId);
-      const droppedSizes = current.sizes.filter((size) => !allowedSizes.includes(size));
-
-      if (droppedSizes.length > 0) {
-        const droppedHasStock = current.variants.some((variant) => {
-          const size = variant.selectedOptions.find((option) => option.name === "Talla")?.value ?? "";
-          return droppedSizes.includes(size) && (variant.quantityAvailable ?? 0) > 0;
-        });
-        const warning = droppedHasStock
-          ? `Esta categoria usa otro formato de tallas: se van a quitar ${droppedSizes.join(", ")}, incluyendo variantes con stock. Esta accion no se puede deshacer facilmente. ¿Quieres continuar?`
-          : `Esta categoria usa otro formato de tallas: se van a quitar ${droppedSizes.join(", ")}. ¿Quieres continuar?`;
-        if (!confirmAdminDestructiveAction(warning)) {
-          return current;
-        }
-      }
-
       const nextSizes = current.sizes.filter((size) => allowedSizes.includes(size));
 
       return syncDraftVariants({
@@ -479,12 +480,12 @@ function AdminProductsPage() {
     showSaveMessage("Nuevo producto draft creado.", "success");
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!draft) return;
     if (
-      !confirmAdminDestructiveAction(
+      !(await confirmAdminDestructiveAction(
         `Vas a eliminar el producto ${draft.name || draft.id}. Esta accion no se puede deshacer. ¿Quieres continuar?`,
-      )
+      ))
     ) {
       return;
     }
@@ -583,9 +584,9 @@ function AdminProductsPage() {
       .finally(() => setIsUploadingImage(false));
   };
 
-  const handleDeleteImage = (url: string) => {
+  const handleDeleteImage = async (url: string) => {
     if (!draft) return;
-    if (!confirmAdminDestructiveAction("Vas a eliminar esta imagen del producto. ¿Quieres continuar?")) {
+    if (!(await confirmAdminDestructiveAction("Vas a eliminar esta imagen del producto. ¿Quieres continuar?"))) {
       return;
     }
     setSaveMessage("");

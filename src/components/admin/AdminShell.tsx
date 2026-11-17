@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { BarChart3, Boxes, Cake, FolderKanban, LayoutGrid, MessageSquareHeart, Package2, Percent, Settings2, ShoppingBag, Store, Warehouse } from "lucide-react";
 import type { ReactNode } from "react";
+import { AdminConfirmHost } from "@/components/admin/AdminControls";
 import { shouldShowAdminAccessNotice } from "@/lib/admin-access";
 import type { AdminSection } from "@/lib/admin-types";
 import { cn } from "@/lib/utils";
@@ -53,6 +54,7 @@ export function AdminShell({
 
   return (
     <div className="admin-shell min-h-screen text-[#231717]" style={{ background: SECTION_BACKGROUNDS[section] }}>
+      <AdminConfirmHost />
       <div className="mx-auto grid max-w-[1880px] grid-cols-1 gap-3 px-3 py-3 sm:gap-4 sm:px-4 sm:py-4 xl:grid-cols-[250px_minmax(0,1fr)] 2xl:grid-cols-[270px_minmax(0,1fr)]">
         <aside className="self-start rounded-[20px] border border-[#231717]/15 bg-white/90 p-3 shadow-[0_12px_28px_-24px_rgba(35,23,23,0.35)] xl:p-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto">
           <div className="flex items-center gap-3 px-1">

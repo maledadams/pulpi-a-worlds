@@ -178,7 +178,7 @@ function AdminStockPage() {
       .finally(() => setBusy(false));
   };
 
-  const removeVariant = (variantId: string) => {
+  const removeVariant = async (variantId: string) => {
     if (!draft) return;
     const variant = draft.variants.find((entry) => entry.id === variantId);
     if (!variant) return;
@@ -190,7 +190,7 @@ function AdminStockPage() {
       showMessage("Primero registra una salida para dejar esta variante en cero.", "error");
       return;
     }
-    if (!confirmAdminDestructiveAction(`Quitar la variante ${variant.title}? Su historial se conservara.`)) return;
+    if (!(await confirmAdminDestructiveAction(`Quitar la variante ${variant.title}? Su historial se conservara.`))) return;
     setDraft({ ...draft, variants: draft.variants.filter((entry) => entry.id !== variantId) });
   };
 

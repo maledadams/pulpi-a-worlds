@@ -220,7 +220,7 @@ function AdminCollectionsPage() {
     });
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!draft) return;
 
     const productCount = getResolvedCollectionCount(draft, products);
@@ -231,9 +231,9 @@ function AdminCollectionsPage() {
     const warningText = warnings.length > 0 ? ` Esta coleccion ${warnings.join(" y ")}.` : "";
 
     if (
-      !confirmAdminDestructiveAction(
+      !(await confirmAdminDestructiveAction(
         `Vas a eliminar la coleccion ${draft.name || draft.id}.${warningText} Esta accion no se puede deshacer. ¿Quieres continuar?`,
-      )
+      ))
     ) {
       return;
     }
