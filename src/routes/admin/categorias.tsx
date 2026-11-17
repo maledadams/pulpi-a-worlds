@@ -13,6 +13,7 @@ import {  AdminButton,
   type AdminToastTone,
   confirmAdminDestructiveAction,
   getAdminVibeButtonClassName,
+  getAdminVibeTagClassName,
 } from "@/components/admin/AdminControls";
 import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
@@ -158,6 +159,10 @@ function AdminCategoriesPage() {
   }, [toastMessage]);
 
   const toggleVibe = (vibe: SubstoreVibe) => {
+    if (draft && draft.vibes.length === 1 && draft.vibes[0] === vibe) {
+      showToast("Cada categoría necesita al menos una subtienda activa.", "error");
+      return;
+    }
     setDraft((current) => {
       if (!current) return current;
 
@@ -361,7 +366,7 @@ function AdminCategoriesPage() {
       section="categorias"
       title="Categorias"
       actions={
-        <AdminButton tone="primary" onClick={handleCreate}>
+        <AdminButton tone="create" onClick={handleCreate}>
           Nueva categoria
         </AdminButton>
       }
@@ -402,7 +407,7 @@ function AdminCategoriesPage() {
                           key={category.id}
                           onClick={() => setSelectedId(category.id)}
                           className={`cursor-pointer border-t border-[var(--admin-line)] transition-colors ${
-                            selectedId === category.id ? "border-transparent bg-[var(--admin-accent-soft)] [&+tr]:border-transparent" : "hover:bg-[var(--admin-field)]"
+                            selectedId === category.id ? "border-transparent bg-[var(--admin-accent-soft)] [&+tr]:border-transparent" : "hover:bg-[var(--admin-accent-soft)]"
                           }`}
                         >
                           <td className="py-3 pr-3">
@@ -414,7 +419,7 @@ function AdminCategoriesPage() {
                               {category.vibes.map((vibe) => (
                                 <span
                                   key={vibe}
-                                  className={getAdminVibeButtonClassName(vibe, false, "pointer-events-none px-2.5 py-0.5 text-xs font-medium")}
+                                  className={getAdminVibeTagClassName(vibe)}
                                 >
                                   {getVibeLabel(vibe)}
                                 </span>
@@ -422,7 +427,7 @@ function AdminCategoriesPage() {
                             </div>
                           </td>
                           <td className="py-3 pr-3">
-                            <AdminTag tone={category.sizeFormat === "shoes" ? "warn" : category.sizeFormat === "onesize" ? "soft" : "dark"}>
+                            <AdminTag tone={category.sizeFormat === "shoes" ? "info" : category.sizeFormat === "onesize" ? "warn" : "dark"}>
                               {format.label}
                             </AdminTag>
                           </td>
@@ -440,11 +445,11 @@ function AdminCategoriesPage() {
           )}
         </AdminPanel>
 
-        <AdminPanel
+        <AdminPanel editor
           title="Formatos de talla"
           actions={
             <div className="flex flex-wrap items-center gap-2">
-              <AdminButton tone="primary" onClick={handleSaveFormat}>
+              <AdminButton tone="save" onClick={handleSaveFormat}>
                 Guardar formato
               </AdminButton>            </div>
           }
@@ -514,16 +519,16 @@ function AdminCategoriesPage() {
         </AdminPanel>
         </div>
 
-        <AdminPanel
+        <AdminPanel editor
           title={draft?.label || "Editor"}
             className="self-start"
             actions={
               <div className="flex flex-wrap gap-2">
+                <AdminButton tone="save" onClick={handleSave} disabled={!draft || isDeleting}>
+                  Guardar
+                </AdminButton>
                 <AdminButton tone="danger" onClick={handleDelete} disabled={!draft || isDeleting}>
                   {isDeleting ? "Eliminando..." : "Eliminar"}
-                </AdminButton>
-                <AdminButton tone="primary" onClick={handleSave} disabled={!draft || isDeleting}>
-                  Guardar
                 </AdminButton>              </div>
             }
           >

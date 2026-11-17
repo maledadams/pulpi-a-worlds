@@ -17,6 +17,7 @@ import {  AdminButton,
   downloadAdminCsv,
   getAdminChipClassName,
   getAdminVibeButtonClassName,
+  getAdminVibeTagClassName,
 } from "@/components/admin/AdminControls";
 import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
@@ -629,16 +630,16 @@ function AdminProductsPage() {
           <AdminButton tone="ghost" onClick={handleExportCsv} disabled={filtered.length === 0}>
             Exportar CSV
           </AdminButton>
-          <AdminButton tone="secondary" onClick={handleDuplicate} disabled={!draft}>
-            Duplicar
+          <AdminButton tone="danger" onClick={handleDelete} disabled={!draft || isSaving || isDeleting || isUploadingImage}>
+            {isDeleting ? "Eliminando..." : "Eliminar"}
           </AdminButton>
           <AdminButton tone="secondary" onClick={handleCreate}>
             Nuevo producto
           </AdminButton>
-          <AdminButton tone="danger" onClick={handleDelete} disabled={!draft || isSaving || isDeleting || isUploadingImage}>
-            {isDeleting ? "Eliminando..." : "Eliminar"}
+          <AdminButton tone="secondary" onClick={handleDuplicate} disabled={!draft}>
+            Duplicar
           </AdminButton>
-          <AdminButton tone="primary" onClick={handleSave} disabled={!draft || isSaving || isDeleting || isUploadingImage}>
+          <AdminButton tone="save" onClick={handleSave} disabled={!draft || isSaving || isDeleting || isUploadingImage}>
             {isSaving ? "Guardando..." : "Guardar"}
           </AdminButton>        </>
       }
@@ -698,7 +699,7 @@ function AdminProductsPage() {
                         key={product.id}
                         onClick={() => setSelectedId(product.id)}
                         className={`cursor-pointer border-t border-[var(--admin-line)] align-top transition-colors ${
-                          selectedId === product.id ? "border-transparent bg-[var(--admin-accent-soft)] [&+tr]:border-transparent" : "hover:bg-[var(--admin-field)]"
+                          selectedId === product.id ? "border-transparent bg-[var(--admin-accent-soft)] [&+tr]:border-transparent" : "hover:bg-[var(--admin-accent-soft)]"
                         }`}
                       >
                         <td className="py-3 pr-3">
@@ -710,11 +711,7 @@ function AdminProductsPage() {
                             <span
                               className={
                                 product.vibe === "moon" || product.vibe === "sunshine" || product.vibe === "men"
-                                  ? getAdminVibeButtonClassName(
-                                      product.vibe,
-                                      false,
-                                      "pointer-events-none cursor-default rounded-full px-2.5 py-0.5 text-xs font-medium",
-                                    )
+                                  ? getAdminVibeTagClassName(product.vibe)
                                   : "pointer-events-none cursor-default rounded-full bg-[var(--admin-soft)] px-2.5 py-0.5 text-xs font-medium text-[var(--admin-muted)]"
                               }
                             >
@@ -722,11 +719,7 @@ function AdminProductsPage() {
                             </span>
                             {product.secondaryVibe ? (
                               <span
-                                className={getAdminVibeButtonClassName(
-                                  product.secondaryVibe,
-                                  false,
-                                  "pointer-events-none cursor-default rounded-full px-2.5 py-0.5 text-xs font-medium",
-                                )}
+                                className={getAdminVibeTagClassName(product.secondaryVibe)}
                               >
                                 + {getVibeLabel(product.secondaryVibe)}
                               </span>
@@ -766,7 +759,7 @@ function AdminProductsPage() {
         {draft ? (
           <>
             <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[minmax(0,1.1fr)_minmax(420px,0.9fr)]">
-              <AdminPanel
+              <AdminPanel editor
                 title={draft.name || "Producto nuevo"}
                 titleClassName="font-body text-sm font-normal"
               >
@@ -953,7 +946,7 @@ function AdminProductsPage() {
                 </div>
               </AdminPanel>
 
-              <AdminPanel title="Imagenes" className="flex flex-col">
+              <AdminPanel editor title="Imagenes" className="flex flex-col">
                 <div className="flex h-full flex-col gap-4">
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-sm text-[var(--admin-muted)]">
@@ -1030,7 +1023,7 @@ function AdminProductsPage() {
               </AdminPanel>
             </div>
 
-            <AdminPanel title="Categorias, tallas y colores">
+            <AdminPanel editor title="Categorias, tallas y colores">
               <div className="grid gap-6">
                 <div>
                   <AdminSectionLabel>Categorias asignadas</AdminSectionLabel>
@@ -1079,7 +1072,7 @@ function AdminProductsPage() {
                           onClick={() => setColor(preset.label)}
                           className={getAdminChipClassName(active, "inline-flex items-center gap-2")}
                         >
-                          <span className="h-3 w-3 rounded-full border border-black/10" style={{ backgroundColor: preset.hex }} />
+                          <span className={`h-3 w-3 rounded-full border ${active ? "border-white" : "border-black/10"}`} style={{ backgroundColor: preset.hex }} />
                           <span>{preset.label}</span>
                         </button>
                       );

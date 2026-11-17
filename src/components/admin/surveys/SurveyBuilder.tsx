@@ -139,7 +139,7 @@ export function SurveyBuilder({
   );
 
   return (
-    <AdminPanel
+    <AdminPanel editor
       eyebrow={survey ? "Editar encuesta" : "Nueva encuesta"}
       title={survey ? survey.title : "Crear encuesta"}
       actions={
@@ -147,7 +147,7 @@ export function SurveyBuilder({
           <AdminButton tone="ghost" onClick={onCancel} disabled={saving}>
             Cancelar
           </AdminButton>
-          <AdminButton tone="primary" onClick={save} disabled={!valid || saving}>
+          <AdminButton tone="save" onClick={save} disabled={!valid || saving}>
             {saving ? "Guardando..." : "Guardar"}
           </AdminButton>
         </>

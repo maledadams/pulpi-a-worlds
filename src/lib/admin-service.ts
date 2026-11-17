@@ -617,7 +617,7 @@ export function getInventoryStatus(product: AdminProductRecord) {
 }
 
 export function getInventoryStatusTone(product: AdminProductRecord) {
-  if (!product.available || (product.stock ?? 0) <= 0) return "bg-[#eee1df] text-[#5b403b]";
+  if (!product.available || (product.stock ?? 0) <= 0) return "bg-[#ebe6e2] text-[#4f4741]";
   if ((product.stock ?? 0) <= 4) return "bg-[var(--admin-warn-soft)] text-[var(--admin-warn)]";
   return "bg-[var(--admin-ok-soft)] text-[var(--admin-ok)]";
 }

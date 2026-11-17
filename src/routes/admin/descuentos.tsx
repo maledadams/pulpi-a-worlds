@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { AdminPanel, AdminShell, AdminTag } from "@/components/admin/AdminShell";
 import {  AdminButton,
+  getAdminVibeTagClassName,
   AdminCheckbox,
   AdminEmptyState,
   AdminField,
@@ -190,7 +191,7 @@ function AdminDiscountsPage() {
       section="descuentos"
       title="Promociones"
       actions={
-        <AdminButton tone="primary" onClick={handleCreate}>
+        <AdminButton tone="create" onClick={handleCreate}>
           Nuevo descuento
         </AdminButton>
       }
@@ -228,7 +229,7 @@ function AdminDiscountsPage() {
                   className={`rounded-3xl border p-4 text-left transition-colors ${
                     selectedId === discount.id
                       ? "border-transparent bg-[var(--admin-accent-soft)]"
-                      : "border-[var(--admin-line)] bg-white hover:bg-[var(--admin-field)]"
+                      : "border-[var(--admin-line)] bg-white hover:bg-[var(--admin-accent-soft)]"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -238,18 +239,24 @@ function AdminDiscountsPage() {
                         {discount.kind === "code" ? discount.label || "Sin nombre" : "Promoción automática"}
                       </div>
                     </div>
-                    <AdminTag tone={discount.active ? "dark" : "soft"}>{discount.active ? "Activo" : "Pausado"}</AdminTag>
+                    <AdminTag tone={discount.active ? "success" : "warn"}>{discount.active ? "Activo" : "Pausado"}</AdminTag>
                   </div>
                   <div className="mt-4 text-2xl font-semibold">
                     {discount.type === "percentage" ? `${discount.value}%` : `RD$${discount.value}`}
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-medium text-[var(--admin-faint)]">
-                    <AdminTag tone="info">{discount.kind === "code" ? "Código" : "Promoción"}</AdminTag>
-                    {discount.kind === "promotion" ? <span>{getVibeLabel(discount.scope)}</span> : null}
-                    {discount.kind === "promotion" && discount.categoryIds.length > 0 ? (
-                      <AdminTag tone="info">{discount.categoryIds.length} categorías</AdminTag>
+                    <AdminTag tone="dark">{discount.kind === "code" ? "Código" : "Promoción"}</AdminTag>
+                    {discount.kind === "promotion" ? (
+                      discount.scope === "moon" || discount.scope === "sunshine" || discount.scope === "men" ? (
+                        <span className={getAdminVibeTagClassName(discount.scope)}>{getVibeLabel(discount.scope)}</span>
+                      ) : (
+                        <AdminTag tone="plum">{getVibeLabel(discount.scope)}</AdminTag>
+                      )
                     ) : null}
-                    {discount.kind === "code" && discount.onePerCustomer ? <AdminTag tone="info">1 x cliente</AdminTag> : null}
+                    {discount.kind === "promotion" && discount.categoryIds.length > 0 ? (
+                      <AdminTag tone="dark">{discount.categoryIds.length} categorías</AdminTag>
+                    ) : null}
+                    {discount.kind === "code" && discount.onePerCustomer ? <AdminTag tone="dark">1 x cliente</AdminTag> : null}
                     {discount.kind === "code" && discount.maxRedemptions !== null ? (
                       <AdminTag tone="info">Limite {discount.maxRedemptions}</AdminTag>
                     ) : null}
@@ -260,15 +267,15 @@ function AdminDiscountsPage() {
           )}
         </AdminPanel>
 
-        <AdminPanel
+        <AdminPanel editor
           title={draft ? discountTitle(draft) : "Editor"}
           actions={
             <div className="flex flex-wrap gap-2">
+              <AdminButton tone="save" onClick={handleSave} disabled={!draft || isSaving || isDeleting}>
+                {isSaving ? "Guardando..." : "Guardar"}
+              </AdminButton>
               <AdminButton tone="danger" onClick={handleDelete} disabled={!draft || isDeleting || isSaving}>
                 {isDeleting ? "Eliminando..." : "Eliminar"}
-              </AdminButton>
-              <AdminButton tone="primary" onClick={handleSave} disabled={!draft || isSaving || isDeleting}>
-                {isSaving ? "Guardando..." : "Guardar"}
               </AdminButton>            </div>
           }
         >
@@ -344,7 +351,7 @@ function AdminDiscountsPage() {
                             type="button"
                             onClick={() => toggleCategory(category.id)}
                             className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
-                              active ? "border-transparent bg-[var(--admin-accent-soft)] text-[var(--admin-accent-ink)]" : "bg-[var(--admin-soft)] text-[var(--admin-muted)] hover:bg-[var(--admin-soft-hover)]"
+                              active ? "border-transparent bg-[var(--admin-select)] text-white" : "bg-[var(--admin-soft)] text-[var(--admin-muted)] hover:bg-[var(--admin-soft-hover)]"
                             }`}
                           >
                             {category.label}

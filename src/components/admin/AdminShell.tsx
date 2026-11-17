@@ -45,19 +45,26 @@ export function AdminShell({
   return (
     <div className="admin-shell min-h-screen bg-[var(--admin-bg)]" data-admin-section={section}>
       <AdminConfirmHost />
-      <div className="mx-auto grid max-w-[1880px] grid-cols-1 gap-3 px-3 py-3 sm:gap-4 sm:px-4 sm:py-4 xl:grid-cols-[250px_minmax(0,1fr)] 2xl:grid-cols-[270px_minmax(0,1fr)]">
-        <aside className="self-start rounded-2xl border border-[var(--admin-line)] bg-white p-3 text-[var(--admin-muted)] xl:p-4 xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto">
+      <div className="grid min-h-screen grid-cols-1 xl:grid-cols-[282px_minmax(0,1fr)] 2xl:grid-cols-[302px_minmax(0,1fr)]">
+        {/* The sidebar's column is black behind the white nav card. On wide
+            screens a fixed strip paints it full height (min-h-screen falls
+            short under the site's html zoom). */}
+        <div className="xl:pr-4">
+        <div aria-hidden="true" className="pointer-events-none fixed -bottom-[100vh] -top-[100vh] left-0 hidden w-[282px] bg-black xl:block 2xl:w-[302px]" />
+        {/* Its white shadow reaches a screen above and below, so the
+            overscroll bounce shows white, not the black column. */}
+        <aside className="self-start border-y border-[var(--admin-edge)] bg-white px-3 py-5 text-[var(--admin-muted)] shadow-[-100vw_0_0_0_#fff,100vw_0_0_0_#fff] xl:sticky xl:top-0 xl:flex xl:h-[calc(100vh/var(--page-zoom))] xl:flex-col xl:border-r xl:border-y-0 xl:shadow-[0_-100vh_0_0_#fff,0_100vh_0_0_#fff] xl:overflow-y-auto xl:p-4">
           <div className="flex items-center gap-3 px-1">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--admin-soft)]">
-              <img src={storePineapple} alt="" aria-hidden="true" className="h-8 w-auto" />
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--admin-soft)] xl:h-16 xl:w-16">
+              <img src={storePineapple} alt="" aria-hidden="true" className="h-8 w-auto xl:h-12" />
             </span>
             <div className="min-w-0">
-              <div className="text-[11px] font-medium">Admin</div>
-              <div className="truncate text-sm font-semibold text-[var(--admin-ink)]">Pulpiña Store</div>
+              <div className="text-[11px] font-medium xl:text-sm">Admin</div>
+              <div className="truncate text-sm font-semibold text-[var(--admin-ink)] xl:text-xl">Pulpiña Store</div>
             </div>
           </div>
 
-          <nav className="mt-3 flex gap-1 overflow-x-auto pb-1 xl:mt-4 xl:grid xl:overflow-visible xl:pb-0">
+          <nav className="mt-3 flex gap-1 overflow-x-auto pb-1 xl:mt-4 xl:flex-1 xl:flex-col xl:overflow-visible xl:pb-0">
             {NAV_ITEMS.map((item) => {
               const Icon = item.icon;
               return (
@@ -65,10 +72,10 @@ export function AdminShell({
                   key={item.to}
                   to={item.to}
                   className={cn(
-                    "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-[10px] px-3 py-2 text-xs font-medium transition-colors xl:shrink xl:gap-3 xl:px-3 xl:py-2.5 xl:text-sm",
+                    "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-[10px] px-3 py-2 text-xs font-medium transition-colors xl:min-h-10 xl:flex-1 xl:gap-3 xl:px-3 xl:py-0 xl:text-sm",
                     item.section === section
-                      ? "bg-[var(--admin-accent-soft)] font-semibold text-[var(--admin-accent-ink)]"
-                      : "hover:bg-[var(--admin-soft)] hover:text-[var(--admin-ink)]",
+                      ? "bg-black font-semibold text-white"
+                      : "hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-ink)]",
                   )}
                 >
                   <Icon className="h-4 w-4 shrink-0" />
@@ -89,8 +96,9 @@ export function AdminShell({
             </div>
           ) : null}
         </aside>
+        </div>
 
-        <div className="min-w-0">
+        <div className="min-w-0 px-3 py-3 sm:px-4 sm:py-4">
           <header className="px-1 pt-1 sm:pt-2">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
               <div className="min-w-0 flex-1">
@@ -126,14 +134,14 @@ export function AdminStatCard({
   iconClassName?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-[var(--admin-line)] bg-[var(--admin-surface)] p-4">
+    <div className="rounded-2xl border border-[var(--admin-edge)] bg-[var(--admin-surface)] p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-xs font-medium text-[var(--admin-faint)]">{label}</div>
           <div className="mt-1.5 text-2xl font-semibold tabular-nums">{value}</div>
           {help ? <div className="mt-1 text-xs text-[var(--admin-muted)]">{help}</div> : null}
         </div>
-        <div className={cn("flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--admin-accent-soft)] text-[var(--admin-accent-ink)]", iconClassName)}>
+        <div className={cn("flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--admin-soft)] text-[var(--admin-muted)]", iconClassName)}>
           <Icon className="h-5 w-5" />
         </div>
       </div>
@@ -148,6 +156,7 @@ export function AdminPanel({
   actions,
   className,
   titleClassName,
+  editor = false,
 }: {
   title?: string;
   eyebrow?: string;
@@ -155,13 +164,15 @@ export function AdminPanel({
   actions?: ReactNode;
   className?: string;
   titleClassName?: string;
+  /** Edit forms: the body sits on the selection grey so white fields read clearly. */
+  editor?: boolean;
 }) {
   const showHeader = Boolean(title || eyebrow || actions);
 
   return (
-    <section className={cn("flex flex-col rounded-2xl border border-[var(--admin-line)] bg-[var(--admin-surface)]", className)}>
+    <section className={cn("flex flex-col rounded-2xl border border-[var(--admin-edge)] bg-[var(--admin-surface)]", className)}>
       {showHeader ? (
-        <div className="flex flex-col gap-2 border-b border-[var(--admin-line)] px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4">
+        <div className="flex flex-col gap-2 border-b border-[var(--admin-edge)] px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4">
           {title || eyebrow ? (
             <div>
               {eyebrow ? (
@@ -175,7 +186,7 @@ export function AdminPanel({
           {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
         </div>
       ) : null}
-      <div className="flex-1 p-3 sm:p-4">{children}</div>
+      <div className={cn("flex-1 p-3 sm:p-4", editor && "bg-[var(--admin-accent-soft)]")}>{children}</div>
     </section>
   );
 }
@@ -194,7 +205,7 @@ const TAG_TONES: Record<AdminTagTone, string> = {
   plum: "bg-[#fce3ee] text-[#742651]",
   violet: "bg-[#eae8ff] text-[#4d4084]",
   cinnamon: "bg-[#ffe1d1] text-[#903a03]",
-  cocoa: "bg-[#eee1df] text-[#5b403b]",
+  cocoa: "bg-[#ebe6e2] text-[#4f4741]",
 };
 
 // One color per pedido status, everywhere a status shows.

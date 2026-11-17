@@ -1,7 +1,7 @@
 import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const STAR_COLOR = "fill-[var(--admin-accent)] text-[var(--admin-accent)]";
+const STAR_COLOR = "fill-[var(--admin-select)] text-[var(--admin-select)]";
 const EMPTY_COLOR = "text-[var(--admin-line-strong)]";
 
 // Five stars filled to `value` (0-5), including partial stars for averages

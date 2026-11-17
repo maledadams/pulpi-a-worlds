@@ -200,7 +200,7 @@ function AdminStockPage() {
       title="Stock"
       actions={
         <>
-          <AdminButton tone="primary" onClick={saveChanges} disabled={!draft || busy}>Guardar cambios</AdminButton>        </>
+          <AdminButton tone="save" onClick={saveChanges} disabled={!draft || busy}>Guardar cambios</AdminButton>        </>
       }
     >
       <div ref={listFollower.containerRef} className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
@@ -215,7 +215,7 @@ function AdminStockPage() {
             type="button"
             onClick={() => setLowStockOnly((current) => !current)}
             className={`mt-2 w-full rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
-              lowStockOnly ? "border-transparent bg-[var(--admin-accent-soft)] text-[var(--admin-accent-ink)]" : "bg-[var(--admin-soft)] text-[var(--admin-muted)] hover:bg-[var(--admin-soft-hover)]"
+              lowStockOnly ? "border-transparent bg-[var(--admin-select)] text-white" : "bg-[var(--admin-soft)] text-[var(--admin-muted)] hover:bg-[var(--admin-soft-hover)]"
             }`}
           >
             {lowStockOnly ? "Mostrando solo stock bajo" : "Filtrar solo stock bajo"}
@@ -227,7 +227,7 @@ function AdminStockPage() {
                 <button
                   key={product.id}
                   onClick={() => selectProduct(product.id)}
-                  className={`rounded-xl px-3 py-2.5 text-left transition-colors ${selectedId === product.id ? "bg-[var(--admin-accent-soft)] text-[var(--admin-accent-ink)]" : "hover:bg-[var(--admin-soft)]"}`}
+                  className={`rounded-xl px-3 py-2.5 text-left transition-colors ${selectedId === product.id ? "bg-[var(--admin-accent-soft)] text-[var(--admin-accent-ink)]" : "hover:bg-[var(--admin-accent-soft)]"}`}
                 >
                   <div className="font-bold">{product.name}</div>
                   <div className="mt-1 flex items-center justify-between text-xs opacity-75">
@@ -244,8 +244,8 @@ function AdminStockPage() {
         </div>
 
         {draft ? (
-          <div className="grid gap-4">
-            <AdminPanel title={draft.name} actions={<AdminTag>{draft.stock ?? 0} unidades</AdminTag>}>
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
+            <AdminPanel title={draft.name} actions={<AdminTag tone={(draft.stock ?? 0) > 0 ? "success" : "danger"}>{draft.stock ?? 0} unidades</AdminTag>}>
               <div className="grid gap-4 sm:grid-cols-3">
                 <div>
                   <AdminSectionLabel>Categorias</AdminSectionLabel>
@@ -277,7 +277,7 @@ function AdminStockPage() {
               </p>
             </AdminPanel>
 
-            <AdminPanel title="Variantes, precio y movimientos" className="overflow-hidden">
+            <AdminPanel editor title="Variantes, precio y movimientos" className="overflow-hidden">
               <div className="mb-4 grid gap-3 sm:grid-cols-[120px_minmax(0,1fr)]">
                 <AdminField label="Cantidad"><AdminInput type="number" min={1} value={quantity === 1 ? "" : quantity} placeholder="1" onChange={(event) => setQuantity(event.target.value === "" ? 1 : Math.max(1, Number(event.target.value) || 1))} /></AdminField>
                 <AdminField label="Motivo (opcional)"><AdminInput value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Ej. reposicion del proveedor, ajuste por dano" /></AdminField>

@@ -69,7 +69,7 @@ function AdminSettingsPage() {
       title="Configuracion"
       actions={
         <>
-          <AdminButton tone="primary" onClick={handleSave}>
+          <AdminButton tone="save" onClick={handleSave}>
             Guardar cambios
           </AdminButton>        </>
       }
@@ -78,7 +78,7 @@ function AdminSettingsPage() {
         <AdminTabs tabs={SETTINGS_TABS} active={tab} onChange={setTab} />
 
         {tab === "contacto" ? (
-        <AdminPanel title="Canales de contacto">
+        <AdminPanel editor title="Canales de contacto">
           <div className="grid gap-3 md:grid-cols-2">
             <AdminField label="Nombre del negocio">
               <AdminInput
@@ -135,11 +135,11 @@ function AdminSettingsPage() {
         ) : null}
 
         {tab === "faqs" ? (
-        <AdminPanel
+        <AdminPanel editor
           title="Preguntas frecuentes"
           actions={
             <AdminButton
-              tone="secondary"
+              tone="add"
               onClick={() =>
                 setForm((current) => ({
                   ...current,
@@ -160,7 +160,7 @@ function AdminSettingsPage() {
                 <div className="grid gap-3">
                   <div className="flex justify-end">
                     <AdminButton
-                      tone="ghost"
+                      tone="dangerSolid"
                       onClick={() =>
                         void confirmAdminDestructiveAction("Vas a eliminar esta pregunta frecuente. ¿Quieres continuar?").then(
                           (ok) =>
@@ -210,11 +210,11 @@ function AdminSettingsPage() {
         ) : null}
 
         {tab === "legal" ? (
-        <AdminPanel
+        <AdminPanel editor
           title="Legal y privacidad"
           actions={
             <AdminButton
-              tone="secondary"
+              tone="addAlt"
               onClick={() => {
                 const newId = `legal-${Date.now()}`;
                 setForm((current) => ({
@@ -298,7 +298,7 @@ function AdminSettingsPage() {
                     <div className="grid gap-3 border-t border-[var(--admin-line)] p-4">
                       <div className="flex justify-end">
                         <AdminButton
-                          tone="ghost"
+                          tone="dangerSolid"
                           onClick={() =>
                             void confirmAdminDestructiveAction("Vas a eliminar este bloque legal. ¿Quieres continuar?").then(
                               (ok) =>

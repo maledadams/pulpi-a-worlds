@@ -67,7 +67,7 @@ function SurveyCard({ survey, selected }: { survey: SurveySummary; selected: boo
       search={{ survey: survey.id }}
       className={cn(
         "block rounded-xl border px-3 py-2.5 transition",
-        selected ? "border-transparent bg-[var(--admin-accent-soft)]" : "border-[var(--admin-line)] bg-white hover:bg-[var(--admin-field)]",
+        selected ? "border-transparent bg-[var(--admin-accent-soft)]" : "border-[var(--admin-edge)] bg-white hover:bg-[var(--admin-accent-soft)]",
       )}
     >
       <div className="text-xs font-medium text-[var(--admin-faint)]">{eyebrowFor(survey)}</div>
@@ -148,13 +148,16 @@ function AdminSurveysPage() {
 
   const actionsFor = (survey: SurveySummary) => (
     <>
+      <AdminButton tone="danger" disabled={busy} onClick={() => remove(survey)}>
+        Eliminar
+      </AdminButton>
       {survey.status !== "closed" ? (
         <AdminButton tone="ghost" disabled={busy} onClick={() => void navigate({ to: "/admin/encuestas", search: { survey: survey.id, editar: "1" } })}>
           Editar
         </AdminButton>
       ) : null}
       {survey.status === "draft" ? (
-        <AdminButton tone="primary" disabled={busy} onClick={() => void run(() => openAdminSurvey({ data: { id: survey.id } }), "Encuesta abierta.")}>
+        <AdminButton tone="save" disabled={busy} onClick={() => void run(() => openAdminSurvey({ data: { id: survey.id } }), "Encuesta abierta.")}>
           Abrir
         </AdminButton>
       ) : null}
@@ -176,9 +179,6 @@ function AdminSurveysPage() {
       >
         Duplicar
       </AdminButton>
-      <AdminButton tone="danger" disabled={busy} onClick={() => remove(survey)}>
-        Eliminar
-      </AdminButton>
     </>
   );
 
@@ -188,7 +188,7 @@ function AdminSurveysPage() {
       title="Encuestas"
       subtitle="Crea encuestas para después del pedido, ábrelas por dispositivo y revisa lo que responden."
       actions={
-        <AdminButton tone="primary" disabled={busy} onClick={() => void navigate({ to: "/admin/encuestas", search: { editar: "nueva" } })}>
+        <AdminButton tone="create" disabled={busy} onClick={() => void navigate({ to: "/admin/encuestas", search: { editar: "nueva" } })}>
           <span className="inline-flex items-center gap-1.5">
             <Plus className="h-4 w-4" /> Nueva encuesta
           </span>

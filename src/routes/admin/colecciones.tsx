@@ -264,7 +264,7 @@ function AdminCollectionsPage() {
       section="colecciones"
       title="Colecciones"
       actions={
-        <AdminButton tone="primary" onClick={handleCreate}>
+        <AdminButton tone="create" onClick={handleCreate}>
           Nueva coleccion
         </AdminButton>
       }
@@ -277,7 +277,7 @@ function AdminCollectionsPage() {
               {(["all", "store", "moon", "sunshine", "men"] as const).map((entry) => (
                 <AdminButton
                   key={entry}
-                  tone={entry === "all" || entry === "store" ? (scope === entry ? "active" : "ghost") : "custom"}
+                  tone={entry === "all" || entry === "store" ? (scope === entry ? "active" : "secondary") : "custom"}
                   className={
                     entry === "moon" || entry === "sunshine" || entry === "men"
                       ? getAdminVibeButtonClassName(entry, scope === entry)
@@ -323,7 +323,7 @@ function AdminCollectionsPage() {
                     className={`rounded-3xl border p-4 text-left transition-colors ${
                       selectedId === collection.id
                         ? "border-transparent bg-[var(--admin-accent-soft)]"
-                        : "border-[var(--admin-line)] bg-white hover:bg-[var(--admin-field)]"
+                        : "border-[var(--admin-line)] bg-white hover:bg-[var(--admin-accent-soft)]"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -332,7 +332,7 @@ function AdminCollectionsPage() {
                       </div>
                       <div className="flex flex-wrap justify-end gap-1">
                         {collection.published ? <AdminTag tone="dark">Publica</AdminTag> : <AdminTag tone="warn">Oculta</AdminTag>}
-                        {collection.showOnHome ? <AdminTag tone="soft">Inicio #{collection.homeOrder}</AdminTag> : null}
+                        {collection.showOnHome ? <AdminTag tone="success">Inicio #{collection.homeOrder}</AdminTag> : null}
                       </div>
                     </div>
                       <div className="mt-3 flex flex-wrap gap-1">
@@ -349,15 +349,15 @@ function AdminCollectionsPage() {
           )}
         </AdminPanel>
 
-        <AdminPanel
+        <AdminPanel editor
           title={draft?.name || "Editor"}
           actions={
             <div className="flex flex-wrap gap-2">
+              <AdminButton tone="save" onClick={handleSave} disabled={!draft || isDeleting}>
+                Guardar
+              </AdminButton>
               <AdminButton tone="danger" onClick={handleDelete} disabled={!draft || isDeleting}>
                 {isDeleting ? "Eliminando..." : "Eliminar"}
-              </AdminButton>
-              <AdminButton tone="primary" onClick={handleSave} disabled={!draft || isDeleting}>
-                Guardar
               </AdminButton>            </div>
           }
         >
@@ -426,7 +426,7 @@ function AdminCollectionsPage() {
                         type="button"
                         onClick={() => toggleCategory(category.id)}
                         className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
-                          active ? "border-transparent bg-[var(--admin-accent-soft)] text-[var(--admin-accent-ink)]" : "bg-[var(--admin-soft)] text-[var(--admin-muted)] hover:bg-[var(--admin-soft-hover)]"
+                          active ? "border-transparent bg-[var(--admin-select)] text-white" : "bg-[var(--admin-soft)] text-[var(--admin-muted)] hover:bg-[var(--admin-soft-hover)]"
                         }`}
                       >
                         {category.label}
@@ -471,7 +471,7 @@ function AdminCollectionsPage() {
                           type="checkbox"
                           checked={active}
                           onChange={() => toggleProduct(product.id)}
-                          className="mt-1 h-4 w-4 rounded accent-[var(--admin-accent)]"
+                          className="mt-1 h-4 w-4 rounded accent-[var(--admin-select)]"
                         />
                         <span className="min-w-0">
                           <span className="block font-normal">{product.name}</span>

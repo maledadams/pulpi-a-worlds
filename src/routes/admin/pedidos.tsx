@@ -152,7 +152,7 @@ function ProductSearchField({
             className={`rounded-lg px-3 py-2 text-left text-sm transition-colors ${
               line.productId === match.id
                 ? "bg-[var(--admin-accent-soft)] text-[var(--admin-accent-ink)]"
-                : "bg-white hover:bg-[var(--admin-soft)]"
+                : "bg-white hover:bg-[var(--admin-accent-soft)]"
             }`}
           >
             <div className="font-normal">{match.name}</div>
@@ -163,6 +163,17 @@ function ProductSearchField({
     </div>
   );
 }
+
+// Status filter buttons wear the same colors as their status tags, with
+// their own darker hover. Selected uses the shared dark selection color.
+const STATUS_FILTER_TONE: Record<AdminInquiryStatus, string> = {
+  pending_contact: "bg-[#fce3ee] text-[#742651] hover:bg-[#f1d2e0] hover:text-[#742651]",
+  new: "bg-[var(--admin-warn-soft)] text-[var(--admin-warn)] hover:bg-[#f2d8ae] hover:text-[var(--admin-warn)]",
+  follow_up: "bg-[#eae8ff] text-[#4d4084] hover:bg-[#dbd8f5] hover:text-[#4d4084]",
+  quoted: "bg-[#ffe1d1] text-[#903a03] hover:bg-[#f5d0bd] hover:text-[#903a03]",
+  closed: "bg-[var(--admin-ok-soft)] text-[var(--admin-ok)] hover:bg-[#c6e6cb] hover:text-[var(--admin-ok)]",
+  cancelled: "bg-[#ebe6e2] text-[#4f4741] hover:bg-[#ddd7d2] hover:text-[#4f4741]",
+};
 
 export const Route = createFileRoute("/admin/pedidos")({
   validateSearch: (search: Record<string, unknown>): { order?: string } => ({
@@ -552,7 +563,7 @@ function AdminOrdersPage() {
           <AdminButton tone="ghost" onClick={handleExportCsv} disabled={filtered.length === 0}>
             Exportar CSV
           </AdminButton>
-          <AdminButton tone={isCreating ? "secondary" : "primary"} onClick={() => setIsCreating((current) => !current)}>
+          <AdminButton tone={isCreating ? "secondary" : "create"} onClick={() => setIsCreating((current) => !current)}>
             {isCreating ? "Cerrar manual" : "Nuevo pedido manual"}
           </AdminButton>
         </>
@@ -564,7 +575,7 @@ function AdminOrdersPage() {
           actions={
             <div className="flex flex-wrap gap-2">
               {(["all", "pending_contact", "new", "follow_up", "quoted", "closed", "cancelled"] as const).map((entry) => (
-                <button key={entry} type="button" className={getAdminChipClassName(statusFilter === entry)} onClick={() => setStatusFilter(entry)}>
+                <button key={entry} type="button" className={getAdminChipClassName(statusFilter === entry, entry === "all" || statusFilter === entry ? undefined : STATUS_FILTER_TONE[entry])} onClick={() => setStatusFilter(entry)}>
                   {entry === "all" ? "Todas" : formatAdminInquiryStatus(entry)}
                 </button>
               ))}
@@ -607,7 +618,7 @@ function AdminOrdersPage() {
                         key={inquiry.id}
                         onClick={() => selectOrder(inquiry.id)}
                         className={`cursor-pointer border-t border-[var(--admin-line)] align-top transition-colors ${
-                          selectedId === inquiry.id ? "border-transparent bg-[var(--admin-accent-soft)] [&+tr]:border-transparent" : "hover:bg-[var(--admin-field)]"
+                          selectedId === inquiry.id ? "border-transparent bg-[var(--admin-accent-soft)] [&+tr]:border-transparent" : "hover:bg-[var(--admin-accent-soft)]"
                         }`}
                       >
                         <td className="py-3 pr-3">
@@ -645,7 +656,7 @@ function AdminOrdersPage() {
 
         <div className="grid gap-4">
           {isCreating ? (
-            <AdminPanel
+            <AdminPanel editor
               title="Nuevo pedido manual"
               actions={
                 <AdminButton tone="primary" onClick={handleCreateOrder} disabled={creating}>
@@ -780,19 +791,20 @@ function AdminOrdersPage() {
           ) : null}
 
           {draft ? (
-            <AdminPanel
+            <AdminPanel editor
               title={draft.requestNumber}
               actions={
                 <div className="flex items-center gap-2">
-                  <AdminButton tone="ghost" onClick={handleResendConfirmation} disabled={resending || saving || deleting}>
-                    {resending ? "Enviando..." : "Reenviar"}
-                  </AdminButton>
                   <AdminButton tone="danger" onClick={handleDeleteOrder} disabled={saving || deleting}>
                     {deleting ? "Eliminando..." : "Eliminar"}
                   </AdminButton>
-                  <AdminButton tone="primary" onClick={handleSave} disabled={saving || deleting}>
+                  <AdminButton tone="ghost" onClick={handleResendConfirmation} disabled={resending || saving || deleting}>
+                    {resending ? "Enviando..." : "Reenviar"}
+                  </AdminButton>
+                  <AdminButton tone="save" onClick={handleSave} disabled={saving || deleting}>
                     {saving ? "Guardando..." : "Guardar"}
-                  </AdminButton>                </div>
+                  </AdminButton>
+                </div>
               }
             >
               <div className="grid gap-4">

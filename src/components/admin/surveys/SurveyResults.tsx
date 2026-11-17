@@ -69,7 +69,7 @@ export function SurveyResults({
 
   return (
     <div className="grid gap-4">
-      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-[var(--admin-line)] bg-[var(--admin-surface)] px-4 py-3">
+      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-[var(--admin-edge)] bg-[var(--admin-surface)] px-4 py-3">
         <label className="grid gap-1 text-xs font-medium text-[var(--admin-muted)]">
           Desde
           <AdminInput type="date" value={from} max={to || undefined} onChange={(event) => setFrom(event.target.value)} className="py-2" />

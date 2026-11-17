@@ -113,14 +113,18 @@ html {
    picking its own breakpoint-driven size. Left untouched below 768px - real
    phones already get a dedicated mobile layout via the sm:/md:/etc classes,
    and shrinking further there would make touch targets too small. */
+/* --page-zoom mirrors the zoom so a viewport-tall element can divide it back
+   out (100vh renders zoom times shorter). Set on html, not :root, so the
+   media queries below can override it. */
+html { --page-zoom: 1; }
 @media (min-width: 768px) and (max-width: 1023px) {
-  html { zoom: 0.75; }
+  html { zoom: 0.75; --page-zoom: 0.75; }
 }
 @media (min-width: 1024px) and (max-width: 1439px) {
-  html { zoom: 0.76; }
+  html { zoom: 0.76; --page-zoom: 0.76; }
 }
 @media (min-width: 1440px) and (max-width: 1535px) {
-  html { zoom: 0.9; }
+  html { zoom: 0.9; --page-zoom: 0.9; }
 }
 
 body,
@@ -285,22 +289,30 @@ html:has(.admin-shell) body {
 .admin-shell {
   --admin-bg: #ffffff;
   --admin-on-bg: #130808;
-  --admin-on-bg-muted: #705251;
+  --admin-on-bg-muted: #6b625d;
   --admin-surface: #ffffff;
-  --admin-line: #f2e0df;
-  --admin-line-strong: #e7c9c7;
+  /* Outer section borders, then the finer inner lines. */
+  --admin-edge: #000000;
+  --admin-line: #bbb6b2;
+  --admin-line-strong: #b3aba6;
   --admin-ink: #130808;
-  --admin-muted: #705251;
-  --admin-faint: #9e8584;
-  --admin-soft: #fcf0f0;
-  --admin-soft-hover: #f8e6e6;
+  --admin-muted: #6b625d;
+  --admin-faint: #9b928c;
+  /* Everything that is not a wine button is a warm grey, lighter or darker. */
+  --admin-soft: #f0ebe8;
+  --admin-soft-hover: #e6e0dc;
+  /* A grey toggle button that is switched on: a darker grey. */
+  --admin-soft-on: #d5ccc6;
   --admin-field: #ffffff;
-  /* Selection + primary actions: Moon crimson. */
+  /* Primary actions only: Moon crimson (solid wine buttons). */
   --admin-accent: #97000f;
   --admin-accent-hover: #7c0006;
   /* Selected rows / items: a light, warm grey highlight. */
-  --admin-accent-soft: #f3efec;
+  --admin-accent-soft: #f7f4f2;
   --admin-accent-ink: #130808;
+  /* Active filters, tabs, checkboxes, stars: dark warm grey. */
+  --admin-select: #4a423d;
+  --admin-select-hover: #3b3430;
   /* Status: green = done, amber = needs attention, red = errors. */
   --admin-ok: #286037;
   --admin-ok-soft: #d9f3dd;
@@ -309,6 +321,15 @@ html:has(.admin-shell) body {
   --admin-danger: #be0025;
   --admin-danger-soft: #ffe3e1;
   color: var(--admin-ink);
+}
+
+/* Search bars: black outline, the Ventas green while typing. */
+.admin-shell input[placeholder^="Buscar"] {
+  border-color: var(--admin-edge);
+}
+.admin-shell input[placeholder^="Buscar"]:focus {
+  border-color: var(--admin-ok);
+  --tw-ring-color: rgb(40 96 55 / 0.25);
 }
 
 .admin-shell h1,

@@ -136,10 +136,10 @@ function AdminDashboardPage() {
       }
     >
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <AdminStatCard label="Productos" value={String(snapshot.productCount)} icon={PackageSearch} />
-        <AdminStatCard label="Pedidos" value={String(snapshot.inquiryCount)} icon={MessageSquareMore} />
-        <AdminStatCard label="Abiertas" value={String(snapshot.openInquiryCount)} icon={TriangleAlert} />
-        <AdminStatCard label="Inventario" value={formatPrice(snapshot.inventoryBaseValue)} icon={ShieldCheck} />
+        <AdminStatCard label="Productos" value={String(snapshot.productCount)} icon={PackageSearch} iconClassName="bg-[#eae8ff] text-[#4d4084]" />
+        <AdminStatCard label="Pedidos" value={String(snapshot.inquiryCount)} icon={MessageSquareMore} iconClassName="bg-[#e2edf8] text-[#334f6d]" />
+        <AdminStatCard label="Abiertas" value={String(snapshot.openInquiryCount)} icon={TriangleAlert} iconClassName="bg-[var(--admin-warn-soft)] text-[var(--admin-warn)]" />
+        <AdminStatCard label="Inventario" value={formatPrice(snapshot.inventoryBaseValue)} icon={ShieldCheck} iconClassName="bg-[var(--admin-ok-soft)] text-[var(--admin-ok)]" />
       </div>
 
       <div className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_1fr]">
@@ -206,7 +206,7 @@ function AdminDashboardPage() {
                   onClick={() => setSalesWindow(entry.id)}
                   className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
                     salesWindow === entry.id
-                      ? "border-transparent bg-[var(--admin-accent-soft)] text-[var(--admin-accent-ink)]"
+                      ? "border-transparent bg-[var(--admin-select)] text-white"
                       : "bg-[var(--admin-soft)] text-[var(--admin-muted)] hover:bg-[var(--admin-soft-hover)]"
                   }`}
                 >
