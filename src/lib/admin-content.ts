@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { onceReady } from "@/lib/once-ready";
 import { createServerFn } from "@tanstack/react-start";
 import type {
   AdminAnnouncementRecord,
@@ -229,7 +230,6 @@ const memoryCollections = new Map<string, AdminCollectionRecord>();
 const memoryDiscounts = new Map<string, AdminDiscountRecord>();
 const memorySizeFormats = new Map<AdminSizeFormat, AdminSizeFormatRecord>();
 let memorySettings: AdminSettingsRecord = cloneSettings(ADMIN_SETTINGS);
-let adminContentReadyPromise: Promise<void> | null = null;
 let memoryContentSeeded = false;
 
 const SETTINGS_CACHE_TTL_MS = 60_000;
@@ -425,9 +425,7 @@ async function ensureSeededOnce(
   await markSeeded();
 }
 
-async function ensureAdminContentReady(db: D1Database) {
-  if (!adminContentReadyPromise) {
-    adminContentReadyPromise = (async () => {
+const ensureAdminContentReady = onceReady(async (db: D1Database) => {
       await db.exec(
         `
         CREATE TABLE IF NOT EXISTS categories (
@@ -510,7 +508,7 @@ async function ensureAdminContentReady(db: D1Database) {
 
       await ensureSeededOnce(db, "categories_seeded", "SELECT COUNT(*) AS count FROM categories", async () => {
         const insertCategory = db.prepare(`
-          INSERT INTO categories (id, slug, name_es, is_nsfw, department_scope, size_format, sort_order, images_json)
+          INSERT OR IGNORE INTO categories (id, slug, name_es, is_nsfw, department_scope, size_format, sort_order, images_json)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `);
         await db.batch(
@@ -531,7 +529,7 @@ async function ensureAdminContentReady(db: D1Database) {
 
       await ensureSeededOnce(db, "size_formats_seeded", "SELECT COUNT(*) AS count FROM size_formats", async () => {
         const insertSizeFormat = db.prepare(`
-          INSERT INTO size_formats (id, label, sizes_json, sort_order)
+          INSERT OR IGNORE INTO size_formats (id, label, sizes_json, sort_order)
           VALUES (?, ?, ?, ?)
         `);
         await db.batch(
@@ -543,7 +541,7 @@ async function ensureAdminContentReady(db: D1Database) {
 
       await ensureSeededOnce(db, "collections_seeded", "SELECT COUNT(*) AS count FROM collections", async () => {
         const insertCollection = db.prepare(`
-          INSERT INTO collections (
+          INSERT OR IGNORE INTO collections (
             id,
             slug,
             name,
@@ -586,7 +584,7 @@ async function ensureAdminContentReady(db: D1Database) {
 
       await ensureSeededOnce(db, "discounts_seeded", "SELECT COUNT(*) AS count FROM discounts", async () => {
         const insertDiscount = db.prepare(`
-          INSERT INTO discounts (id, kind, code, label, discount_type, amount, active, scope, category_ids_json, max_redemptions, one_per_customer)
+          INSERT OR IGNORE INTO discounts (id, kind, code, label, discount_type, amount, active, scope, category_ids_json, max_redemptions, one_per_customer)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         await db.batch(
@@ -607,14 +605,7 @@ async function ensureAdminContentReady(db: D1Database) {
           ),
         );
       });
-    })().catch((error) => {
-      adminContentReadyPromise = null;
-      throw error;
-    });
-  }
-
-  return adminContentReadyPromise;
-}
+});
 
 function withCategoryStats(
   categories: AdminCategoryRecord[],
@@ -883,6 +874,7 @@ async function reassignCategoryReferences(previousId: string, nextId: string) {
             category: product.category === normalizedPreviousId ? normalizedNextId : product.category,
             categories: nextCategories,
           }),
+          { keepStoredStock: true },
         );
       }),
   );
@@ -1267,6 +1259,21 @@ async function saveDiscountInternal(input: AdminDiscountRecord) {
   }
 
   await ensureAdminContentReady(db);
+  // A new promo's id comes from its name/code, so a new one named like an
+  // existing one got the same id and the upsert below silently replaced the
+  // existing promo. Block that, and a code another promo already uses.
+  const isNew = !input.id.trim() || input.id.trim().startsWith("draft-discount-");
+  const clash = await db
+    .prepare("SELECT id FROM discounts WHERE (id = ? AND ?) OR (code = ? AND id <> ?) LIMIT 1")
+    .bind(normalized.id, isNew ? 1 : 0, normalized.code, normalized.id)
+    .first<{ id: string }>();
+  if (clash) {
+    throw new Error(
+      normalized.kind === "promotion"
+        ? "Ya existe otra promocion con ese nombre. Usa un nombre distinto."
+        : "Ya existe otro descuento con ese codigo. Usa un codigo distinto.",
+    );
+  }
   await db
     .prepare(`
       INSERT INTO discounts (id, kind, code, label, discount_type, amount, active, scope, category_ids_json, max_redemptions, one_per_customer)
@@ -1704,6 +1711,7 @@ async function uploadProductImageInternal(formData: FormData) {
       featuredImage: current.featuredImage ?? nextImage,
       images: nextImages,
     }),
+    { keepStoredStock: true },
   );
 
   return toAdminProductRecord(saved);
@@ -1746,6 +1754,7 @@ async function deleteProductImageInternal(input: { productId: string; url: strin
       featuredImage: nextFeaturedImage,
       images: nextImages,
     }),
+    { keepStoredStock: true },
   );
 
   return toAdminProductRecord(saved);

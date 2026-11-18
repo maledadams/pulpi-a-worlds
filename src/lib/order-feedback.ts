@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { onceReady } from "@/lib/once-ready";
 import { z } from "zod";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { signOrderConfirmToken, verifyOrderConfirmToken } from "@/lib/order-confirm-token";
@@ -53,11 +54,8 @@ async function noStore() {
   setResponseHeader("Cache-Control", "private, no-store");
 }
 
-let surveyStorageReady: Promise<void> | null = null;
 
-async function ensureSurveyStorageReady(db: D1Database) {
-  if (!surveyStorageReady) {
-    surveyStorageReady = (async () => {
+const ensureSurveyStorageReady = onceReady(async (db: D1Database) => {
       await db.batch([
         db.prepare(
           `CREATE TABLE IF NOT EXISTS order_feedback (
@@ -112,13 +110,7 @@ async function ensureSurveyStorageReady(db: D1Database) {
         }
       }
       await migrateLegacySurvey(db);
-    })().catch((error) => {
-      surveyStorageReady = null;
-      throw error;
-    });
-  }
-  await surveyStorageReady;
-}
+});
 
 // The first, hard-coded survey becomes "Encuesta 1" (open, for every device)
 // and its answers are moved onto it. Idempotent and safe to run twice at once

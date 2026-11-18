@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { onceReady } from "@/lib/once-ready";
 import { createServerFn } from "@tanstack/react-start";
 import { getStorefrontSettingsInternal } from "@/lib/admin-content";
 import { verifyTurnstileToken } from "@/lib/turnstile";
@@ -46,7 +47,6 @@ const memorySubscribers = new Map<
   string,
   { birthDate: string; createdAt: string; email: string; lastCouponSentDate: string | null }
 >();
-let publicFormsReadyPromise: Promise<void> | null = null;
 
 async function getWorkerEnv() {
   try {
@@ -72,9 +72,7 @@ function birthdayTokenSubject(email: string, monthKey: string) {
   return `birthday:${email}:${monthKey}`;
 }
 
-async function ensurePublicFormsReady(db: D1Database) {
-  if (!publicFormsReadyPromise) {
-    publicFormsReadyPromise = (async () => {
+const ensurePublicFormsReady = onceReady(async (db: D1Database) => {
       await db.exec(
         `
         CREATE TABLE IF NOT EXISTS contact_messages (
@@ -132,14 +130,7 @@ async function ensurePublicFormsReady(db: D1Database) {
       } catch {
         // Existing databases already migrated.
       }
-    })().catch((error) => {
-      publicFormsReadyPromise = null;
-      throw error;
-    });
-  }
-
-  return publicFormsReadyPromise;
-}
+});
 
 async function saveContactMessage(input: z.infer<typeof contactSchema>) {
   const db = await getDatabase();

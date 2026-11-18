@@ -355,6 +355,7 @@ function AdminOrdersPage() {
         customerEmail: value.draft.customerEmail,
         customerName: value.draft.customerName,
         customerPhone: value.draft.customerPhone,
+        discount: value.draft.discount,
         fulfillmentMethod: value.draft.fulfillmentMethod,
         id: value.draft.id,
         lines: value.draftLines.map((line) => ({
@@ -487,6 +488,11 @@ function AdminOrdersPage() {
       {lines.map((line) => {
         const product = findProduct(products, line.productId);
         const variants = getAvailableVariants(product);
+        // A line whose variant has since sold out (or was removed) still shows
+        // that variant; otherwise the select displayed a different one and
+        // touching it switched the order to it.
+        const lineVariant = product?.variants.find((variant) => variant.id === line.variantId);
+        const lineVariantMissing = Boolean(line.variantId) && !variants.some((variant) => variant.id === line.variantId);
 
         return (
           <div key={line.key} className="rounded-2xl border border-[var(--admin-line)] bg-[var(--admin-surface)] p-4">
@@ -518,6 +524,9 @@ function AdminOrdersPage() {
                     value={line.variantId}
                     onChange={(event) => onLineChange(line.key, (current) => ({ ...current, variantId: event.target.value }))}
                   >
+                    {lineVariantMissing ? (
+                      <option value={line.variantId}>{lineVariant?.title ?? "Variante original"} (agotada)</option>
+                    ) : null}
                     {variants.map((variant) => (
                       <option key={variant.id} value={variant.id}>
                         {variant.title}

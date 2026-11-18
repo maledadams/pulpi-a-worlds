@@ -1,4 +1,5 @@
 import type { Product } from "@/data/products";
+import { onceReady } from "@/lib/once-ready";
 import { ADMIN_DISCOUNTS } from "@/lib/admin-service";
 import type { AdminDiscountRecord } from "@/lib/admin-types";
 
@@ -20,7 +21,6 @@ type DiscountRow = {
   one_per_customer: number | null;
 };
 
-let discountStorageReadyPromise: Promise<void> | null = null;
 
 const DISCOUNTS_CACHE_TTL_MS = 60_000;
 let discountsCache: { value: AdminDiscountRecord[]; expiresAt: number } | null = null;
@@ -44,9 +44,7 @@ async function getDatabase() {
   return workerEnv.DB ?? null;
 }
 
-async function ensureDiscountStorageReady(db: D1Database) {
-  if (!discountStorageReadyPromise) {
-    discountStorageReadyPromise = (async () => {
+const ensureDiscountStorageReady = onceReady(async (db: D1Database) => {
       await db.exec(
         `
         CREATE TABLE IF NOT EXISTS discounts (
@@ -123,7 +121,7 @@ async function ensureDiscountStorageReady(db: D1Database) {
       }
 
       const insertDiscount = db.prepare(`
-        INSERT INTO discounts (id, kind, code, label, discount_type, amount, active, scope, category_ids_json, max_redemptions, one_per_customer)
+        INSERT OR IGNORE INTO discounts (id, kind, code, label, discount_type, amount, active, scope, category_ids_json, max_redemptions, one_per_customer)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
@@ -145,14 +143,7 @@ async function ensureDiscountStorageReady(db: D1Database) {
         ),
       );
       await markSeeded();
-    })().catch((error) => {
-      discountStorageReadyPromise = null;
-      throw error;
-    });
-  }
-
-  return discountStorageReadyPromise;
-}
+});
 
 function parseDiscountRow(row: DiscountRow): AdminDiscountRecord {
   let categoryIds: string[] = [];

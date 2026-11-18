@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { onceReady } from "@/lib/once-ready";
 import { createServerFn } from "@tanstack/react-start";
 import { getStorefrontSettingsInternal } from "@/lib/admin-content";
 import { ADMIN_INQUIRIES } from "@/lib/admin-service";
@@ -15,6 +16,7 @@ import { getDominicanDateParts, getDominicanDayStartIso, validateDiscountCodeInt
 import { recordDiscountRedemption } from "@/lib/store-discounts";
 import { signOrderConfirmToken, verifyOrderConfirmToken } from "@/lib/order-confirm-token";
 import { createOrderFeedbackToken, prepareOrderFeedbackDelete } from "@/lib/order-feedback";
+import { toIsoUtc } from "@/lib/order-feedback-shared";
 import { normalizeOrderEmail, ORDER_EMAIL_PATTERN, ORDER_FIELD_LIMITS } from "@/lib/order-validation";
 import type { AdminInquiryChannel, AdminInquiryRecord, AdminInquiryStatus } from "@/lib/admin-types";
 
@@ -108,7 +110,8 @@ const adminOrderUpdateSchema = z.object({
   customerEmail: z.string().trim().email(),
   customerName: z.string().trim().min(2).max(120),
   customerPhone: z.string().trim().min(7).max(40),
-  discount: z.number().min(0).max(999999).default(0),
+  // Left out = keep the order's current discount (it used to reset it to 0).
+  discount: z.number().min(0).max(999999).optional(),
   fulfillmentMethod: z.enum(FULFILLMENT_METHODS).default("pickup"),
   id: z.string().trim().min(1),
   lines: z.array(manualOrderLineSchema).min(1),
@@ -222,7 +225,6 @@ const orderMemoryState = (() => {
 })();
 
 const memoryOrders = orderMemoryState.orders;
-let orderStorageReadyPromise: Promise<void> | null = null;
 
 function parseOrderSequence(requestNumber: string) {
   if (!requestNumber.startsWith(ORDER_PREFIX)) return -1;
@@ -412,16 +414,15 @@ async function buildCanonicalLines(
   );
 
   return resolved.map(({ canonical, previous, quantity }) => {
+    // A line the order already had keeps what was recorded when it was
+    // ordered: its price (not today's price or promo) and its label, and it
+    // is not re-checked for availability. Closing an order that takes the
+    // last unit hides the variant, and re-checking used to block every later
+    // edit of that order, even marking it paid. Only new lines are checked.
+    if (previous) {
+      return { ...previous, quantity };
+    }
     if (!canonical) {
-      // The product/variant this line pointed to was deleted or regenerated
-      // after the order was placed - the order itself is still valid, so
-      // keep whatever was already recorded for this line instead of
-      // blocking every future edit (even a plain status change) on a
-      // catalog lookup that can never succeed again. Only a genuinely new
-      // line with no history to fall back on gets rejected.
-      if (previous) {
-        return { ...previous, quantity };
-      }
       throw new Error("Uno de los productos ya no existe.");
     }
 
@@ -475,7 +476,9 @@ function buildInquiryRecord(input: {
   const shipping = input.shipping ?? 0;
   const discount = input.discount ?? 0;
   const subtotal = input.lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0);
-  const createdAt = input.createdAt ?? new Date().toISOString();
+  // The database stores "YYYY-MM-DD HH:MM:SS" in UTC with no zone, which browsers read as
+  // local time: orders from 8pm to midnight showed the next day. Send real ISO UTC instead.
+  const createdAt = input.createdAt ? toIsoUtc(input.createdAt) : new Date().toISOString();
   const status = input.status ?? "new";
   const closedAt = "closedAt" in input ? input.closedAt ?? null : status === "closed" ? createdAt : null;
 
@@ -514,9 +517,7 @@ function buildInquiryRecord(input: {
   } satisfies AdminInquiryRecord;
 }
 
-async function ensureOrderStorageReady(db: D1Database) {
-  if (!orderStorageReadyPromise) {
-    orderStorageReadyPromise = (async () => {
+const ensureOrderStorageReady = onceReady(async (db: D1Database) => {
       await db.exec(
         `
         CREATE TABLE IF NOT EXISTS inquiries (
@@ -638,7 +639,7 @@ async function ensureOrderStorageReady(db: D1Database) {
         } else {
           const seedOrders = getMockOrders();
           const insertInquiry = db.prepare(`
-          INSERT INTO inquiries (
+          INSERT OR IGNORE INTO inquiries (
             id,
             request_number,
             customer_email,
@@ -708,14 +709,7 @@ async function ensureOrderStorageReady(db: D1Database) {
           await markSeeded();
         }
       }
-    })().catch((error) => {
-      orderStorageReadyPromise = null;
-      throw error;
-    });
-  }
-
-  return orderStorageReadyPromise;
-}
+});
 
 async function getNextOrderNumber(db: D1Database) {
   await ensureOrderStorageReady(db);
@@ -745,17 +739,24 @@ async function createOrderInDatabase(input: OrderWriteInput, lines: CanonicalMan
     return null;
   }
 
-  return withD1Retry(() => createOrderInDatabaseAttempt(db, input, lines));
+  // The id and number are fixed once, outside the retries: retrying the whole
+  // creation after a D1 timeout whose write had in fact landed used to make a
+  // second copy of the order under a new number. Now a retried INSERT of the
+  // same id is a no-op (ON CONFLICT DO NOTHING). A retried number can still
+  // skip one (a gap), never duplicate.
+  await withD1Retry(() => ensureOrderStorageReady(db));
+  const id = crypto.randomUUID();
+  const requestNumber = await withD1Retry(() => getNextOrderNumber(db));
+  return createOrderInDatabaseAttempt(db, input, lines, id, requestNumber);
 }
 
 async function createOrderInDatabaseAttempt(
   db: D1Database,
   input: OrderWriteInput,
   lines: CanonicalManualOrderLine[],
+  id: string,
+  requestNumber: string,
 ) {
-  await ensureOrderStorageReady(db);
-  const id = crypto.randomUUID();
-  const requestNumber = await getNextOrderNumber(db);
   const record = buildInquiryRecord({
     channel: input.channel,
     customerEmail: input.customerEmail,
@@ -773,7 +774,8 @@ async function createOrderInDatabaseAttempt(
     status: input.status,
   });
 
-  await db
+  await withD1Retry(() =>
+  db
     .prepare(
       `
         INSERT INTO inquiries (
@@ -799,6 +801,7 @@ async function createOrderInDatabaseAttempt(
           closed_at
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'DOP', ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO NOTHING
       `,
     )
     .bind(
@@ -822,7 +825,8 @@ async function createOrderInDatabaseAttempt(
       serializeInquiryLines(lines),
       record.closedAt,
     )
-    .run();
+    .run(),
+  );
 
   // Stock is only consumed once an order is "closed" (see
   // buildOrderInventoryImpact) - a freshly created order is essentially
@@ -1019,7 +1023,7 @@ async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>
         customerEmail: input.customerEmail,
         customerName: input.customerName,
         customerPhone: input.customerPhone,
-        discount: input.discount,
+        discount: input.discount ?? current.discount,
         fulfillmentMethod: input.fulfillmentMethod,
         id: current.id,
         lines: canonicalLines,
@@ -1055,6 +1059,12 @@ async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>
   }
 
   await ensureOrderStorageReady(db);
+  // Two saves of one order can overlap (autosave plus Guardar, or two tabs).
+  // Each works out its stock change from the order as it read it, so both
+  // used to deduct stock for the same closing (PUL-000011 took 2 for 1). The
+  // UPDATE below only applies if the order's status and lines are still what
+  // this attempt read; if not, read it again and recompute.
+  for (let attempt = 1; ; attempt++) {
   const existing = await db
     .prepare(
       `
@@ -1126,7 +1136,7 @@ async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>
     customerEmail: input.customerEmail,
     customerName: input.customerName,
     customerPhone: input.customerPhone,
-    discount: input.discount,
+    discount: input.discount ?? previousRecord.discount,
     fulfillmentMethod: input.fulfillmentMethod,
     id: existing.id,
     lines: canonicalLines,
@@ -1149,7 +1159,7 @@ async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>
     .filter((change) => change.delta !== 0);
   await ensureInventoryChangesAvailable(inventoryChanges);
 
-  await db
+  const updateResult = await db
     .prepare(
       `
         UPDATE inquiries
@@ -1171,7 +1181,7 @@ async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>
           notes = ?,
           items_json = ?,
           closed_at = ?
-        WHERE id = ?
+        WHERE id = ? AND status = ? AND items_json IS ?
       `,
     )
     .bind(
@@ -1193,8 +1203,15 @@ async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>
       serializeInquiryLines(canonicalLines),
       nextRecord.closedAt,
       input.id,
+      existing.status,
+      existing.items_json,
     )
     .run();
+
+  if (!updateResult.meta?.changes) {
+    if (attempt < 3) continue;
+    throw new Error("El pedido cambio mientras se guardaba. Vuelve a intentarlo.");
+  }
 
   await adjustCatalogVariantInventoryInternal(
     inventoryChanges,
@@ -1212,6 +1229,7 @@ async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>
   }
 
   return updated;
+  }
 }
 
 async function getAdminOrderSnapshotInternal(limit = 4) {
@@ -2069,11 +2087,21 @@ export const createAdminManualOrder = createServerFn({ method: "POST" })
       (await createOrderInDatabase(data, lines)) ??
       (await createOrderInMemory(data, lines));
 
+    // The order exists from here on. An email failure must not surface as
+    // "No se pudo crear el pedido": the admin would retry and duplicate it.
+    const sendSafely = async (send: () => Promise<boolean>, label: string) => {
+      try {
+        return await send();
+      } catch (error) {
+        console.error(`[createAdminManualOrder] ${label} threw`, record.requestNumber, error);
+        return false;
+      }
+    };
     const emailState: OrderEmailState | null = data.sendEmails
       ? {
           configured: true,
-          customerSent: await sendCustomerInvoiceEmail(record),
-          teamSent: await sendTeamOrderNotificationEmail(record),
+          customerSent: await sendSafely(() => sendCustomerInvoiceEmail(record), "customer email"),
+          teamSent: await sendSafely(() => sendTeamOrderNotificationEmail(record), "team email"),
         }
       : null;
 
@@ -2159,10 +2187,7 @@ function buildWhatsappRedirectUrl(whatsappNumber: string, requestNumber?: string
   return `${base}?text=${encodeURIComponent(`Hola, quiero completar el pedido ${requestNumber}.`)}`;
 }
 
-export async function maybeHandleOrderConfirmRequest(request: Request): Promise<Response | null> {
-  const url = new URL(request.url);
-  if (url.pathname !== "/pedido/confirmar") return null;
-
+async function confirmOrderAndGetWhatsappUrl(url: URL): Promise<string> {
   const settings = await getStorefrontSettingsInternal();
   const fallbackRedirect = buildWhatsappRedirectUrl(settings.whatsappNumber);
   const orderId = url.searchParams.get("order") ?? "";
@@ -2170,20 +2195,20 @@ export async function maybeHandleOrderConfirmRequest(request: Request): Promise<
   const secret = await getOrderConfirmSecret();
 
   if (!orderId || !secret || !(await verifyOrderConfirmToken(orderId, token, secret))) {
-    return Response.redirect(fallbackRedirect, 302);
+    return fallbackRedirect;
   }
 
   const db = await getDatabase();
   if (!db) {
     const record = memoryOrders.get(orderId);
-    if (!record) return Response.redirect(fallbackRedirect, 302);
+    if (!record) return fallbackRedirect;
     if (record.status === "pending_contact") {
       const confirmed = { ...record, status: "new" as const };
       memoryOrders.set(orderId, confirmed);
       await sendTeamOrderNotificationEmail(confirmed);
-      return Response.redirect(buildWhatsappRedirectUrl(settings.whatsappNumber, confirmed.requestNumber), 302);
+      return buildWhatsappRedirectUrl(settings.whatsappNumber, confirmed.requestNumber);
     }
-    return Response.redirect(buildWhatsappRedirectUrl(settings.whatsappNumber, record.requestNumber), 302);
+    return buildWhatsappRedirectUrl(settings.whatsappNumber, record.requestNumber);
   }
 
   await ensureOrderStorageReady(db);
@@ -2204,17 +2229,21 @@ export async function maybeHandleOrderConfirmRequest(request: Request): Promise<
     .first<InquiryRow>();
 
   if (!existing) {
-    return Response.redirect(fallbackRedirect, 302);
+    return fallbackRedirect;
   }
 
   if (existing.status !== "pending_contact") {
-    return Response.redirect(buildWhatsappRedirectUrl(settings.whatsappNumber, existing.request_number), 302);
+    return buildWhatsappRedirectUrl(settings.whatsappNumber, existing.request_number);
   }
 
-  await db
-    .prepare(`UPDATE inquiries SET status = 'new', contact_confirmed_at = ? WHERE id = ?`)
+  // Only the request that actually moves it out of pending_contact emails the team.
+  const confirmed = await db
+    .prepare(`UPDATE inquiries SET status = 'new', contact_confirmed_at = ? WHERE id = ? AND status = 'pending_contact'`)
     .bind(new Date().toISOString(), orderId)
     .run();
+  if (!confirmed.meta?.changes) {
+    return buildWhatsappRedirectUrl(settings.whatsappNumber, existing.request_number);
+  }
 
   const confirmedRecord = buildInquiryRecord({
     channel: normalizeOrderChannel(existing.channel),
@@ -2244,5 +2273,42 @@ export async function maybeHandleOrderConfirmRequest(request: Request): Promise<
 
   await sendTeamOrderNotificationEmail(confirmedRecord);
 
-  return Response.redirect(buildWhatsappRedirectUrl(settings.whatsappNumber, existing.request_number), 302);
+  return buildWhatsappRedirectUrl(settings.whatsappNumber, existing.request_number);
+}
+
+// Opening the confirm link used to confirm the order right away (a GET with a
+// side effect), so email scanners and link previews that fetch every link
+// could confirm orders the customer never confirmed. Now the GET only serves a
+// small page whose script confirms with a POST and then opens WhatsApp;
+// scanners don't run it. Links in emails already sent keep working.
+export async function maybeHandleOrderConfirmRequest(request: Request): Promise<Response | null> {
+  const url = new URL(request.url);
+  if (url.pathname !== "/pedido/confirmar") return null;
+
+  if (request.method === "POST") {
+    return Response.json(
+      { redirect: await confirmOrderAndGetWhatsappUrl(url) },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  const settings = await getStorefrontSettingsInternal();
+  const fallback = escapeHtml(buildWhatsappRedirectUrl(settings.whatsappNumber));
+  const page = `<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex"><title>Confirmando tu pedido</title>
+<style>body{font:16px/1.5 system-ui,-apple-system,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;padding:1.5rem;text-align:center}a{color:#128c4a;font-weight:700}</style>
+</head><body><p id="m">Confirmando tu pedido y abriendo WhatsApp...</p>
+<noscript><p><a href="${fallback}">Abrir WhatsApp</a></p></noscript>
+<script>
+fetch(location.href, { method: "POST" })
+  .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+  .then(function (d) { location.replace(d.redirect); })
+  .catch(function () {
+    document.getElementById("m").innerHTML = 'No pudimos confirmar tu pedido. <a href="${fallback}">Escribenos por WhatsApp</a>.';
+  });
+</script></body></html>`;
+  return new Response(page, {
+    headers: { "Cache-Control": "no-store", "content-type": "text/html; charset=utf-8" },
+  });
 }

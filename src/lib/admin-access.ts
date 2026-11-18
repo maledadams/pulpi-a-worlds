@@ -7,7 +7,11 @@ const ACCESS_JWT_HEADER = "cf-access-jwt-assertion";
 const ACCESS_AUD_ENV = "CF_ACCESS_AUD";
 const ACCESS_TEAM_DOMAIN_ENV = "CF_ACCESS_TEAM_DOMAIN";
 const SETTINGS_KEY = "admin_settings";
-const accessJwksCache = new Map<string, unknown>();
+// The JSON from Cloudflare's certs endpoint; typed here, not imported from jose,
+// to keep this route-loaded module free of a jose import at load time.
+type JSONWebKeySet = { keys: Array<Record<string, unknown>> };
+const accessJwksCache = new Map<string, { jwks: JSONWebKeySet; fetchedAt: number }>();
+const ACCESS_JWKS_TTL_MS = 10 * 60_000;
 
 function parseCsv(raw: string) {
   return raw
@@ -113,14 +117,22 @@ function getAccessVerificationConfig() {
   };
 }
 
-async function getAccessJwks(teamDomain: string) {
-  const { createRemoteJWKSet } = await import("jose");
+// Only the downloaded key set (plain data) is cached across requests. jose's
+// createRemoteJWKSet keeps its in-flight download as a shared promise, and on
+// Workers a request cut off mid-download left that promise unsettleable, so
+// every later admin request failed verification (see once-ready.ts).
+async function getAccessJwks(teamDomain: string, forceRefresh = false) {
+  const { createLocalJWKSet } = await import("jose");
   const cached = accessJwksCache.get(teamDomain);
-  if (cached) return cached;
+  if (cached && !forceRefresh && Date.now() - cached.fetchedAt < ACCESS_JWKS_TTL_MS) {
+    return createLocalJWKSet(cached.jwks);
+  }
 
-  const next = createRemoteJWKSet(new URL(`${teamDomain}/cdn-cgi/access/certs`));
-  accessJwksCache.set(teamDomain, next);
-  return next;
+  const response = await fetch(`${teamDomain}/cdn-cgi/access/certs`);
+  if (!response.ok) throw new Error(`Access certs request failed: ${response.status}`);
+  const jwks = (await response.json()) as JSONWebKeySet;
+  accessJwksCache.set(teamDomain, { jwks, fetchedAt: Date.now() });
+  return createLocalJWKSet(jwks);
 }
 
 async function verifyAccessJwtAndGetEmail(token: string): Promise<string | null> {
@@ -130,10 +142,12 @@ async function verifyAccessJwtAndGetEmail(token: string): Promise<string | null>
   }
 
   try {
-    const { jwtVerify } = await import("jose");
-    const { payload } = await jwtVerify(token, await getAccessJwks(teamDomain), {
-      audience: aud,
-      issuer: teamDomain,
+    const { jwtVerify, errors } = await import("jose");
+    const options = { audience: aud, issuer: teamDomain };
+    const { payload } = await jwtVerify(token, await getAccessJwks(teamDomain), options).catch(async (error) => {
+      // Cloudflare rotated its keys since we cached them: download them once more.
+      if (!(error instanceof errors.JWKSNoMatchingKey)) throw error;
+      return jwtVerify(token, await getAccessJwks(teamDomain, true), options);
     });
 
     const jwtEmail = typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";

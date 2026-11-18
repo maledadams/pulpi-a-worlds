@@ -5,7 +5,9 @@ import {
   Outlet,
   Scripts,
   createRootRouteWithContext,
+  type ErrorComponentProps,
   useLocation,
+  useRouter,
   useRouterState,
 } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
@@ -56,13 +58,34 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error }: { error: Error }) {
-  console.error(error);
+function ErrorComponent({ error, reset }: ErrorComponentProps) {
+  const router = useRouter();
+  useEffect(() => {
+    console.error(error);
+  }, [error]);
   return (
     <div className="min-h-[70vh] flex items-center justify-center px-4 text-center">
       <div>
         <h1 className="font-display text-3xl">Algo salió mal</h1>
-        <p className="mt-2 text-sm text-muted-foreground">{error.message}</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          No pudimos cargar esta página. Inténtalo otra vez en unos segundos.
+        </p>
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              reset();
+              void router.invalidate();
+            }}
+            className="bg-[#c5475f] px-5 py-2.5 font-bold text-white"
+          >
+            Reintentar
+          </button>
+          {/* A full page load, not a client navigation: the app's own state may be what failed. */}
+          <a href="/" className="border border-foreground/30 px-5 py-2.5 font-bold">
+            Volver al inicio
+          </a>
+        </div>
       </div>
     </div>
   );

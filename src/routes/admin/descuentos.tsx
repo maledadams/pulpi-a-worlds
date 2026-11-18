@@ -126,7 +126,7 @@ function AdminDiscountsPage() {
         saved,
         ...current.filter((discount) => discount.id !== value.id && discount.id !== saved.id),
       ]));
-      if (saved.id !== value.id) setSelectedId(saved.id);
+      if (saved.id !== value.id) setSelectedId((current) => (current === value.id ? saved.id : current));
       setDraft((current) => (current && current.id === value.id ? cloneDiscount(saved) : current));
       if (!options.silent) showSaveMessage("Descuento guardado.", "success");
     });

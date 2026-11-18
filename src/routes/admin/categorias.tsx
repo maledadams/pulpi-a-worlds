@@ -251,7 +251,7 @@ function AdminCategoriesPage() {
         if (!exists) return [saved, ...current];
         return current.map((category) => (category.id === value.id || category.id === saved.id ? saved : category));
       });
-      if (saved.id !== value.id) setSelectedId(saved.id);
+      if (saved.id !== value.id) setSelectedId((current) => (current === value.id ? saved.id : current));
       setDraft((current) => (current && current.id === value.id ? cloneCategory(saved) : current));
       if (!options.silent) showToast("Categoria guardada.", "success");
     });

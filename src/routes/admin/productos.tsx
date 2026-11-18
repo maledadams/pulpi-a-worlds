@@ -454,7 +454,7 @@ function AdminProductsPage() {
         return exists ? current.map((product) => (product.id === saved.id ? saved : product)) : [saved, ...current];
       });
       setPersistedIds((current) => new Set(current).add(saved.id));
-      if (saved.id !== value.id) setSelectedId(saved.id);
+      if (saved.id !== value.id) setSelectedId((current) => (current === value.id ? saved.id : current));
       setDraft((current) => (current && current.id === value.id ? cloneProduct(saved) : current));
       if (!options.silent) showSaveMessage("Producto guardado.", "success");
     });

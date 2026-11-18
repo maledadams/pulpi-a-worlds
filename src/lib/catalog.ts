@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { onceReady } from "@/lib/once-ready";
 import { createServerFn } from "@tanstack/react-start";
 import {
   FALLBACK_PRODUCTS,
@@ -131,7 +132,6 @@ const catalogMemoryState = (() => {
 
 const memoryCatalog = catalogMemoryState.catalog;
 const memoryStockMovements = catalogMemoryState.movements;
-let catalogStorageReadyPromise: Promise<void> | null = null;
 
 function cloneImage(image: ProductImage): ProductImage {
   return {
@@ -287,9 +287,7 @@ async function getDatabase() {
   return workerEnv.DB ?? null;
 }
 
-async function ensureCatalogStorageReady(db: D1Database) {
-  if (!catalogStorageReadyPromise) {
-    catalogStorageReadyPromise = (async () => {
+const ensureCatalogStorageReady = onceReady(async (db: D1Database) => {
       await db.exec(
         `
         CREATE TABLE IF NOT EXISTS products (
@@ -448,14 +446,7 @@ async function ensureCatalogStorageReady(db: D1Database) {
 
       await db.batch(batch);
       await markSeeded();
-    })().catch((error) => {
-      catalogStorageReadyPromise = null;
-      throw error;
-    });
-  }
-
-  return catalogStorageReadyPromise;
-}
+});
 
 function parseStoredProduct(row: ProductRow) {
   if (!row.product_json) return null;
@@ -751,9 +742,27 @@ export async function getCatalogVariantByIdInternal(variantId: string) {
   return null;
 }
 
-export async function saveCatalogProductInternal(record: AdminProductRecord) {
+export async function saveCatalogProductInternal(
+  input: AdminProductRecord,
+  options: { keepStoredStock?: boolean } = {},
+) {
   const currentProducts = await listCatalogProductsInternal();
-  const existing = currentProducts.find((product) => product.id === record.id);
+  const existing = currentProducts.find((product) => product.id === input.id);
+  // Admin product saves (Productos, Stock) send the stock the page loaded with,
+  // which may be stale: an order closed meanwhile, or another tab. Saving it
+  // back silently undid those stock changes. Stock only changes through
+  // adjustCatalogVariantInventoryInternal, so existing variants keep the
+  // stored quantity here; only brand-new variants take the one sent.
+  const record =
+    options.keepStoredStock && existing
+      ? {
+          ...input,
+          variants: input.variants.map((variant) => {
+            const stored = existing.variants.find((candidate) => candidate.id === variant.id);
+            return stored ? { ...variant, quantityAvailable: stored.quantityAvailable } : variant;
+          }),
+        }
+      : input;
   const normalized = normalizeProduct(record, existing);
 
   // Same defense the client already applies before calling this function -
@@ -1233,7 +1242,7 @@ export const saveAdminCatalogProduct = createServerFn({ method: "POST" })
     setResponseHeader("Cache-Control", "private, no-store");
 
     try {
-      const savedProduct = await saveCatalogProductInternal(data);
+      const savedProduct = await saveCatalogProductInternal(data, { keepStoredStock: true });
       return toAdminProductRecord(savedProduct);
     } catch (error) {
       console.error("[saveAdminCatalogProduct] save failed", data.id, error);

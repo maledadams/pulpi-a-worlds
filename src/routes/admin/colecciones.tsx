@@ -203,7 +203,7 @@ function AdminCollectionsPage() {
           collection.id === value.id || collection.id === saved.id ? saved : collection,
         );
       });
-      if (saved.id !== value.id) setSelectedId(saved.id);
+      if (saved.id !== value.id) setSelectedId((current) => (current === value.id ? saved.id : current));
       setDraft((current) => (current && current.id === value.id ? cloneCollection(saved) : current));
       if (!options.silent) showSaveMessage("Coleccion guardada.", "success");
     });

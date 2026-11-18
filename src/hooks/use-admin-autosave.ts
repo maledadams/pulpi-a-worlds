@@ -59,6 +59,10 @@ export function useAdminAutosave<T>(
   const latestValueRef = useRef(value);
   const inFlightRef = useRef<Promise<void>>(Promise.resolve());
   latestValueRef.current = value;
+  // An edit waiting out its debounce. Switching records or leaving the page
+  // used to just cancel the timer, silently dropping whatever was typed in
+  // the last second; now that edit is saved right away instead.
+  const pendingRef = useRef<{ value: T; snapshot: string } | null>(null);
 
   const run = (nextValue: T, snapshot: string): Promise<void> => {
     if (savingRef.current) {
@@ -101,11 +105,24 @@ export function useAdminAutosave<T>(
     inFlightRef.current = promise;
     return promise;
   };
+  const runRef = useRef(run);
+  runRef.current = run;
+
+  const savePending = () => {
+    const pending = pendingRef.current;
+    pendingRef.current = null;
+    if (pending) void runRef.current(pending.value, pending.snapshot);
+  };
+
+  // Leaving the page: save the edit still waiting on its debounce.
+  useEffect(() => savePending, []);
 
   // Resync baseline when the underlying record identity changes (e.g. the
   // admin selected a different row) - this is a fresh load, not an edit.
   useEffect(() => {
     if (resetKey !== lastResetKeyRef.current) {
+      // The previous record's not-yet-saved edit is saved, not dropped.
+      savePending();
       lastResetKeyRef.current = resetKey;
       baselineRef.current = value == null ? null : stableStringify(value);
       failedSnapshotRef.current = null;
@@ -123,14 +140,21 @@ export function useAdminAutosave<T>(
   }, [resetKey]);
 
   useEffect(() => {
-    if (!enabled || value == null) return;
+    if (!enabled || value == null) {
+      pendingRef.current = null;
+      return;
+    }
     const snapshot = stableStringify(value);
-    if (snapshot === baselineRef.current) return;
-    if (snapshot === failedSnapshotRef.current) return;
+    if (snapshot === baselineRef.current || snapshot === failedSnapshotRef.current) {
+      pendingRef.current = null;
+      return;
+    }
 
     if (timerRef.current) clearTimeout(timerRef.current);
+    pendingRef.current = { value, snapshot };
     timerRef.current = setTimeout(() => {
       timerRef.current = null;
+      pendingRef.current = null;
       run(value, snapshot);
     }, debounceMs);
 
@@ -149,6 +173,7 @@ export function useAdminAutosave<T>(
   // draft with the server's response) should await this first.
   const flush = (): Promise<void> => {
     const current = latestValueRef.current;
+    pendingRef.current = null;
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
