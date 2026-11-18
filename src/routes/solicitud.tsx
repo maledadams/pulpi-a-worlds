@@ -18,6 +18,7 @@ import {
 import { validateDiscountCode } from "@/lib/public-forms";
 import { createSeoHead } from "@/lib/seo";
 import { useScrollFollow } from "@/hooks/use-scroll-follow";
+import { WhatsAppIcon } from "@/components/layout/Footer";
 
 const DOMINICAN_PROVINCES = [
   "Distrito Nacional",
@@ -115,7 +116,7 @@ function InquiryPage() {
   const [discountOk, setDiscountOk] = useState(false);
   const [applyingDiscount, setApplyingDiscount] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<OrderFieldErrors>({});
-  const orderFormFollower = useScrollFollow(1024);
+  const orderFormFollower = useScrollFollow(1280);
   const whatsappNumber = useLoaderData({ from: "__root__" })?.settings.whatsappNumber ?? "";
   const [orderFailed, setOrderFailed] = useState(false);
   // Guards against a double tap firing two orders before React re-renders
@@ -248,8 +249,9 @@ function InquiryPage() {
                 href={createdOrder.confirmUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-5 inline-flex items-center justify-center rounded-full bg-[#25D366] px-6 py-3 text-sm font-bold uppercase tracking-wider text-white"
+                className="mt-5 inline-flex items-center justify-center gap-2 rounded-full bg-[#25D366] px-6 py-3 text-sm font-bold uppercase tracking-wider text-white"
               >
+                <WhatsAppIcon className="h-5 w-5 shrink-0" />
                 Confirmar por WhatsApp
               </a>
             ) : null}

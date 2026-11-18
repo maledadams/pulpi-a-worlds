@@ -236,17 +236,25 @@ export function AdminCheckbox({
   checked,
   onCheckedChange,
   hint,
+  disabled = false,
 }: {
   label: string;
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
   hint?: string;
+  disabled?: boolean;
 }) {
   return (
-    <label className="flex items-start gap-3 rounded-xl bg-[var(--admin-field)] px-3 py-3 text-sm ring-1 ring-[var(--admin-line)]">
+    <label
+      className={cn(
+        "flex items-start gap-3 rounded-xl bg-[var(--admin-field)] px-3 py-3 text-sm ring-1 ring-[var(--admin-line)]",
+        disabled && "cursor-not-allowed opacity-60",
+      )}
+    >
       <input
         type="checkbox"
         checked={checked}
+        disabled={disabled}
         onChange={(event) => onCheckedChange(event.target.checked)}
         className="mt-0.5 h-4 w-4 rounded accent-[var(--admin-select)]"
       />

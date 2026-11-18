@@ -47,26 +47,26 @@ export function AdminShell({
   return (
     <div className="admin-shell min-h-screen bg-[var(--admin-bg)]" data-admin-section={section}>
       <AdminConfirmHost />
-      <div className="grid min-h-screen grid-cols-1 xl:grid-cols-[282px_minmax(0,1fr)] 2xl:grid-cols-[302px_minmax(0,1fr)]">
+      <div className="grid min-h-screen grid-cols-1 axl:grid-cols-[282px_minmax(0,1fr)] a2xl:grid-cols-[302px_minmax(0,1fr)]">
         {/* The sidebar's column is black behind the nav card, in both modes. On wide
             screens a fixed strip paints it full height (min-h-screen falls
             short under the site's html zoom). */}
-        <div className="xl:pr-4">
-        <div aria-hidden="true" className="pointer-events-none fixed -bottom-[100vh] -top-[100vh] left-0 hidden w-[282px] bg-black xl:block 2xl:w-[302px]" />
+        <div className="axl:pr-4">
+        <div aria-hidden="true" className="pointer-events-none fixed -bottom-[100vh] -top-[100vh] left-0 hidden w-[282px] bg-black axl:block a2xl:w-[302px]" />
         {/* Its white shadow reaches a screen above and below, so the
             overscroll bounce shows white, not the black column. */}
-        <aside className="self-start border-y border-[var(--admin-edge)] bg-[var(--admin-surface)] px-3 py-5 text-[var(--admin-muted)] shadow-[-100vw_0_0_0_var(--admin-surface),100vw_0_0_0_var(--admin-surface)] xl:sticky xl:top-0 xl:flex xl:h-[calc(100vh/var(--page-zoom))] xl:flex-col xl:border-r xl:border-y-0 xl:shadow-[0_-100vh_0_0_var(--admin-surface),0_100vh_0_0_var(--admin-surface)] xl:overflow-y-auto xl:p-4">
+        <aside className="self-start border-y border-[var(--admin-edge)] bg-[var(--admin-surface)] px-3 py-5 text-[var(--admin-muted)] shadow-[-100vw_0_0_0_var(--admin-surface),100vw_0_0_0_var(--admin-surface)] axl:sticky axl:top-0 axl:flex axl:h-[calc(100vh/var(--page-zoom))] axl:flex-col axl:border-r axl:border-y-0 axl:shadow-[0_-100vh_0_0_var(--admin-surface),0_100vh_0_0_var(--admin-surface)] axl:overflow-y-auto axl:p-4">
           <div className="flex items-center gap-3 px-1">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--admin-soft)] xl:h-16 xl:w-16">
-              <img src={storePineapple} alt="" aria-hidden="true" className="admin-logo h-8 w-auto xl:h-12" />
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--admin-soft)] axl:h-16 axl:w-16">
+              <img src={storePineapple} alt="" aria-hidden="true" className="admin-logo h-8 w-auto axl:h-12" />
             </span>
             <div className="min-w-0">
-              <div className="text-[11px] font-medium xl:text-sm">Admin</div>
-              <div className="truncate text-sm font-semibold text-[var(--admin-ink)] xl:text-xl">Pulpiña Store</div>
+              <div className="text-[11px] font-medium axl:text-sm">Admin</div>
+              <div className="truncate text-sm font-semibold text-[var(--admin-ink)] axl:text-xl">Pulpiña Store</div>
             </div>
           </div>
 
-          <nav className="mt-3 flex gap-1 overflow-x-auto pb-1 xl:mt-4 xl:flex-1 xl:flex-col xl:overflow-visible xl:pb-0">
+          <nav className="mt-3 flex gap-1 overflow-x-auto pb-1 axl:mt-4 axl:flex-1 axl:flex-col axl:overflow-visible axl:pb-0">
             {NAV_ITEMS.map((item) => {
               const Icon = item.icon;
               return (
@@ -74,7 +74,7 @@ export function AdminShell({
                   key={item.to}
                   to={item.to}
                   className={cn(
-                    "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-[10px] px-3 py-2 text-xs font-medium transition-colors xl:min-h-10 xl:flex-1 xl:gap-3 xl:px-3 xl:py-0 xl:text-base",
+                    "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-[10px] px-3 py-2 text-xs font-medium transition-colors axl:min-h-10 axl:flex-1 axl:gap-3 axl:px-3 axl:py-0 axl:text-base",
                     item.section === section
                       ? "bg-[var(--admin-invert)] font-semibold text-[var(--admin-on-invert)]"
                       : "hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-ink)]",
@@ -88,7 +88,7 @@ export function AdminShell({
           </nav>
 
           {showAccessNotice ? (
-            <div className="mt-5 hidden rounded-xl bg-[var(--admin-soft)] p-3 text-xs leading-5 xl:block">
+            <div className="mt-5 hidden rounded-xl bg-[var(--admin-soft)] p-3 text-xs leading-5 axl:block">
               Protege esta ruta con Cloudflare Access y login Google.
               <div className="mt-2">
                 <Link to="/tienda" className="font-semibold text-[var(--admin-accent-ink)] underline underline-offset-4">

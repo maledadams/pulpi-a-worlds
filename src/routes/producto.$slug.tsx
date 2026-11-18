@@ -1,8 +1,10 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, useLoaderData } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { WhatsAppIcon } from "@/components/layout/Footer";
 import { ProductCard } from "@/components/product/ProductCard";
+import { collapseFamilies, familyIdOf, familyMembers } from "@/lib/product-families";
 import { useCatalogProducts } from "@/context/catalog";
 import { useIsVerifiedAdult } from "@/lib/age-verification";
 import { isNsfwProduct } from "@/lib/store-filters";
@@ -171,7 +173,11 @@ function createStableRank(seed: string, candidateId: string) {
 }
 
 function getMoreFromThisVibeProducts(product: Product, products: Product[]) {
-  const sameVibeProducts = products.filter((entry) => entry.vibe === product.vibe && entry.id !== product.id);
+  // Never this product's own family (its other colors), and one card per family.
+  const sameVibeProducts = collapseFamilies(
+    products.filter((entry) => entry.vibe === product.vibe && familyIdOf(entry) !== familyIdOf(product)),
+    products,
+  );
   if (sameVibeProducts.length <= RELATED_PRODUCT_COUNT) {
     return sameVibeProducts.slice(0, RELATED_PRODUCT_COUNT);
   }
@@ -230,7 +236,7 @@ function ProductPage() {
 
   if (!isAdult && isNsfwProduct(product)) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center px-4 text-center">
+      <div className="flex min-h-[calc(60vh/var(--page-zoom))] items-center justify-center px-4 text-center">
         <div>
           <h1 className="font-display text-3xl" style={{ transform: "scaleX(1.12)", transformOrigin: "center" }}>
             Producto no disponible
@@ -253,6 +259,7 @@ function ProductPage() {
 function ProductDetails({ product }: { product: Product }) {
   const products = useCatalogProducts();
   const cart = useCart();
+  const whatsappNumber = useLoaderData({ from: "__root__" })?.settings.whatsappNumber ?? "";
 
   useVibe(product.vibe);
 
@@ -314,7 +321,15 @@ function ProductDetails({ product }: { product: Product }) {
   // initials placeholder if the new product has fewer images.
   useEffect(() => {
     setImageIndex(0);
+    // Switching color (another family member) keeps the chosen size when that
+    // color has it too.
+    setSize((current) => (sizes.includes(current) ? current : sizes[0]));
+    setColor(colors[0]?.name ?? "Unica");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product.id]);
+
+  // Sub-products: every color of the family (mother first), each its own page.
+  const family = useMemo(() => familyMembers(product, products), [product, products]);
 
   const selectedVariant = useMemo(
     () =>
@@ -327,6 +342,10 @@ function ProductDetails({ product }: { product: Product }) {
       ) ?? product.variants[0],
     [color, product.variants, size],
   );
+
+  // Same rule as the product cards: switched on AND at least one in stock.
+  // A variant left on with 0 stock used to show "Disponible · 0 en stock".
+  const inStock = Boolean(selectedVariant?.available) && (selectedVariant?.quantityAvailable ?? 0) > 0;
 
   const onSale =
     typeof selectedVariant?.compareAtPrice === "number" && selectedVariant.compareAtPrice > selectedVariant.price;
@@ -415,17 +434,59 @@ function ProductDetails({ product }: { product: Product }) {
           <p className="mt-4 text-muted-foreground">{product.description}</p>
           <div
             className={`mt-3 inline-flex w-fit self-start px-3 py-1 text-xs font-bold ${
-              selectedVariant.available ? "bg-[#c5f56a] text-[#243011]" : "bg-muted text-muted-foreground"
+              inStock ? "bg-[#c5f56a] text-[#243011]" : "bg-muted text-muted-foreground"
             }`}
           >
-            {selectedVariant.available
+            {inStock
               ? `Disponible · ${selectedVariant.quantityAvailable ?? 0} en stock`
               : "Agotado"}
           </div>
 
           <div className="mt-3 flex min-h-0 flex-1 flex-col">
             <div className="my-auto py-4">
+              {/* Color first: it decides the sizes shown below. */}
               <div>
+                <div className="mb-2 text-sm font-bold uppercase">Colores</div>
+                <div className="flex flex-wrap gap-2">
+                  {family.length > 1
+                    ? // A product with sub-products: every color of the family,
+                      // each opening that color's own page (name, photos, price).
+                      family.map((member) => {
+                        const memberColor = buildProductColorRecord(
+                          member.colors?.[0]?.name ?? "Unica",
+                          member.colors?.[0]?.hex ?? member.swatch[0],
+                        );
+                        const current = member.id === product.id;
+                        return (
+                          <Link
+                            key={member.id}
+                            to="/producto/$slug"
+                            params={{ slug: member.slug }}
+                            resetScroll={false}
+                            aria-current={current ? "true" : undefined}
+                            className={`flex items-center gap-2 rounded-full border border-foreground/20 px-3 py-2 text-sm font-bold ${
+                              current ? "bg-foreground text-background" : "bg-card"
+                            }`}
+                          >
+                            <span className="ui-circle h-3 w-3 border" style={{ background: memberColor.hex }} /> {memberColor.name}
+                          </Link>
+                        );
+                      })
+                    : colors.map((entry, index) => (
+                        <button
+                          key={`${entry.name}-${index}`}
+                          onClick={() => setColor(entry.name)}
+                          className={`flex items-center gap-2 rounded-full border border-foreground/20 px-3 py-2 text-sm font-bold ${
+                            color === entry.name ? "bg-foreground text-background" : "bg-card"
+                          }`}
+                        >
+                          <span className="ui-circle h-3 w-3 border" style={{ background: entry.hex }} /> {entry.name}
+                        </button>
+                      ))}
+                </div>
+              </div>
+
+              <div className="mt-5">
                 <div className="mb-2 text-sm font-bold uppercase">Tallas</div>
                 <div className="flex flex-wrap gap-2">
                   {sizes.map((entry) => (
@@ -437,23 +498,6 @@ function ProductDetails({ product }: { product: Product }) {
                       }`}
                     >
                       {entry}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-5">
-                <div className="mb-2 text-sm font-bold uppercase">Colores</div>
-                <div className="flex flex-wrap gap-2">
-                  {colors.map((entry, index) => (
-                    <button
-                      key={`${entry.name}-${index}`}
-                      onClick={() => setColor(entry.name)}
-                      className={`flex items-center gap-2 rounded-full border border-foreground/20 px-3 py-2 text-sm font-bold ${
-                        color === entry.name ? "bg-foreground text-background" : "bg-card"
-                      }`}
-                    >
-                      <span className="ui-circle h-3 w-3 border" style={{ background: entry.hex }} /> {entry.name}
                     </button>
                   ))}
                 </div>
@@ -477,22 +521,37 @@ function ProductDetails({ product }: { product: Product }) {
                   +
                 </button>
               </div>
-              <button
-                disabled={!selectedVariant.available}
-                onClick={() =>
-                  void cart.add({
-                    variantId: selectedVariant.id,
-                    quantity: qty,
-                  })
-                }
-                className={`flex-1 rounded-full border border-foreground/20 px-6 py-3 font-bold uppercase disabled:opacity-50 ${
-                  product.vibe === "men"
-                    ? "bg-[#8f2015] text-[#fff7f2]"
-                    : "bg-primary text-primary-foreground"
-                }`}
-              >
-                Agregar al carrito
-              </button>
+              {inStock ? (
+                <button
+                  onClick={() =>
+                    void cart.add({
+                      variantId: selectedVariant.id,
+                      quantity: qty,
+                    })
+                  }
+                  className={`flex-1 rounded-full border border-foreground/20 px-6 py-3 font-bold uppercase ${
+                    product.vibe === "men"
+                      ? "bg-[#8f2015] text-[#fff7f2]"
+                      : "bg-primary text-primary-foreground"
+                  }`}
+                >
+                  Agregar al carrito
+                </button>
+              ) : (
+                // Sold out: ask Pulpiña for a restock on WhatsApp instead. Same
+                // green as the checkout's WhatsApp button, on every store theme.
+                <a
+                  href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
+                    `Hola, quiero un restock de este producto, ${product.name}`,
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-full bg-[#25D366] px-6 py-3 font-bold uppercase text-white"
+                >
+                  <WhatsAppIcon className="h-5 w-5 shrink-0" />
+                  Pedir restock
+                </a>
+              )}
             </div>
           </div>
 
@@ -529,7 +588,7 @@ function ProductDetails({ product }: { product: Product }) {
                 <X className="h-6 w-6" />
               </button>
               <div
-                className={`relative flex max-h-[90vh] max-w-[90vw] items-center justify-center transition-all duration-300 ${
+                className={`relative flex max-h-[calc(90vh/var(--page-zoom))] max-w-[90vw] items-center justify-center transition-all duration-300 ${
                   lightboxVisible ? "scale-100 opacity-100" : "scale-90 opacity-0"
                 }`}
                 onClick={(event) => event.stopPropagation()}
@@ -549,7 +608,7 @@ function ProductDetails({ product }: { product: Product }) {
                 <img
                   src={currentImage.url}
                   alt={currentImage.altText ?? product.name}
-                  className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
+                  className="max-h-[calc(90vh/var(--page-zoom))] max-w-[90vw] rounded-lg object-contain"
                 />
                 {galleryImages.length > 1 ? (
                   <button

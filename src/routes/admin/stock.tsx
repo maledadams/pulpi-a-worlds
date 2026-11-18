@@ -203,7 +203,7 @@ function AdminStockPage() {
           <AdminButton tone="save" onClick={saveChanges} disabled={!draft || busy}>Guardar cambios</AdminButton>        </>
       }
     >
-      <div ref={listFollower.containerRef} className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
+      <div ref={listFollower.containerRef} className="grid grid-cols-1 items-start gap-4 axl:grid-cols-[320px_minmax(0,1fr)]">
         <div
           ref={listFollower.floatingRef as RefObject<HTMLDivElement>}
           className="will-change-transform transition-transform duration-500 ease-out"

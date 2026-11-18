@@ -135,14 +135,14 @@ function AdminDashboardPage() {
         </Link>
       }
     >
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 amd:grid-cols-2 axl:grid-cols-4">
         <AdminStatCard label="Productos" value={String(snapshot.productCount)} icon={PackageSearch} iconClassName="bg-[var(--admin-violet-soft)] text-[var(--admin-violet)]" />
         <AdminStatCard label="Pedidos" value={String(snapshot.inquiryCount)} icon={MessageSquareMore} iconClassName="bg-[var(--admin-info-soft)] text-[var(--admin-info)]" />
         <AdminStatCard label="Abiertas" value={String(snapshot.openInquiryCount)} icon={TriangleAlert} iconClassName="bg-[var(--admin-warn-soft)] text-[var(--admin-warn)]" />
         <AdminStatCard label="Inventario" value={formatPrice(snapshot.inventoryBaseValue)} icon={ShieldCheck} iconClassName="bg-[var(--admin-ok-soft)] text-[var(--admin-ok)]" />
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_1fr]">
+      <div className="mt-5 grid grid-cols-1 gap-4 axl:grid-cols-[1.2fr_1fr]">
         <AdminPanel title="Pedidos recientes">
           {snapshot.recentInquiries.length > 0 ? (
             <div className="grid gap-2.5">
@@ -261,7 +261,7 @@ function AdminDashboardPage() {
             />
           ) : (
             <>
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-2 sm:grid-cols-2 axl:grid-cols-3">
                 {snapshot.stockAlerts.slice(0, 12).map((alert) => (
                   <div
                     key={`${alert.productId}-${alert.variantLabel}`}

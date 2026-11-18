@@ -6,6 +6,9 @@ type WaveConfig = {
   length: number;
   lineWidth: number;
   opacity: number;
+  /** Starting point of the wave's motion. Fixed per line, so adding or
+   *  removing another line never changes how this one moves. */
+  phase: number;
   progress: number;
   side: "left" | "right";
 };
@@ -16,6 +19,7 @@ const BASE_WAVES: WaveConfig[] = [
   {
     side: "left",
     progress: 0.05,
+    phase: 0,
     amplitude: 8,
     frequency: 0.013,
     length: 0.024,
@@ -25,6 +29,7 @@ const BASE_WAVES: WaveConfig[] = [
   {
     side: "left",
     progress: 0.1,
+    phase: 0.8,
     amplitude: 12,
     frequency: 0.009,
     length: 0.02,
@@ -32,35 +37,20 @@ const BASE_WAVES: WaveConfig[] = [
     opacity: 0.12,
   },
   {
-    side: "left",
-    progress: 0.155,
-    amplitude: 10,
-    frequency: 0.011,
-    length: 0.017,
-    lineWidth: 1.1,
+    side: "right",
+    progress: 0.1,
+    phase: 3.2,
+    amplitude: 12,
+    frequency: 0.009,
+    length: 0.02,
+    lineWidth: 1.75,
     opacity: 0.12,
   },
+  // The line that sat closest to the checkout boxes, moved out to the edge.
   {
     side: "right",
     progress: 0.05,
-    amplitude: 8,
-    frequency: 0.013,
-    length: 0.024,
-    lineWidth: 1.25,
-    opacity: 0.12,
-  },
-  {
-    side: "right",
-    progress: 0.1,
-    amplitude: 12,
-    frequency: 0.009,
-    length: 0.02,
-    lineWidth: 1.75,
-    opacity: 0.12,
-  },
-  {
-    side: "right",
-    progress: 0.155,
+    phase: 4,
     amplitude: 10,
     frequency: 0.011,
     length: 0.017,
@@ -84,7 +74,7 @@ export function CheckoutSideWaves() {
     let width = 0;
     let height = 0;
 
-    const increments = BASE_WAVES.map((_, index) => index * 0.8);
+    const increments = BASE_WAVES.map((wave) => wave.phase);
 
     const resize = () => {
       const bounds = canvas.getBoundingClientRect();

@@ -518,7 +518,7 @@ function AdminOrdersPage() {
                 }}
               />
 
-              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_120px_120px_auto]">
+              <div className="grid gap-3 amd:grid-cols-[minmax(0,1fr)_120px_120px_auto]">
                 <AdminField label="Variante">
                   <AdminSelect
                     value={line.variantId}
@@ -603,7 +603,7 @@ function AdminOrdersPage() {
         </>
       }
     >
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.2fr)_460px]">
+      <div className="grid grid-cols-1 gap-4 axl:grid-cols-[minmax(0,1.2fr)_460px]">
         <AdminPanel
           title="Ordenes"
           actions={
@@ -617,7 +617,7 @@ function AdminOrdersPage() {
           }
         >
           <div className="flex h-full flex-col">
-          <div className="mb-4 flex flex-col gap-3 md:flex-row">
+          <div className="mb-4 flex flex-col gap-3 amd:flex-row">
             <AdminInput
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -635,9 +635,9 @@ function AdminOrdersPage() {
             />
           ) : (
             <>
-              {/* xl: contain:size keeps the rows from stretching the panel; the panel
+              {/* axl: contain:size keeps the rows from stretching the panel; the panel
                   takes the editor's height and the rows fill it. */}
-              <div ref={listRef} className="flex-1 overflow-x-auto xl:min-h-80 xl:[contain:size]">
+              <div ref={listRef} className="flex-1 overflow-x-auto axl:min-h-80 axl:[contain:size]">
                 <table className="min-w-full text-left text-sm">
                   <thead className="text-xs font-medium text-[var(--admin-faint)]">
                     <tr>
@@ -701,7 +701,7 @@ function AdminOrdersPage() {
               }
             >
               <div className="grid gap-4">
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-3 amd:grid-cols-2">
                   <AdminField label="Nombre">
                     <AdminInput value={newOrder.customerName} onChange={(event) => setNewOrder((current) => ({ ...current, customerName: event.target.value }))} />
                   </AdminField>
@@ -710,7 +710,7 @@ function AdminOrdersPage() {
                   </AdminField>
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-3 amd:grid-cols-2">
                   <AdminField label="Telefono">
                     <AdminInput value={newOrder.customerPhone} onChange={(event) => setNewOrder((current) => ({ ...current, customerPhone: event.target.value }))} />
                   </AdminField>
@@ -724,7 +724,7 @@ function AdminOrdersPage() {
                   </AdminField>
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-3 amd:grid-cols-2">
                   <AdminField label="Entrega">
                     <AdminSelect
                       value={newOrder.fulfillmentMethod}
@@ -751,7 +751,7 @@ function AdminOrdersPage() {
                   </AdminField>
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-3 amd:grid-cols-2">
                   <AdminField label="Pago">
                     <AdminSelect value={newOrder.paymentStatus} onChange={(event) => setNewOrder((current) => ({ ...current, paymentStatus: event.target.value as AdminInquiryRecord["paymentStatus"] }))}>
                       <option value="pending">Pendiente</option>
@@ -765,8 +765,8 @@ function AdminOrdersPage() {
                 </div>
 
                 {newOrder.fulfillmentMethod === "delivery" ? (
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="md:col-span-2">
+                  <div className="grid gap-3 amd:grid-cols-2">
+                    <div className="amd:col-span-2">
                       <AdminField label="Direccion">
                         <AdminInput
                           value={newOrder.shippingAddress.line1}
@@ -844,7 +844,7 @@ function AdminOrdersPage() {
               }
             >
               <div className="grid gap-4">
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-3 amd:grid-cols-2">
                   <AdminField label="Nombre">
                     <AdminInput value={draft.customerName} onChange={(event) => setDraft((current) => (current ? { ...current, customerName: event.target.value } : current))} />
                   </AdminField>
@@ -853,7 +853,7 @@ function AdminOrdersPage() {
                   </AdminField>
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-3 amd:grid-cols-2">
                   <AdminField label="Telefono">
                     <AdminInput value={draft.customerPhone} onChange={(event) => setDraft((current) => (current ? { ...current, customerPhone: event.target.value } : current))} />
                   </AdminField>
@@ -867,7 +867,7 @@ function AdminOrdersPage() {
                   </AdminField>
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-3 amd:grid-cols-2">
                   <AdminField label="Entrega">
                     <AdminSelect
                       value={draft.fulfillmentMethod}
@@ -900,7 +900,7 @@ function AdminOrdersPage() {
                   </AdminField>
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-3 amd:grid-cols-2">
                   <AdminField label="Pago">
                     <AdminSelect value={draft.paymentStatus} onChange={(event) => setDraft((current) => (current ? { ...current, paymentStatus: event.target.value as AdminInquiryRecord["paymentStatus"] } : current))}>
                       <option value="pending">Pendiente</option>
@@ -914,8 +914,8 @@ function AdminOrdersPage() {
                 </div>
 
                 {draft.fulfillmentMethod === "delivery" ? (
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="md:col-span-2">
+                  <div className="grid gap-3 amd:grid-cols-2">
+                    <div className="amd:col-span-2">
                       <AdminField label="Direccion">
                         <AdminInput
                           value={draft.shippingAddress.line1}
@@ -967,7 +967,7 @@ function AdminOrdersPage() {
                   <AdminTextarea value={draft.notes} onChange={(event) => setDraft((current) => (current ? { ...current, notes: event.target.value } : current))} rows={4} />
                 </AdminField>
 
-                <div className="grid gap-3 md:grid-cols-3">
+                <div className="grid gap-3 amd:grid-cols-3">
                   <AdminField label="Subtotal original">
                     <AdminInput value={formatPrice(draft.subtotal)} disabled />
                   </AdminField>

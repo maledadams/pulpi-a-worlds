@@ -29,6 +29,7 @@ import partyHat from "@/assets/PARTYHAT.png";
 import partyHatTwo from "@/assets/PARTYHAT2.png";
 import cakeTwo from "@/assets/CAKE 2.png";
 import cakeFour from "@/assets/CAKE 4.png";
+import { collapseFamilies, familyMembers } from "@/lib/product-families";
 
 export const Route = createFileRoute("/")({
   loader: async () => ({
@@ -155,7 +156,7 @@ function HomeRailSection({
             aria-label={`Anterior en ${title}`}
             disabled={!canScrollPrev}
             onClick={() => api?.scrollPrev()}
-            className="absolute -left-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-background/90 disabled:hover:text-foreground sm:-left-4 md:-left-6 lg:-left-8 xl:-left-16"
+            className="absolute -left-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-background/90 disabled:hover:text-foreground sm:-left-4 md:-left-2 lg:-left-3 xl:-left-16"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
@@ -164,7 +165,7 @@ function HomeRailSection({
             aria-label={`Siguiente en ${title}`}
             disabled={!canScrollNext}
             onClick={() => api?.scrollNext()}
-            className="absolute -right-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-background/90 disabled:hover:text-foreground sm:-right-4 md:-right-6 lg:-right-8 xl:-right-16"
+            className="absolute -right-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-background/90 disabled:hover:text-foreground sm:-right-4 md:-right-2 lg:-right-3 xl:-right-16"
           >
             <ChevronRight className="h-5 w-5" />
           </button>
@@ -219,10 +220,15 @@ function Home() {
       .map((collection) => ({
         id: collection.id,
         title: collection.name,
-        products: collection.productIds
-          .map((productId) => productMap.get(productId))
-          .filter((product): product is Product => Boolean(product))
-          .slice(0, 12),
+        // One card per family: a listed mother lets her whole family compete
+        // for the card; a listed sub-product shows that sub.
+        products: collapseFamilies(
+          collection.productIds
+            .map((productId) => productMap.get(productId))
+            .filter((product): product is Product => Boolean(product))
+            .flatMap((product) => (product.motherId ? [product] : familyMembers(product, products))),
+          products,
+        ).slice(0, 12),
       }))
       .filter((section) => section.products.length > 0);
   }, [homeCollections, products]);
@@ -243,7 +249,7 @@ function Home() {
       <h1 className="sr-only">
         Pulpiña RD (Pulpina RD) - Tienda de moda alternativa en República Dominicana
       </h1>
-      <section className="flex min-h-[calc(100vh-4.75rem)] w-full items-start px-4 pt-10 pb-16 md:pb-20">
+      <section className="flex min-h-[calc(100vh/var(--page-zoom)-4.75rem)] w-full items-start px-4 pt-10 pb-16 md:pb-20">
         <div
           className="relative w-full overflow-hidden rounded-[2rem] border border-[#f4e9df]/10 px-5 py-12 sm:px-8 md:px-10 md:py-14"
         >

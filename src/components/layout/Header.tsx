@@ -13,6 +13,7 @@ import { useCatalogProducts } from "@/context/catalog";
 import logoMoonImg from "@/assets/logo-moon.png";
 import logoSunImg from "@/assets/logo-sunshine.png";
 import logoMenImg from "@/assets/logo-men.png";
+import { collapseFamilies } from "@/lib/product-families";
 import {
   getAvailableMenuCategories,
   getDepartmentCategoryLinkSearch,
@@ -425,11 +426,13 @@ export function Header({
   /* build mega sections */
   const megaSections = useMemo<Record<MegaKey, MegaSection>>(() => {
     const publicProducts = catalogProducts;
-    const moonPool = publicProducts.filter((p) => p.vibe === "moon" || p.secondaryVibe === "moon");
-    const sunPool = publicProducts.filter((p) => p.vibe === "sunshine" || p.secondaryVibe === "sunshine");
-    const menPool = publicProducts.filter((p) => p.vibe === "men" || p.secondaryVibe === "men");
-    const newPool = publicProducts.filter((p) => p.newArrival);
-    const salePool = publicProducts.filter((p) => !!p.salePrice);
+    // One card per product family (sub-products in other colors).
+    const pool = (keep: (p: Product) => boolean) => collapseFamilies(publicProducts.filter(keep), publicProducts);
+    const moonPool = pool((p) => p.vibe === "moon" || p.secondaryVibe === "moon");
+    const sunPool = pool((p) => p.vibe === "sunshine" || p.secondaryVibe === "sunshine");
+    const menPool = pool((p) => p.vibe === "men" || p.secondaryVibe === "men");
+    const newPool = pool((p) => p.newArrival);
+    const salePool = pool((p) => !!p.salePrice);
 
     const build = (
       key: MegaKey,

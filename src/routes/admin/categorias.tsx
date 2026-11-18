@@ -371,10 +371,10 @@ function AdminCategoriesPage() {
         </AdminButton>
       }
     >
-      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.1fr)_430px]">
+      <div className="grid grid-cols-1 items-start gap-4 axl:grid-cols-[minmax(0,1.1fr)_430px]">
         <div className="grid gap-4">
         <AdminPanel>
-          <div className="mb-4 flex flex-col gap-3 md:flex-row">
+          <div className="mb-4 flex flex-col gap-3 amd:flex-row">
             <AdminInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nombre o id" />
             <div className="shrink-0 px-1 py-2.5 text-sm text-[var(--admin-faint)]">
               {filtered.length} categorias
@@ -480,7 +480,7 @@ function AdminCategoriesPage() {
               />
             </AdminField>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 amd:grid-cols-2">
               <div>
                 <AdminSectionLabel>Tallas disponibles</AdminSectionLabel>
                 <div className="mt-2 flex flex-wrap gap-2">

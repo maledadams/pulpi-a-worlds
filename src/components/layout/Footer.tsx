@@ -213,7 +213,7 @@ export function Footer({
                 overshoot past the letterforms' nominal box (most visible on the
                 "D"), and clipping it made the wordmark misread as "Rl". */}
             <div className="flex h-[5.5rem] items-center pr-2" data-footer-wordmark-slot>
-              <div className="brand-wordmark whitespace-nowrap font-display text-[2.075rem] leading-none min-[1440px]:text-[2.5rem]">
+              <div className="brand-wordmark whitespace-nowrap font-display text-[2.075rem] leading-none min-[1800px]:text-[2.5rem]">
                 {footerHeading}
               </div>
             </div>

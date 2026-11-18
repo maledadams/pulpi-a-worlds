@@ -92,6 +92,8 @@ const adminProductSchema = z.object({
   variants: z.array(productVariantSchema),
   tags: z.array(z.string().trim().min(1)),
   createdAt: z.string().trim().min(1),
+  // Sub-products: only read when the product is first created (see saveCatalogProductInternal).
+  motherId: z.string().trim().min(1).nullable().optional(),
 });
 
 const deleteProductSchema = z.object({
@@ -671,6 +673,7 @@ function normalizeProduct(record: AdminProductRecord, existing?: Product) {
     sizes,
     colors,
     salePrice: productCompareAtPrice ? productPrice : null,
+    motherId: record.motherId?.trim() || null,
   } satisfies Product;
 }
 
@@ -720,7 +723,12 @@ export async function listStorefrontCatalogProductsInternal() {
     listActiveDiscountsInternal(),
   ]);
 
-  return applyDiscountsToProducts(products, discounts);
+  // A hidden mother hides her whole family. Marked here, at the one source of
+  // every storefront list, product page, cart check and checkout lookup.
+  const hiddenMothers = new Set(products.filter((product) => product.hidden && !product.motherId).map((product) => product.id));
+  return applyDiscountsToProducts(products, discounts).map((product) =>
+    product.motherId && hiddenMothers.has(product.motherId) ? { ...product, hidden: true } : product,
+  );
 }
 
 export async function getCatalogProductBySlugInternal(slug: string) {
@@ -742,9 +750,33 @@ export async function getCatalogVariantByIdInternal(variantId: string) {
   return null;
 }
 
+function colorKeyOf(product: Pick<Product, "colors"> | Pick<AdminProductRecord, "colors">) {
+  const name = product.colors?.[0]?.name;
+  return name ? normalizeProductColorName(name).toLowerCase() : "";
+}
+
+// Sub-products (docs/superpowers/specs/2026-11-18-sub-products-design.md):
+// what a sub takes from its mother, enforced here so no client can drift it.
+function inheritFromMother(record: AdminProductRecord, mother: Product): AdminProductRecord {
+  return {
+    ...record,
+    motherId: mother.id,
+    vibe: mother.vibe,
+    secondaryVibe: mother.secondaryVibe ?? null,
+    primaryCategory: mother.category,
+    categories: mother.categories?.length ? [...mother.categories] : [mother.category],
+    description: mother.description,
+    featured: false,
+  };
+}
+
 export async function saveCatalogProductInternal(
   input: AdminProductRecord,
-  options: { keepStoredStock?: boolean } = {},
+  options: {
+    keepStoredStock?: boolean;
+    /** Internal only: re-points a sub when its mother is deleted. */
+    forceMotherId?: string | null;
+  } = {},
 ) {
   const currentProducts = await listCatalogProductsInternal();
   const existing = currentProducts.find((product) => product.id === input.id);
@@ -753,7 +785,7 @@ export async function saveCatalogProductInternal(
   // back silently undid those stock changes. Stock only changes through
   // adjustCatalogVariantInventoryInternal, so existing variants keep the
   // stored quantity here; only brand-new variants take the one sent.
-  const record =
+  let record: AdminProductRecord =
     options.keepStoredStock && existing
       ? {
           ...input,
@@ -763,7 +795,48 @@ export async function saveCatalogProductInternal(
           }),
         }
       : input;
+
+  // The mother link is set when a product is first created and never edited
+  // afterwards; only deleting a mother re-points its subs (forceMotherId).
+  const motherId =
+    options.forceMotherId !== undefined
+      ? options.forceMotherId
+      : existing
+        ? (existing.motherId ?? null)
+        : record.motherId?.trim() || null;
+  record = { ...record, motherId };
+  const mother = motherId ? currentProducts.find((product) => product.id === motherId) : undefined;
+  if (motherId) {
+    if (!mother) throw new Error("El producto madre ya no existe.");
+    if (mother.motherId) throw new Error("Un sub-producto no puede tener sub-productos.");
+    if (motherId === record.id.trim()) throw new Error("Un producto no puede ser su propia madre.");
+    if (currentProducts.some((product) => product.motherId === record.id.trim())) {
+      throw new Error("Este producto ya es madre de otros, no puede ser sub-producto.");
+    }
+    record = inheritFromMother(record, mother);
+    const color = colorKeyOf(record);
+    const sameColor = currentProducts.find(
+      (product) =>
+        product.id !== record.id.trim() &&
+        (product.id === motherId || product.motherId === motherId) &&
+        colorKeyOf(product) === color,
+    );
+    if (sameColor) {
+      throw new Error(`El color ${record.colors[0]?.name} ya lo tiene "${sameColor.name}" en esta familia. Elige otro color.`);
+    }
+  } else {
+    // A mother can't switch to a color one of its subs already has.
+    const color = colorKeyOf(record);
+    const subWithColor = currentProducts.find(
+      (product) => product.motherId === record.id.trim() && colorKeyOf(product) === color,
+    );
+    if (subWithColor) {
+      throw new Error(`El color ${record.colors[0]?.name} ya lo tiene el sub-producto "${subWithColor.name}". Elige otro color.`);
+    }
+  }
+
   const normalized = normalizeProduct(record, existing);
+  if (mother) normalized.descriptionHtml = mother.descriptionHtml;
 
   // Same defense the client already applies before calling this function -
   // repeated here since `products.slug` has its own UNIQUE constraint that
@@ -801,7 +874,9 @@ export async function saveCatalogProductInternal(
   const db = await getDatabase();
 
   if (!db) {
-    return saveMemoryProduct(normalized);
+    const saved = saveMemoryProduct(normalized);
+    await cascadeToSubProducts(normalized, existing, currentProducts);
+    return saved;
   }
 
   await ensureCatalogStorageReady(db);
@@ -878,10 +953,36 @@ export async function saveCatalogProductInternal(
     )
     .run();
 
+  await cascadeToSubProducts(normalized, existing, currentProducts);
   return normalized;
 }
 
-async function pruneDeletedProductReferences(db: D1Database, productId: string) {
+// A mother's save updates its subs: the inherited fields always, and its
+// sale: losing it removes the subs' sales; gaining it puts subs that are not
+// already on sale on the same percentage off. A sub's own sale never flows up.
+async function cascadeToSubProducts(mother: Product, previous: Product | undefined, currentProducts: Product[]) {
+  if (mother.motherId) return;
+  const subs = currentProducts.filter((product) => product.motherId === mother.id);
+  const motherOnSale = mother.compareAtPrice !== null;
+  const motherWasOnSale = Boolean(previous && previous.compareAtPrice !== null);
+
+  for (const sub of subs) {
+    let record = toAdminProductRecord(sub);
+    // Only on the mother's change of state, so a sub's own sale (set while the
+    // mother is not on sale) survives the mother's other saves.
+    if (motherWasOnSale && !motherOnSale && record.compareAtPrice !== null) {
+      record = { ...record, price: record.compareAtPrice, compareAtPrice: null };
+    } else if (motherOnSale && !motherWasOnSale && record.compareAtPrice === null && mother.compareAtPrice) {
+      const ratio = mother.price / mother.compareAtPrice;
+      record = { ...record, compareAtPrice: record.price, price: Math.round(record.price * ratio) };
+    }
+    await saveCatalogProductInternal(record, { keepStoredStock: true });
+  }
+}
+
+// `replacementId`: a deleted mother's place in collections goes to the sub that
+// became the new mother, so the family stays in those collections.
+async function pruneDeletedProductReferences(db: D1Database, productId: string, replacementId?: string) {
   // Collections store their product list as a JSON array (product_ids_json),
   // not a real foreign key, so deleting a product never cascades there on
   // its own - the id just lingers forever as a ghost entry. Clean it out of
@@ -903,7 +1004,9 @@ async function pruneDeletedProductReferences(db: D1Database, productId: string) 
 
       if (!Array.isArray(ids) || !ids.includes(productId)) continue;
 
-      const nextIds = ids.filter((entry) => entry !== productId);
+      const nextIds = replacementId
+        ? Array.from(new Set(ids.map((entry) => (entry === productId ? replacementId : entry))))
+        : ids.filter((entry) => entry !== productId);
       await db
         .prepare("UPDATE collections SET product_ids_json = ? WHERE id = ?")
         .bind(JSON.stringify(nextIds), row.id)
@@ -917,6 +1020,20 @@ async function pruneDeletedProductReferences(db: D1Database, productId: string) 
 
 export async function deleteCatalogProductInternal(id: string) {
   const normalizedId = id.trim();
+
+  // Deleting a mother: its oldest sub becomes the mother and the other subs
+  // are re-pointed to it, so no sub is ever left without a mother.
+  const subs = (await listCatalogProductsInternal())
+    .filter((product) => product.motherId === normalizedId)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  if (subs.length > 0) {
+    const [newMother, ...rest] = subs;
+    await saveCatalogProductInternal(toAdminProductRecord(newMother!), { keepStoredStock: true, forceMotherId: null });
+    for (const sub of rest) {
+      await saveCatalogProductInternal(toAdminProductRecord(sub), { keepStoredStock: true, forceMotherId: newMother!.id });
+    }
+  }
+
   const db = await getDatabase();
 
   if (!db) {
@@ -926,7 +1043,7 @@ export async function deleteCatalogProductInternal(id: string) {
 
   await ensureCatalogStorageReady(db);
   await db.prepare("DELETE FROM products WHERE id = ?").bind(normalizedId).run();
-  await pruneDeletedProductReferences(db, normalizedId);
+  await pruneDeletedProductReferences(db, normalizedId, subs[0]?.id);
   return { success: true };
 }
 

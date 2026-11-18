@@ -108,7 +108,7 @@ function AdminSettingsPage() {
 
         {tab === "contacto" ? (
         <AdminPanel editor title="Canales de contacto">
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 amd:grid-cols-2">
             <AdminField label="Nombre del negocio">
               <AdminInput
                 value={form.businessName}
@@ -258,7 +258,7 @@ function AdminSettingsPage() {
           }
         >
           <div className="grid gap-3">
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-3 amd:grid-cols-2">
               <AdminField label="Titulo legal">
                 <AdminInput
                   value={form.legalPageTitle}

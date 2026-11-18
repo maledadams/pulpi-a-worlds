@@ -64,6 +64,8 @@ export type AdminProductRecord = {
   variants: ProductVariant[];
   tags: string[];
   createdAt: string;
+  /** Sub-products: set once at creation, never editable. */
+  motherId?: string | null;
 };
 
 export type AdminCategoryRecord = {

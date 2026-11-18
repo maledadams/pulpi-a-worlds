@@ -43,7 +43,7 @@ import generalLogo from "@/assets/logo-sunshine.png";
 
 function NotFoundComponent() {
   return (
-    <div className="min-h-[70vh] flex items-center justify-center px-4 text-center">
+    <div className="min-h-[calc(70vh/var(--page-zoom))] flex items-center justify-center px-4 text-center">
       <div>
         <h1 className="font-display text-7xl">404</h1>
         <p className="mt-2 text-muted-foreground">Esta vibra no existe.</p>
@@ -64,7 +64,7 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
     console.error(error);
   }, [error]);
   return (
-    <div className="min-h-[70vh] flex items-center justify-center px-4 text-center">
+    <div className="min-h-[calc(70vh/var(--page-zoom))] flex items-center justify-center px-4 text-center">
       <div>
         <h1 className="font-display text-3xl">Algo salió mal</h1>
         <p className="mt-2 text-sm text-muted-foreground">
@@ -289,7 +289,7 @@ function AppChrome({
     : undefined;
 
   return (
-    <div className={`min-h-screen flex flex-col ${hasCheckoutTexture ? "checkout-texture relative isolate" : ""}`}>
+    <div className={`min-h-[calc(100vh/var(--page-zoom))] flex flex-col ${hasCheckoutTexture ? "checkout-texture relative isolate" : ""}`}>
       {hasCheckoutTexture ? <CheckoutSideWaves /> : null}
       {/* z-20, one above <main>'s z-10, so the header's dropdown paints over
           the checkout form instead of under it. */}

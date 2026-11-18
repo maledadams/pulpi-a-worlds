@@ -11,6 +11,15 @@ import {
   PRODUCT_COLOR_PRESETS,
   normalizeProductColorId,
 } from "@/lib/product-colors";
+import { collapseFamilies, familyIdOf, isExactSearchMatch } from "@/lib/product-families";
+
+// Facet counts count families (a product and its sub-products in other colors
+// are one card in the store), so a count matches the cards that show up.
+function countFamily(counts: Map<string, Set<string>>, key: string, product: Product) {
+  const families = counts.get(key) ?? new Set<string>();
+  families.add(familyIdOf(product));
+  counts.set(key, families);
+}
 
 export const CATALOG_SORTS = [
   { id: "featured", label: "Destacados" },
@@ -297,10 +306,16 @@ function matchesQuery(product: Product, query: string) {
   return words.every((word) => haystack.includes(word));
 }
 
-export function filterCatalogProducts(products: Product[], filters: CatalogFilters) {
+// With `collapseWith` (the full catalog), each family shows once - the member
+// chosen by collapseFamilies - before sorting. Facet counts leave it off.
+export function filterCatalogProducts(
+  products: Product[],
+  filters: CatalogFilters,
+  options: { collapseWith?: Product[] } = {},
+) {
   let result = products.filter((product) => {
     if (product.hidden) return false;
-    if (!matchesQuery(product, filters.q)) return false;
+    if (!matchesQuery(product, filters.q) && !isExactSearchMatch(product, filters.q)) return false;
     if (
       filters.departments.size > 0 &&
       !getProductDepartments(product).some((vibe) => filters.departments.has(vibe))
@@ -333,6 +348,8 @@ export function filterCatalogProducts(products: Product[], filters: CatalogFilte
     return true;
   });
 
+  if (options.collapseWith) result = collapseFamilies(result, options.collapseWith, filters.q);
+
   if (filters.sort === "asc") {
     result = [...result].sort((a, b) => (a.salePrice ?? a.price) - (b.salePrice ?? b.price));
   }
@@ -363,9 +380,14 @@ export function isCrossStoreTriggered(filters: CatalogFilters) {
 // Own store's matches first (unchanged rules), then every other store's
 // in-stock matches. The department filter is dropped for the second group
 // because it would otherwise exclude every foreign product by definition.
-export function orderForSubstore(allProducts: Product[], filters: CatalogFilters, vibe: SubstoreVibe) {
+export function orderForSubstore(
+  allProducts: Product[],
+  filters: CatalogFilters,
+  vibe: SubstoreVibe,
+  options: { collapseWith?: Product[] } = {},
+) {
   const ownProducts = allProducts.filter((product) => isOwnStoreProduct(product, vibe));
-  const ownGroup = filterCatalogProducts(ownProducts, filters);
+  const ownGroup = filterCatalogProducts(ownProducts, filters, options);
   if (!isCrossStoreTriggered(filters)) return ownGroup;
 
   const foreignProducts = allProducts.filter((product) => !isOwnStoreProduct(product, vibe));
@@ -373,7 +395,7 @@ export function orderForSubstore(allProducts: Product[], filters: CatalogFilters
     ...filters,
     departments: new Set(),
     onlyAvail: true,
-  });
+  }, options);
   return [...ownGroup, ...foreignGroup];
 }
 
@@ -381,12 +403,12 @@ export function getDepartmentOptions(products: Product[]) {
   return DEPARTMENTS.map((vibe) => ({
     value: vibe,
     label: vibe === "moon" ? "Moon" : vibe === "sunshine" ? "Sunshine" : "Men",
-    count: products.filter((product) => getProductDepartments(product).includes(vibe)).length,
+    count: new Set(products.filter((product) => getProductDepartments(product).includes(vibe)).map(familyIdOf)).size,
   })).filter((option) => option.count > 0);
 }
 
 export function getCategoryOptions(products: Product[]) {
-  const counts = new Map<string, number>();
+  const counts = new Map<string, Set<string>>();
   products.forEach((product) => {
     getProductCategories(product).forEach((category) => {
       const config = getCategoryConfig(category);
@@ -397,64 +419,57 @@ export function getCategoryOptions(products: Product[]) {
       ) {
         return;
       }
-      counts.set(category, (counts.get(category) ?? 0) + 1);
+      countFamily(counts, category, product);
     });
   });
 
   return Array.from(counts.entries())
-    .map(([id, count]) => ({
+    .map(([id, families]) => ({
       id,
       label: getCategoryLabel(id),
-      count,
+      count: families.size,
     }))
     .sort((a, b) => categorySortKey(a.id) - categorySortKey(b.id) || a.label.localeCompare(b.label));
 }
 
 export function getApparelSizeOptions(products: Product[]) {
-  const counts = new Map<string, number>();
+  const counts = new Map<string, Set<string>>();
   products.forEach((product) => {
-    getApparelSizes(product).forEach((size) => {
-      counts.set(size, (counts.get(size) ?? 0) + 1);
-    });
+    getApparelSizes(product).forEach((size) => countFamily(counts, size, product));
   });
 
-  return Array.from(counts.entries()).map(([value, count]) => ({
+  return Array.from(counts.entries()).map(([value, families]) => ({
     value,
     label: sizeLabel(value),
-    count,
+    count: families.size,
   }));
 }
 
 export function getShoeSizeOptions(products: Product[]) {
-  const counts = new Map<string, number>();
+  const counts = new Map<string, Set<string>>();
   products
     .filter((product) => getProductCategories(product).includes("shoes"))
     .forEach((product) => {
-      getShoeSizes(product).forEach((size) => {
-        counts.set(size, (counts.get(size) ?? 0) + 1);
-      });
+      getShoeSizes(product).forEach((size) => countFamily(counts, size, product));
     });
 
   return Array.from(counts.entries())
     .sort((a, b) => Number(a[0]) - Number(b[0]))
-    .map(([value, count]) => ({
+    .map(([value, families]) => ({
       value,
-      count,
+      count: families.size,
     }));
 }
 
 export function getColorOptions(products: Product[]) {
-  const counts = new Map<string, number>();
+  const counts = new Map<string, Set<string>>();
   products.forEach((product) => {
-    getProductColors(product).forEach((color) => {
-      const family = getColorFamily(color.name, color.hex);
-      counts.set(family, (counts.get(family) ?? 0) + 1);
-    });
+    getProductColors(product).forEach((color) => countFamily(counts, getColorFamily(color.name, color.hex), product));
   });
 
   return COLOR_FAMILIES.map((family) => ({
     ...family,
-    count: counts.get(family.id) ?? 0,
+    count: counts.get(family.id)?.size ?? 0,
   })).filter((family) => family.count > 0);
 }
 

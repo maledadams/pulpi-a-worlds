@@ -56,6 +56,7 @@ export function toAdminProductRecord(product: Product): AdminProductRecord {
     variants: product.variants,
     tags: product.tags,
     createdAt: product.createdAt,
+    motherId: product.motherId ?? null,
   };
 }
 

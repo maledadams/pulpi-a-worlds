@@ -196,9 +196,9 @@ function AdminDiscountsPage() {
         </AdminButton>
       }
     >
-      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
+      <div className="grid grid-cols-1 items-start gap-4 axl:grid-cols-[minmax(0,1fr)_390px]">
         <AdminPanel title="Descuentos">
-          <div className="mb-4 flex flex-col gap-3 md:flex-row">
+          <div className="mb-4 flex flex-col gap-3 amd:flex-row">
             <AdminInput
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -220,7 +220,7 @@ function AdminDiscountsPage() {
               }
             />
           ) : (
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 amd:grid-cols-2 axl:grid-cols-3">
               {filtered.map((discount) => (
                 <button
                   key={discount.id}
@@ -314,7 +314,7 @@ function AdminDiscountsPage() {
               <AdminField label={draft.kind === "code" ? "Nombre interno" : "Nombre"}>
                 <AdminInput value={draft.label} onChange={(event) => setDraft((current) => (current ? { ...current, label: event.target.value } : current))} />
               </AdminField>
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-3 amd:grid-cols-2">
                 <AdminField label="Tipo">
                   <AdminSelect value={draft.type} onChange={(event) => setDraft((current) => (current ? { ...current, type: event.target.value as AdminDiscountRecord["type"] } : current))}>
                     <option value="percentage">Porcentaje</option>

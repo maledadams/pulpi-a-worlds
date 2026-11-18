@@ -3,6 +3,8 @@ import { ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ProductCard } from "@/components/product/ProductCard";
 import { useScrollFollow } from "@/hooks/use-scroll-follow";
+import { useCatalogProducts } from "@/context/catalog";
+import { familyIdOf, isFamilyVisible, mothersById } from "@/lib/product-families";
 import { getCategoryLabel, type Product, type SubstoreVibe, type Vibe } from "@/data/products";
 import { trackSearch } from "@/lib/analytics";
 import {
@@ -174,7 +176,7 @@ type CatalogBrowserProps = {
 };
 
 export function CatalogBrowser({
-  products,
+  products: productsProp,
   search,
   onSearchChange,
   mode = "sidebar",
@@ -193,8 +195,16 @@ export function CatalogBrowser({
   wideProductResultsOnly = false,
   crossStoreCatalog,
 }: CatalogBrowserProps) {
+  // A hidden mother hides her whole family; checked against the full catalog,
+  // since a list (a collection, a sub-store) may hold a sub without its mother.
+  const catalog = useCatalogProducts();
+  const familyMothers = useMemo(() => mothersById(catalog), [catalog]);
+  const products = useMemo(
+    () => productsProp.filter((product) => isFamilyVisible(product, familyMothers)),
+    [productsProp, familyMothers],
+  );
   const [drawer, setDrawer] = useState(false);
-  const filterFollower = useScrollFollow(768);
+  const filterFollower = useScrollFollow(960);
   const [openHorizontalFilter, setOpenHorizontalFilter] = useState<string | null>(null);
   const filters = useMemo(() => parseCatalogSearch(search), [search]);
   // The URL only stores the trimmed query, so the input keeps its own text
@@ -233,11 +243,9 @@ export function CatalogBrowser({
     if (!crossStoreVibe || !crossStoreCatalog) return options;
     return options.map((option) => ({
       ...option,
-      count: orderForSubstore(
-        crossStoreCatalog,
-        { ...filters, categories: new Set([option.id]) },
-        crossStoreVibe,
-      ).length,
+      count: new Set(
+        orderForSubstore(crossStoreCatalog, { ...filters, categories: new Set([option.id]) }, crossStoreVibe).map(familyIdOf),
+      ).size,
     }));
   }, [filters, products, crossStoreCatalog, crossStoreVibe]);
   const sizeOptions = useMemo(
@@ -259,9 +267,9 @@ export function CatalogBrowser({
   const filtered = useMemo(
     () =>
       crossStoreVibe && crossStoreCatalog
-        ? orderForSubstore(crossStoreCatalog, filters, crossStoreVibe)
-        : filterCatalogProducts(products, filters),
-    [crossStoreCatalog, crossStoreVibe, filters, products],
+        ? orderForSubstore(crossStoreCatalog, filters, crossStoreVibe, { collapseWith: catalog })
+        : filterCatalogProducts(products, filters, { collapseWith: catalog }),
+    [catalog, crossStoreCatalog, crossStoreVibe, filters, products],
   );
 
   const activeFilterCount =
@@ -338,12 +346,6 @@ export function CatalogBrowser({
     : isSunshineVibe
       ? "sunshine"
       : "default";
-  const substoreLastRowCount = filtered.length > 6 ? filtered.length % 6 : 0;
-  const substoreLastRowClass =
-    substoreLastRowCount > 0 ? `substore-last-row-${substoreLastRowCount}` : "";
-  const storeLastRowCount = filtered.length > 5 ? filtered.length % 5 : 0;
-  const storeLastRowClass =
-    storeLastRowCount > 0 ? `store-last-row-${storeLastRowCount}` : "";
 
   /* ── Sidebar filter panel ── */
   const filtersPanel = (
@@ -779,7 +781,7 @@ export function CatalogBrowser({
   );
 
   /* ── Product grid ── */
-  const productGrid = (cols: string, lastRowClass = "") => (
+  const productGrid = (cols: string) => (
     <>
       <p
         className={`mb-3 text-xs text-muted-foreground ${wideProductResultsOnly ? "text-center" : ""}`}
@@ -797,7 +799,7 @@ export function CatalogBrowser({
           </button>
         </div>
       ) : (
-        <div className={`grid ${wideResults ? "gap-4" : "gap-3"} ${cols} ${lastRowClass}`}>
+        <div className={`grid ${wideResults ? "gap-4" : "gap-3"} ${cols}`}>
           {filtered.map((p) => (
             <ProductCard
               key={p.id}
@@ -837,10 +839,8 @@ export function CatalogBrowser({
             <>
               <div className="mx-auto w-full max-w-4xl px-4">{horizontalFilters}</div>
               <div className="px-4 xl:px-[5cm]">
-                {productGrid(
-                  "substore-product-grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4",
-                  substoreLastRowClass,
-                )}
+                {/* Four big products per row on computers, edge to edge. */}
+                {productGrid("grid-cols-2 sm:grid-cols-3 lg:grid-cols-4")}
               </div>
             </>
           ) : (
@@ -858,7 +858,7 @@ export function CatalogBrowser({
             className="hidden self-start will-change-transform transition-transform duration-500 ease-out md:block"
             style={{ transform: `translate3d(0, ${filterFollower.offset}px, 0)` }}
           >
-            <div className="h-[calc(100vh-5rem)] overflow-hidden rounded-xl border border-foreground/15 bg-card">
+            <div className="h-[calc(100vh/var(--page-zoom)-5rem)] overflow-hidden rounded-xl border border-foreground/15 bg-card">
               <div className="h-full overflow-y-scroll overscroll-contain p-4 [scrollbar-gutter:stable]">
                 {filtersPanel}
               </div>
@@ -866,12 +866,8 @@ export function CatalogBrowser({
           </aside>
           <div>
             {wideResults ? searchBar : null}
-            {productGrid(
-              wideResults
-                ? "store-product-grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
-                : "grid-cols-2 lg:grid-cols-3",
-              wideResults ? storeLastRowClass : "",
-            )}
+            {/* Tienda: four big products per row, spanning from Buscar to Destacados. */}
+            {productGrid(wideResults ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4" : "grid-cols-2 lg:grid-cols-3")}
           </div>
         </div>
       )}
@@ -883,7 +879,7 @@ export function CatalogBrowser({
             className="absolute inset-0 bg-foreground/40 backdrop-blur-sm"
             onClick={() => setDrawer(false)}
           />
-          <div className="absolute bottom-0 left-0 right-0 max-h-[85vh] overflow-auto rounded-t-2xl bg-background p-5 shadow-2xl">
+          <div className="absolute bottom-0 left-0 right-0 max-h-[calc(85vh/var(--page-zoom))] overflow-auto rounded-t-2xl bg-background p-5 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
               <span className="font-display text-xl">Filtros</span>
               <button

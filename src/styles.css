@@ -4,6 +4,24 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Store breakpoints, 1.25x the Tailwind defaults: the page lays out the way
+   the old site did with the browser zoomed to 125% (see the html zoom steps
+   further down). sm stays put: it only matters on phones, which keep their
+   old layout. */
+@theme {
+  --breakpoint-md: 60rem;
+  --breakpoint-lg: 80rem;
+  --breakpoint-xl: 100rem;
+  --breakpoint-2xl: 120rem;
+}
+
+/* The admin keeps Tailwind's original breakpoints: its pages use amd:, alg:,
+   axl: and a2xl: instead of md:, lg:, xl: and 2xl:. */
+@custom-variant amd (@media (width >= 48rem));
+@custom-variant alg (@media (width >= 64rem));
+@custom-variant axl (@media (width >= 80rem));
+@custom-variant a2xl (@media (width >= 96rem));
+
 @theme inline {
   --font-display: "New Rocker", system-ui, sans-serif;
   --font-gothic: "UnifrakturMaguntia", "Cinzel", serif;
@@ -116,15 +134,46 @@ html {
 /* --page-zoom mirrors the zoom so a viewport-tall element can divide it back
    out (100vh renders zoom times shorter). Set on html, not :root, so the
    media queries below can override it. */
+/* The store looks exactly like the old site with the browser zoomed to 125%
+   (the owner's chosen look), while browsers still say 100%. Browser zoom
+   does two things, and both are reproduced here:
+   1. it scales everything 1.25x: each step below is the old 0.75 / 0.76 /
+      0.9 / 1 times 1.25;
+   2. it makes the page lay out as if the screen were 1.25x narrower, so
+      fewer, bigger products fit per row. That part is the scaled
+      breakpoints in @theme below (md/lg/xl/2xl), and every step here starts
+      at the old step times 1.25 (768 -> 960, 1024 -> 1280, ...).
+   Phones (under 768px) stay untouched; the admin keeps its old scale and
+   breakpoints (see the a* variants). */
 html { --page-zoom: 1; }
+@media (min-width: 768px) and (max-width: 959px) {
+  html { zoom: 1.25; --page-zoom: 1.25; }
+}
+@media (min-width: 960px) and (max-width: 1279px) {
+  html { zoom: 0.9375; --page-zoom: 0.9375; }
+}
+@media (min-width: 1280px) and (max-width: 1799px) {
+  html { zoom: 0.95; --page-zoom: 0.95; }
+}
+@media (min-width: 1800px) and (max-width: 1919px) {
+  html { zoom: 1.125; --page-zoom: 1.125; }
+}
+@media (min-width: 1920px) {
+  html { zoom: 1.25; --page-zoom: 1.25; }
+}
+
+/* The admin keeps its original scale. */
 @media (min-width: 768px) and (max-width: 1023px) {
-  html { zoom: 0.75; --page-zoom: 0.75; }
+  html:has(.admin-shell) { zoom: 0.75; --page-zoom: 0.75; }
 }
 @media (min-width: 1024px) and (max-width: 1439px) {
-  html { zoom: 0.76; --page-zoom: 0.76; }
+  html:has(.admin-shell) { zoom: 0.76; --page-zoom: 0.76; }
 }
 @media (min-width: 1440px) and (max-width: 1535px) {
-  html { zoom: 0.9; --page-zoom: 0.9; }
+  html:has(.admin-shell) { zoom: 0.9; --page-zoom: 0.9; }
+}
+@media (min-width: 1536px) {
+  html:has(.admin-shell) { zoom: 1; --page-zoom: 1; }
 }
 
 body,
@@ -247,33 +296,6 @@ video {
   background: #07070b;
   box-shadow: 0 0 0 100vmax #07070b;
   clip-path: inset(0 -100vmax);
-}
-
-@media (min-width: 1024px) {
-  .substore-product-grid,
-  .store-product-grid {
-    display: flex !important;
-    width: 100%;
-    flex-wrap: wrap;
-    justify-content: center;
-    margin-inline: auto;
-  }
-
-  .substore-product-grid {
-    max-width: 89rem;
-  }
-
-  .store-product-grid {
-    max-width: 74rem;
-  }
-
-  .substore-product-grid > *,
-  .store-product-grid > * {
-    width: 14rem;
-    flex: 0 0 14rem;
-    grid-column: auto !important;
-    translate: none !important;
-  }
 }
 
 /* The site scales the page down on desktop (html zoom), so the admin's
@@ -434,7 +456,7 @@ html[data-admin-theme="dark"] .admin-shell .admin-logo {
 }
 
 /* On wide screens, vibe logos sit beside the content instead of consuming a grid column. */
-@media (min-width: 1600px) {
+@media (min-width: 2000px) {
   .vibe-mega-grid {
     grid-template-columns: 13rem minmax(0, 1fr) !important;
     transform: translateX(6.75rem);

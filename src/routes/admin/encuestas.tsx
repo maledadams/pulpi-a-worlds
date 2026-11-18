@@ -196,7 +196,7 @@ function AdminSurveysPage() {
       }
     >
       {message ? <AdminToast message={message} tone={tone} /> : null}
-      <div className="grid items-start gap-4 lg:grid-cols-[17rem_minmax(0,1fr)]">
+      <div className="grid items-start gap-4 alg:grid-cols-[17rem_minmax(0,1fr)]">
         <aside className="grid gap-4">
           {surveys.length === 0 ? (
             <p className="text-sm text-[var(--admin-on-bg-muted)]">Todavía no hay encuestas.</p>

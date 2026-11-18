@@ -154,7 +154,7 @@ export function SurveyBuilder({
       }
     >
       <div className="grid gap-5">
-        <div className="grid gap-3 md:grid-cols-[2fr_1fr_1fr]">
+        <div className="grid gap-3 amd:grid-cols-[2fr_1fr_1fr]">
           <AdminField label="Título (solo lo ves tú)">
             <AdminInput value={title} maxLength={80} placeholder="Ej. Navidad 2026" onChange={(event) => setTitle(event.target.value)} />
           </AdminField>

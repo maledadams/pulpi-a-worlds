@@ -291,7 +291,7 @@ function AdminCollectionsPage() {
             </div>
           }
         >
-          <div className="mb-4 flex flex-col gap-3 md:flex-row">
+          <div className="mb-4 flex flex-col gap-3 amd:flex-row">
             <AdminInput
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -314,7 +314,7 @@ function AdminCollectionsPage() {
             />
           ) : (
             <>
-              <div className="grid gap-3 lg:grid-cols-2">
+              <div className="grid gap-3 alg:grid-cols-2">
                 {paged.map((collection) => (
                   <button
                     key={collection.id}

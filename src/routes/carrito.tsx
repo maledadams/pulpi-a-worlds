@@ -16,7 +16,7 @@ export const Route = createFileRoute("/carrito")({
 function CartPage() {
   const cart = useCart();
   const navigate = useNavigate();
-  const summaryFollower = useScrollFollow(768);
+  const summaryFollower = useScrollFollow(960);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:py-10">

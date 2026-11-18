@@ -6,25 +6,28 @@ import { useCart } from "@/context/cart";
 import type { Product } from "@/data/products";
 import { formatPrice, isOnSale } from "@/data/products";
 
+// Every NUEVO chip is Sunshine's lime one, on every page and every store.
+const FRESH_BADGE = "bg-[#d9ff6f] text-[#243011]";
+
 const PRODUCT_BADGE_THEME = {
   pulpina: {
     sale: "bg-[#c5475f] text-white",
-    fresh: "bg-[#c5f56a] text-[#243011]",
+    fresh: FRESH_BADGE,
     soldOut: "bg-black/70 text-white",
   },
   moon: {
     sale: "bg-[#7b1832] text-[#fff5f8]",
-    fresh: "bg-[#f3e7dc] text-[#3a1c28]",
+    fresh: FRESH_BADGE,
     soldOut: "bg-black/72 text-white",
   },
   sunshine: {
     sale: "bg-[#ff4ea3] text-white",
-    fresh: "bg-[#d9ff6f] text-[#243011]",
+    fresh: FRESH_BADGE,
     soldOut: "bg-[#3a0a14]/78 text-white",
   },
   men: {
     sale: "bg-[#8f2015] text-[#fff7f2]",
-    fresh: "bg-[#f2e9e1] text-[#3a0808]",
+    fresh: FRESH_BADGE,
     soldOut: "bg-black/74 text-white",
   },
 } as const;
