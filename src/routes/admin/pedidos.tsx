@@ -30,7 +30,11 @@ import {
 } from "@/lib/manual-orders";
 import type { AdminInquiryChannel, AdminInquiryRecord, AdminInquiryStatus, AdminProductRecord } from "@/lib/admin-types";
 
+// Narrow screens (one column) use a fixed page. On wide screens the list fills
+// whatever height the order editor beside it gives the panel.
 const PAGE_SIZE = 12;
+// Space kept between the last row and the pagination, on top of its mt-3 (~1cm total).
+const PAGINATION_GAP = 26;
 
 type DraftOrderLine = {
   key: string;
@@ -233,9 +237,30 @@ function AdminOrdersPage() {
     });
   }, [rows, query, statusFilter]);
 
-  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
+  const listRef = useRef<HTMLDivElement>(null);
+  const hasRows = filtered.length > 0;
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const measure = () => {
+      // contain:size is only on at xl (see the list's className): below that,
+      // the list grows with its rows, so keep the fixed page.
+      if (!getComputedStyle(list).contain.includes("size")) return setPageSize(PAGE_SIZE);
+      const row = list.querySelector("tbody tr") as HTMLElement | null;
+      const head = list.querySelector("thead") as HTMLElement | null;
+      if (!row || !head) return;
+      const fit = Math.floor((list.clientHeight - head.offsetHeight - PAGINATION_GAP) / row.offsetHeight);
+      setPageSize(Math.max(1, fit));
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [hasRows]);
+
+  const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, pages - 1);
-  const paged = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+  const paged = filtered.slice(safePage * pageSize, safePage * pageSize + pageSize);
 
   // Sets selectedId together with draft/draftLines in the same event, rather
   // than changing selectedId and letting a separate effect catch up on the
@@ -257,12 +282,12 @@ function AdminOrdersPage() {
   }, [query, statusFilter]);
 
   useEffect(() => {
-    if (!requestedOrder) return;
-    const index = filtered.findIndex((inquiry) => inquiry.id === requestedOrder.id);
-    if (index >= 0) setPage(Math.floor(index / PAGE_SIZE));
-    // Only on first mount: later filter/search changes behave as before.
+    // On first load and whenever the page size changes (window resized), show
+    // the page holding the open order. Filter/search changes still reset to page 1.
+    const index = filtered.findIndex((inquiry) => inquiry.id === selectedId);
+    if (index >= 0) setPage(Math.floor(index / pageSize));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [pageSize]);
 
   useEffect(() => {
     if (!filtered.length) {
@@ -601,7 +626,9 @@ function AdminOrdersPage() {
             />
           ) : (
             <>
-              <div className="flex-1 overflow-x-auto">
+              {/* xl: contain:size keeps the rows from stretching the panel; the panel
+                  takes the editor's height and the rows fill it. */}
+              <div ref={listRef} className="flex-1 overflow-x-auto xl:min-h-80 xl:[contain:size]">
                 <table className="min-w-full text-left text-sm">
                   <thead className="text-xs font-medium text-[var(--admin-faint)]">
                     <tr>
