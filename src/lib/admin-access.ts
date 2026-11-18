@@ -227,6 +227,7 @@ const assertAdminAccess = createServerFn({ method: "GET" }).handler(async () => 
     console.error("[assertAdminAccess] rejected: email not in allowlist", email);
     throw notFound();
   }
+  return email;
 });
 
 export function shouldShowAdminAccessNotice() {
@@ -251,4 +252,10 @@ export function getPrimaryAdminHost() {
 export async function enforceAdminAccess() {
   if (import.meta.env.DEV) return;
   await assertAdminAccess();
+}
+
+// The signed-in admin's email (Cloudflare Access); "local" in dev, which has no login.
+export async function getAdminAccountEmail() {
+  if (import.meta.env.DEV) return "local";
+  return assertAdminAccess();
 }

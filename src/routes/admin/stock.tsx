@@ -215,7 +215,7 @@ function AdminStockPage() {
             type="button"
             onClick={() => setLowStockOnly((current) => !current)}
             className={`mt-2 w-full rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
-              lowStockOnly ? "border-transparent bg-[var(--admin-select)] text-white" : "bg-[var(--admin-soft)] text-[var(--admin-muted)] hover:bg-[var(--admin-soft-hover)]"
+              lowStockOnly ? "border-transparent bg-[var(--admin-select)] text-[var(--admin-on-invert)]" : "bg-[var(--admin-soft)] text-[var(--admin-muted)] hover:bg-[var(--admin-soft-hover)]"
             }`}
           >
             {lowStockOnly ? "Mostrando solo stock bajo" : "Filtrar solo stock bajo"}

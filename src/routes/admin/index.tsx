@@ -136,8 +136,8 @@ function AdminDashboardPage() {
       }
     >
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <AdminStatCard label="Productos" value={String(snapshot.productCount)} icon={PackageSearch} iconClassName="bg-[#eae8ff] text-[#4d4084]" />
-        <AdminStatCard label="Pedidos" value={String(snapshot.inquiryCount)} icon={MessageSquareMore} iconClassName="bg-[#e2edf8] text-[#334f6d]" />
+        <AdminStatCard label="Productos" value={String(snapshot.productCount)} icon={PackageSearch} iconClassName="bg-[var(--admin-violet-soft)] text-[var(--admin-violet)]" />
+        <AdminStatCard label="Pedidos" value={String(snapshot.inquiryCount)} icon={MessageSquareMore} iconClassName="bg-[var(--admin-info-soft)] text-[var(--admin-info)]" />
         <AdminStatCard label="Abiertas" value={String(snapshot.openInquiryCount)} icon={TriangleAlert} iconClassName="bg-[var(--admin-warn-soft)] text-[var(--admin-warn)]" />
         <AdminStatCard label="Inventario" value={formatPrice(snapshot.inventoryBaseValue)} icon={ShieldCheck} iconClassName="bg-[var(--admin-ok-soft)] text-[var(--admin-ok)]" />
       </div>
@@ -147,7 +147,7 @@ function AdminDashboardPage() {
           {snapshot.recentInquiries.length > 0 ? (
             <div className="grid gap-2.5">
               {snapshot.recentInquiries.map((inquiry) => (
-                <div key={inquiry.id} className="rounded-2xl border border-[var(--admin-line)] bg-white p-3.5">
+                <div key={inquiry.id} className="rounded-2xl border border-[var(--admin-line)] bg-[var(--admin-surface)] p-3.5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
@@ -167,7 +167,7 @@ function AdminDashboardPage() {
                   </div>
 
                   {inquiry.lines[0] ? (
-                    <div className="mt-2.5 flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-xs">
+                    <div className="mt-2.5 flex items-center justify-between gap-3 rounded-xl bg-[var(--admin-surface)] px-3 py-2 text-xs">
                       <span className="min-w-0 truncate font-semibold">{inquiry.lines[0].productName}</span>
                       <span className="shrink-0 text-[var(--admin-muted)]">
                         {inquiry.lines[0].variantLabel} · x{inquiry.lines[0].quantity}
@@ -206,7 +206,7 @@ function AdminDashboardPage() {
                   onClick={() => setSalesWindow(entry.id)}
                   className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
                     salesWindow === entry.id
-                      ? "border-transparent bg-[var(--admin-select)] text-white"
+                      ? "border-transparent bg-[var(--admin-select)] text-[var(--admin-on-invert)]"
                       : "bg-[var(--admin-soft)] text-[var(--admin-muted)] hover:bg-[var(--admin-soft-hover)]"
                   }`}
                 >

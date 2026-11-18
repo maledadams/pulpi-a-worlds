@@ -111,6 +111,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     scripts: [
       {
+        // Admin dark mode, before first paint (src/lib/admin-theme.ts).
+        children: `try{if(localStorage.getItem("admin-theme")==="dark")document.documentElement.setAttribute("data-admin-theme","dark")}catch(e){}`,
+      },
+      {
         src: "https://www.googletagmanager.com/gtag/js?id=G-N6LGC4Z2PN",
         async: true,
       },
@@ -156,7 +160,7 @@ gtag('config', 'G-N6LGC4Z2PN');`,
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es">
+    <html lang="es" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>

@@ -229,7 +229,7 @@ function AdminDiscountsPage() {
                   className={`rounded-3xl border p-4 text-left transition-colors ${
                     selectedId === discount.id
                       ? "border-transparent bg-[var(--admin-accent-soft)]"
-                      : "border-[var(--admin-line)] bg-white hover:bg-[var(--admin-accent-soft)]"
+                      : "border-[var(--admin-line)] bg-[var(--admin-surface)] hover:bg-[var(--admin-accent-soft)]"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -351,7 +351,7 @@ function AdminDiscountsPage() {
                             type="button"
                             onClick={() => toggleCategory(category.id)}
                             className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
-                              active ? "border-transparent bg-[var(--admin-select)] text-white" : "bg-[var(--admin-soft)] text-[var(--admin-muted)] hover:bg-[var(--admin-soft-hover)]"
+                              active ? "border-transparent bg-[var(--admin-select)] text-[var(--admin-on-invert)]" : "bg-[var(--admin-soft)] text-[var(--admin-muted)] hover:bg-[var(--admin-soft-hover)]"
                             }`}
                           >
                             {category.label}

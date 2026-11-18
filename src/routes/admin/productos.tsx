@@ -780,7 +780,7 @@ function AdminProductsPage() {
                         onChange={(event) => updateDraft("id", event.target.value)}
                         className={
                           draft.id.trim().startsWith("draft-")
-                            ? "border-red-500 bg-red-50 focus:border-red-500 focus-visible:ring-red-200"
+                            ? "border-red-500 bg-[var(--admin-danger-soft)] focus:border-red-500 focus-visible:ring-red-200"
                             : undefined
                         }
                       />
@@ -959,7 +959,7 @@ function AdminProductsPage() {
                     {draft.images.length > 0 ? (
                       <div className="grid gap-3">
                         {draft.images.map((image, index) => (
-                          <div key={image.url} className="overflow-hidden rounded-2xl border border-[var(--admin-line)] bg-white">
+                          <div key={image.url} className="overflow-hidden rounded-2xl border border-[var(--admin-line)] bg-[var(--admin-surface)]">
                             <div className="grid gap-3 p-3 sm:grid-cols-[72px_minmax(0,1fr)]">
                               <div className="h-[72px] w-[72px] shrink-0 overflow-hidden rounded-2xl bg-[var(--admin-soft)]">
                                 <img src={image.url} alt={draft.name} className="h-full w-full object-cover" />
@@ -995,7 +995,7 @@ function AdminProductsPage() {
                         ))}
                       </div>
                     ) : (
-                      <div className="rounded-2xl border border-dashed border-[var(--admin-line-strong)] bg-white px-4 py-8 text-sm text-[var(--admin-muted)]">
+                      <div className="rounded-2xl border border-dashed border-[var(--admin-line-strong)] bg-[var(--admin-surface)] px-4 py-8 text-sm text-[var(--admin-muted)]">
                         Este producto todavia no tiene imagenes.
                       </div>
                     )}
@@ -1008,7 +1008,7 @@ function AdminProductsPage() {
                       accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
                       onChange={(event) => setSelectedImageFile(event.target.files?.[0] ?? null)}
                       disabled={draft.images.length >= 5}
-                      className="block w-full rounded-xl border border-dashed border-[var(--admin-line-strong)] bg-white px-4 py-3 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--admin-soft)] file:px-3 file:py-2 file:text-xs file:font-semibold file:text-[var(--admin-ink)]"
+                      className="block w-full rounded-xl border border-dashed border-[var(--admin-line-strong)] bg-[var(--admin-surface)] px-4 py-3 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--admin-soft)] file:px-3 file:py-2 file:text-xs file:font-semibold file:text-[var(--admin-ink)]"
                     />
                     {!persistedIds.has(draft.id) ? (
                       <div className="rounded-2xl border border-dashed border-[var(--admin-line-strong)] px-3 py-3 text-xs leading-5 text-[var(--admin-muted)]">

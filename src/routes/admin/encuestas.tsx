@@ -67,7 +67,7 @@ function SurveyCard({ survey, selected }: { survey: SurveySummary; selected: boo
       search={{ survey: survey.id }}
       className={cn(
         "block rounded-xl border px-3 py-2.5 transition",
-        selected ? "border-transparent bg-[var(--admin-accent-soft)]" : "border-[var(--admin-edge)] bg-white hover:bg-[var(--admin-accent-soft)]",
+        selected ? "border-transparent bg-[var(--admin-accent-soft)]" : "border-[var(--admin-edge)] bg-[var(--admin-surface)] hover:bg-[var(--admin-accent-soft)]",
       )}
     >
       <div className="text-xs font-medium text-[var(--admin-faint)]">{eyebrowFor(survey)}</div>

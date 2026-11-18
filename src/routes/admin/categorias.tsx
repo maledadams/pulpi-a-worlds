@@ -579,7 +579,7 @@ function AdminCategoriesPage() {
                         const isUploading = uploadingVibe === vibe;
                         const canUpload = !draft.id.startsWith("draft-category-");
                         return (
-                          <div key={vibe} className="rounded-xl border border-[var(--admin-line)] bg-white p-3">
+                          <div key={vibe} className="rounded-xl border border-[var(--admin-line)] bg-[var(--admin-surface)] p-3">
                           <div className="grid gap-3 sm:grid-cols-[88px_minmax(0,1fr)]">
                             <div className="flex h-[88px] w-[88px] items-center justify-center overflow-hidden bg-[var(--admin-soft)]">
                               {image ? (
@@ -614,7 +614,7 @@ function AdminCategoriesPage() {
                                     [vibe]: event.target.files?.[0] ?? null,
                                   }))
                                 }
-                                className="mt-3 block w-full border border-dashed border-[var(--admin-line-strong)] bg-white px-3 py-2 text-xs file:mr-3 file:border-0 file:rounded-lg file:bg-[var(--admin-soft)] file:px-3 file:py-2 file:text-xs file:font-semibold file:text-[var(--admin-ink)]"
+                                className="mt-3 block w-full border border-dashed border-[var(--admin-line-strong)] bg-[var(--admin-surface)] px-3 py-2 text-xs file:mr-3 file:border-0 file:rounded-lg file:bg-[var(--admin-soft)] file:px-3 file:py-2 file:text-xs file:font-semibold file:text-[var(--admin-ink)]"
                               />
                               <div className="mt-2 flex flex-wrap gap-2">
                                 <AdminButton

@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AdminPanel, AdminShell } from "@/components/admin/AdminShell";
-import {  AdminButton,
+import {
+  AdminButton,
   AdminField,
   AdminInput,
   AdminTabs,
@@ -14,13 +15,15 @@ import {  AdminButton,
 import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { getAdminSettingsRecord, saveAdminSettingsRecord } from "@/lib/admin-content";
+import { type AdminTheme, applyAdminTheme, saveAdminTheme, useAdminTheme } from "@/lib/admin-theme";
 
-type SettingsTab = "contacto" | "faqs" | "legal";
+type SettingsTab = "contacto" | "faqs" | "legal" | "apariencia";
 
 const SETTINGS_TABS: Array<{ id: SettingsTab; label: string }> = [
   { id: "contacto", label: "Contacto" },
   { id: "faqs", label: "Preguntas frecuentes" },
   { id: "legal", label: "Legal y privacidad" },
+  { id: "apariencia", label: "Apariencia" },
 ];
 
 export const Route = createFileRoute("/admin/configuracion")({
@@ -41,6 +44,15 @@ function AdminSettingsPage() {
   };
   const [tab, setTab] = useState<SettingsTab>("contacto");
   const [expandedLegalId, setExpandedLegalId] = useState<string | null>(null);
+  const theme = useAdminTheme();
+
+  // Applies at once; saved on this admin's account, not with "Guardar cambios".
+  const chooseTheme = (next: AdminTheme) => {
+    applyAdminTheme(next);
+    void saveAdminTheme({ data: next }).catch(() => {
+      showSaveMessage("No se pudo guardar el modo en tu cuenta.", "error");
+    });
+  };
 
   useEffect(() => {
     if (!saveMessage) return;
@@ -76,6 +88,23 @@ function AdminSettingsPage() {
     >
       <div className="grid gap-4">
         <AdminTabs tabs={SETTINGS_TABS} active={tab} onChange={setTab} />
+
+        {tab === "apariencia" ? (
+          <AdminPanel editor title="Modo de la pantalla" eyebrow="Se guarda en tu cuenta">
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  ["light", "Claro"],
+                  ["dark", "Oscuro"],
+                ] as const
+              ).map(([value, label]) => (
+                <AdminButton key={value} tone={theme === value ? "active" : "secondary"} onClick={() => chooseTheme(value)}>
+                  {label}
+                </AdminButton>
+              ))}
+            </div>
+          </AdminPanel>
+        ) : null}
 
         {tab === "contacto" ? (
         <AdminPanel editor title="Canales de contacto">
@@ -156,7 +185,7 @@ function AdminSettingsPage() {
         >
           <div className="grid gap-3">
             {form.contactFaqs.map((faq) => (
-              <div key={faq.id} className="rounded-2xl border border-[var(--admin-line)] bg-white p-4">
+              <div key={faq.id} className="rounded-2xl border border-[var(--admin-line)] bg-[var(--admin-surface)] p-4">
                 <div className="grid gap-3">
                   <div className="flex justify-end">
                     <AdminButton
@@ -285,7 +314,7 @@ function AdminSettingsPage() {
             {form.legalSections.map((section) => {
               const isOpen = expandedLegalId === section.id;
               return (
-                <div key={section.id} className="rounded-2xl border border-[var(--admin-line)] bg-white">
+                <div key={section.id} className="rounded-2xl border border-[var(--admin-line)] bg-[var(--admin-surface)]">
                   <button
                     type="button"
                     onClick={() => setExpandedLegalId(isOpen ? null : section.id)}

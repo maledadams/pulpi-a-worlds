@@ -320,7 +320,99 @@ html:has(.admin-shell) body {
   --admin-warn-soft: #fde8c6;
   --admin-danger: #be0025;
   --admin-danger-soft: #ffe3e1;
+  --admin-ok-soft-hover: #c6e6cb;
+  --admin-warn-soft-hover: #f2d8ae;
+  /* Solid green / red buttons keep their color in both modes. */
+  --admin-ok-solid: #286037;
+  --admin-ok-solid-hover: #1c4a29;
+  --admin-danger-solid: #be0025;
+  /* The black bits: sidebar column, current page, "dark" tags, selected chips' text. */
+  --admin-invert: #000000;
+  --admin-on-invert: #ffffff;
+  /* Tag tints. */
+  --admin-info: #334f6d;
+  --admin-info-soft: #e2edf8;
+  --admin-plum: #742651;
+  --admin-plum-soft: #fce3ee;
+  --admin-plum-soft-hover: #f1d2e0;
+  --admin-violet: #4d4084;
+  --admin-violet-soft: #eae8ff;
+  --admin-violet-soft-hover: #dbd8f5;
+  --admin-cinnamon: #903a03;
+  --admin-cinnamon-soft: #ffe1d1;
+  --admin-cinnamon-soft-hover: #f5d0bd;
+  --admin-cocoa: #4f4741;
+  --admin-cocoa-soft: #ebe6e2;
+  --admin-cocoa-soft-hover: #ddd7d2;
+  --admin-sun: #a8336a;
+  --admin-sun-soft: #fdd9ea;
+  --admin-sun-soft-hover: #f9c9df;
   color: var(--admin-ink);
+}
+
+/* Dark mode: the same admin with whites, greys and blacks swapped. Colored
+   buttons keep their color; pastel tags become dark tints of the same hue.
+   Turned on by data-admin-theme on <html> (see src/lib/admin-theme.ts). */
+html[data-admin-theme="dark"]:has(.admin-shell),
+html[data-admin-theme="dark"]:has(.admin-shell) body {
+  background-color: #161211;
+  color-scheme: dark;
+}
+html[data-admin-theme="dark"] .admin-shell {
+  --admin-bg: #161211;
+  --admin-on-bg: #f4eeeb;
+  --admin-on-bg-muted: #a89f99;
+  --admin-surface: #161211;
+  --admin-edge: #e9e2de;
+  --admin-line: #4a423e;
+  --admin-line-strong: #574e49;
+  --admin-ink: #f4eeeb;
+  --admin-muted: #a89f99;
+  --admin-faint: #7d746e;
+  --admin-soft: #2a2421;
+  --admin-soft-hover: #362f2b;
+  --admin-soft-on: #423a35;
+  --admin-field: #161211;
+  --admin-accent: #a8101d;
+  --admin-accent-hover: #8c0010;
+  --admin-accent-soft: #221d1b;
+  --admin-accent-ink: #f4eeeb;
+  --admin-select: #d6cdc7;
+  --admin-select-hover: #e6dfda;
+  --admin-ok: #8fd6a0;
+  --admin-ok-soft: #1d3324;
+  --admin-ok-soft-hover: #25412e;
+  --admin-warn: #f0b860;
+  --admin-warn-soft: #3a2a12;
+  --admin-warn-soft-hover: #473419;
+  --admin-danger: #ff8f94;
+  --admin-danger-soft: #3d1a1c;
+  --admin-ok-solid: #2c6a3d;
+  --admin-ok-solid-hover: #357a48;
+  --admin-danger-solid: #c4102e;
+  --admin-invert: #f4eeeb;
+  --admin-on-invert: #161211;
+  --admin-info: #9cc0e6;
+  --admin-info-soft: #1c2a3a;
+  --admin-plum: #f0a3c8;
+  --admin-plum-soft: #3a1c2b;
+  --admin-plum-soft-hover: #472337;
+  --admin-violet: #b9b0f2;
+  --admin-violet-soft: #26223f;
+  --admin-violet-soft-hover: #302b4e;
+  --admin-cinnamon: #f5a77a;
+  --admin-cinnamon-soft: #3d2416;
+  --admin-cinnamon-soft-hover: #4a2c1b;
+  --admin-cocoa: #c9bfb8;
+  --admin-cocoa-soft: #2e2926;
+  --admin-cocoa-soft-hover: #3a332f;
+  --admin-sun: #f59ac4;
+  --admin-sun-soft: #3d1a2c;
+  --admin-sun-soft-hover: #4a2036;
+}
+/* The dark pineapple logo turns light. */
+html[data-admin-theme="dark"] .admin-shell .admin-logo {
+  filter: brightness(0) invert(0.94);
 }
 
 /* Search bars: black outline, the Ventas green while typing. */
@@ -329,7 +421,7 @@ html:has(.admin-shell) body {
 }
 .admin-shell input[placeholder^="Buscar"]:focus {
   border-color: var(--admin-ok);
-  --tw-ring-color: rgb(40 96 55 / 0.25);
+  --tw-ring-color: color-mix(in srgb, var(--admin-ok) 25%, transparent);
 }
 
 .admin-shell h1,

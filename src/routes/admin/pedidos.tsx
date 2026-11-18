@@ -152,7 +152,7 @@ function ProductSearchField({
             className={`rounded-lg px-3 py-2 text-left text-sm transition-colors ${
               line.productId === match.id
                 ? "bg-[var(--admin-accent-soft)] text-[var(--admin-accent-ink)]"
-                : "bg-white hover:bg-[var(--admin-accent-soft)]"
+                : "bg-[var(--admin-surface)] hover:bg-[var(--admin-accent-soft)]"
             }`}
           >
             <div className="font-normal">{match.name}</div>
@@ -167,12 +167,12 @@ function ProductSearchField({
 // Status filter buttons wear the same colors as their status tags, with
 // their own darker hover. Selected uses the shared dark selection color.
 const STATUS_FILTER_TONE: Record<AdminInquiryStatus, string> = {
-  pending_contact: "bg-[#fce3ee] text-[#742651] hover:bg-[#f1d2e0] hover:text-[#742651]",
-  new: "bg-[var(--admin-warn-soft)] text-[var(--admin-warn)] hover:bg-[#f2d8ae] hover:text-[var(--admin-warn)]",
-  follow_up: "bg-[#eae8ff] text-[#4d4084] hover:bg-[#dbd8f5] hover:text-[#4d4084]",
-  quoted: "bg-[#ffe1d1] text-[#903a03] hover:bg-[#f5d0bd] hover:text-[#903a03]",
-  closed: "bg-[var(--admin-ok-soft)] text-[var(--admin-ok)] hover:bg-[#c6e6cb] hover:text-[var(--admin-ok)]",
-  cancelled: "bg-[#ebe6e2] text-[#4f4741] hover:bg-[#ddd7d2] hover:text-[#4f4741]",
+  pending_contact: "bg-[var(--admin-plum-soft)] text-[var(--admin-plum)] hover:bg-[var(--admin-plum-soft-hover)] hover:text-[var(--admin-plum)]",
+  new: "bg-[var(--admin-warn-soft)] text-[var(--admin-warn)] hover:bg-[var(--admin-warn-soft-hover)] hover:text-[var(--admin-warn)]",
+  follow_up: "bg-[var(--admin-violet-soft)] text-[var(--admin-violet)] hover:bg-[var(--admin-violet-soft-hover)] hover:text-[var(--admin-violet)]",
+  quoted: "bg-[var(--admin-cinnamon-soft)] text-[var(--admin-cinnamon)] hover:bg-[var(--admin-cinnamon-soft-hover)] hover:text-[var(--admin-cinnamon)]",
+  closed: "bg-[var(--admin-ok-soft)] text-[var(--admin-ok)] hover:bg-[var(--admin-ok-soft-hover)] hover:text-[var(--admin-ok)]",
+  cancelled: "bg-[var(--admin-cocoa-soft)] text-[var(--admin-cocoa)] hover:bg-[var(--admin-cocoa-soft-hover)] hover:text-[var(--admin-cocoa)]",
 };
 
 export const Route = createFileRoute("/admin/pedidos")({
@@ -464,7 +464,7 @@ function AdminOrdersPage() {
         const variants = getAvailableVariants(product);
 
         return (
-          <div key={line.key} className="rounded-2xl border border-[var(--admin-line)] bg-white p-4">
+          <div key={line.key} className="rounded-2xl border border-[var(--admin-line)] bg-[var(--admin-surface)] p-4">
             <div className="grid gap-3">
               <ProductSearchField
                 line={line}

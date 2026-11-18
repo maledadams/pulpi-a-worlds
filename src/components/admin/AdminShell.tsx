@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import storePineapple from "@/assets/PULPINAGENERALPINA.svg";
 import { AdminConfirmHost } from "@/components/admin/AdminControls";
 import { shouldShowAdminAccessNotice } from "@/lib/admin-access";
+import { useAdminThemeSync } from "@/lib/admin-theme";
 import type { AdminInquiryStatus, AdminSection } from "@/lib/admin-types";
 import { cn } from "@/lib/utils";
 
@@ -25,7 +26,7 @@ const NAV_ITEMS: Array<{
   { section: "configuracion", label: "Configuracion", to: "/admin/configuracion", icon: Settings2 },
 ];
 
-// Colors live in the .admin-shell palette (Moon, light mode) in styles.css.
+// Colors live in the .admin-shell palette in styles.css (light, plus a dark override).
 
 export function AdminShell({
   section,
@@ -41,22 +42,23 @@ export function AdminShell({
   actions?: ReactNode;
 }) {
   const showAccessNotice = shouldShowAdminAccessNotice();
+  useAdminThemeSync();
 
   return (
     <div className="admin-shell min-h-screen bg-[var(--admin-bg)]" data-admin-section={section}>
       <AdminConfirmHost />
       <div className="grid min-h-screen grid-cols-1 xl:grid-cols-[282px_minmax(0,1fr)] 2xl:grid-cols-[302px_minmax(0,1fr)]">
-        {/* The sidebar's column is black behind the white nav card. On wide
+        {/* The sidebar's column is black behind the nav card, in both modes. On wide
             screens a fixed strip paints it full height (min-h-screen falls
             short under the site's html zoom). */}
         <div className="xl:pr-4">
         <div aria-hidden="true" className="pointer-events-none fixed -bottom-[100vh] -top-[100vh] left-0 hidden w-[282px] bg-black xl:block 2xl:w-[302px]" />
         {/* Its white shadow reaches a screen above and below, so the
             overscroll bounce shows white, not the black column. */}
-        <aside className="self-start border-y border-[var(--admin-edge)] bg-white px-3 py-5 text-[var(--admin-muted)] shadow-[-100vw_0_0_0_#fff,100vw_0_0_0_#fff] xl:sticky xl:top-0 xl:flex xl:h-[calc(100vh/var(--page-zoom))] xl:flex-col xl:border-r xl:border-y-0 xl:shadow-[0_-100vh_0_0_#fff,0_100vh_0_0_#fff] xl:overflow-y-auto xl:p-4">
+        <aside className="self-start border-y border-[var(--admin-edge)] bg-[var(--admin-surface)] px-3 py-5 text-[var(--admin-muted)] shadow-[-100vw_0_0_0_var(--admin-surface),100vw_0_0_0_var(--admin-surface)] xl:sticky xl:top-0 xl:flex xl:h-[calc(100vh/var(--page-zoom))] xl:flex-col xl:border-r xl:border-y-0 xl:shadow-[0_-100vh_0_0_var(--admin-surface),0_100vh_0_0_var(--admin-surface)] xl:overflow-y-auto xl:p-4">
           <div className="flex items-center gap-3 px-1">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--admin-soft)] xl:h-16 xl:w-16">
-              <img src={storePineapple} alt="" aria-hidden="true" className="h-8 w-auto xl:h-12" />
+              <img src={storePineapple} alt="" aria-hidden="true" className="admin-logo h-8 w-auto xl:h-12" />
             </span>
             <div className="min-w-0">
               <div className="text-[11px] font-medium xl:text-sm">Admin</div>
@@ -72,9 +74,9 @@ export function AdminShell({
                   key={item.to}
                   to={item.to}
                   className={cn(
-                    "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-[10px] px-3 py-2 text-xs font-medium transition-colors xl:min-h-10 xl:flex-1 xl:gap-3 xl:px-3 xl:py-0 xl:text-sm",
+                    "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-[10px] px-3 py-2 text-xs font-medium transition-colors xl:min-h-10 xl:flex-1 xl:gap-3 xl:px-3 xl:py-0 xl:text-base",
                     item.section === section
-                      ? "bg-black font-semibold text-white"
+                      ? "bg-[var(--admin-invert)] font-semibold text-[var(--admin-on-invert)]"
                       : "hover:bg-[var(--admin-accent-soft)] hover:text-[var(--admin-ink)]",
                   )}
                 >
@@ -196,16 +198,16 @@ type AdminTagTone = "soft" | "dark" | "warn" | "success" | "danger" | "info" | "
 // Deep status colors that sit with Moon crimson; each status its own hue.
 const TAG_TONES: Record<AdminTagTone, string> = {
   // "dark" = live/active (Activo, Publica, Abierta): solid Moon black.
-  dark: "bg-[var(--admin-ink)] text-white",
+  dark: "bg-[var(--admin-ink)] text-[var(--admin-on-invert)]",
   success: "bg-[var(--admin-ok-soft)] text-[var(--admin-ok)]",
   warn: "bg-[var(--admin-warn-soft)] text-[var(--admin-warn)]",
   danger: "bg-[var(--admin-danger-soft)] text-[var(--admin-danger)]",
-  info: "bg-[#e2edf8] text-[#334f6d]",
+  info: "bg-[var(--admin-info-soft)] text-[var(--admin-info)]",
   soft: "bg-[var(--admin-soft)] text-[var(--admin-muted)]",
-  plum: "bg-[#fce3ee] text-[#742651]",
-  violet: "bg-[#eae8ff] text-[#4d4084]",
-  cinnamon: "bg-[#ffe1d1] text-[#903a03]",
-  cocoa: "bg-[#ebe6e2] text-[#4f4741]",
+  plum: "bg-[var(--admin-plum-soft)] text-[var(--admin-plum)]",
+  violet: "bg-[var(--admin-violet-soft)] text-[var(--admin-violet)]",
+  cinnamon: "bg-[var(--admin-cinnamon-soft)] text-[var(--admin-cinnamon)]",
+  cocoa: "bg-[var(--admin-cocoa-soft)] text-[var(--admin-cocoa)]",
 };
 
 // One color per pedido status, everywhere a status shows.
