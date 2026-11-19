@@ -164,7 +164,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         title: fallback.variant.title,
         productTitle: fallback.product.name,
         productHandle: fallback.product.slug,
-        image: fallback.variant.image ?? fallback.product.featuredImage,
+        image: fallback.product.featuredImage ?? fallback.variant.image,
         price: fallback.variant.price,
         currencyCode: fallback.variant.currencyCode,
         selectedOptions: fallback.variant.selectedOptions,
@@ -213,6 +213,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const clear = () => applyCart(null);
+
+  // Each line shows its product's current cover from the catalog, falling back
+  // to the image saved when it was added (that one can point to a photo that
+  // was since replaced or deleted).
+  const lines = useMemo(
+    () =>
+      (cart?.lines ?? []).map((line) => {
+        const product = products.find((entry) => entry.variants.some((variant) => variant.id === line.merchandiseId));
+        const current = product?.featuredImage;
+        return current && current.url !== line.image?.url ? { ...line, image: current } : line;
+      }),
+    [cart?.lines, products],
+  );
 
   const localAvailabilityByLineId = useMemo(() => {
     const entries = (cart?.lines ?? []).map((line) => {
@@ -330,7 +343,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     <Ctx.Provider
       value={{
         cart,
-        lines: cart?.lines ?? [],
+        lines,
         open,
         loading,
         configured,

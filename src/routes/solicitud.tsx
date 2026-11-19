@@ -264,7 +264,7 @@ function InquiryPage() {
                 {createdOrder.order.lines.map((line) => {
                   const product = products.find((entry) => entry.id === line.productId);
                   const variant = product?.variants.find((entry) => entry.id === line.variantId);
-                  const image = variant?.image ?? product?.featuredImage ?? null;
+                  const image = product?.featuredImage ?? variant?.image ?? null;
 
                   return (
                     <div key={`${line.variantId}-${line.quantity}`} className="rounded-2xl border border-foreground bg-card p-3">

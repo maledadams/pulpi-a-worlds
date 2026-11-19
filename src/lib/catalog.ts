@@ -467,6 +467,9 @@ function productFromRow(row: ProductRow) {
   if (parsed) {
     return localizeStoredProduct({
       ...parsed,
+      // Same rule as on save, for products stored before it: every variant
+      // shows the product's current cover.
+      variants: parsed.variants.map((variant) => ({ ...variant, image: parsed.featuredImage ?? null })),
       sortOrder: row.sort_order ?? parsed.sortOrder ?? 0,
       slug: row.slug,
       name: row.name,
@@ -612,7 +615,10 @@ function normalizeVariants(record: AdminProductRecord, swatch: [string, string],
       price: Math.max(0, price),
       compareAtPrice,
       currencyCode: "DOP",
-      image: currentVariant?.image ?? featuredImage ?? record.images[index] ?? null,
+      // A product has one color, so every variant shows the product's current
+      // cover. Keeping a variant's old image let it outlive the photo it
+      // pointed to (deleted from storage), and carts showed a broken image.
+      image: featuredImage,
       selectedOptions: [
         { name: "Talla", value: size },
         { name: "Color", value: colorName },

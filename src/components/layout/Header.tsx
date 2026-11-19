@@ -361,6 +361,44 @@ export function Header({
   const [renderedMega, setRenderedMega] = useState<MegaKey | null>(null);
   const [categoryPage, setCategoryPage] = useState(0);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const headerRef = useRef<HTMLElement>(null);
+
+  // Publishes how much of the header is still on screen, in CSS px, as
+  // --site-header-visible: its full height at the top of the page, down to 0
+  // once it has scrolled away (the header scrolls with the page). The tienda
+  // filter box uses it to sit right under it and fill the rest of the screen.
+  // Rects are in zoomed px (html has a per-breakpoint zoom); dividing by
+  // rect.height / offsetHeight brings them back to CSS px.
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+    const root = document.documentElement;
+    let frame = 0;
+    let last = "";
+    const publish = () => {
+      frame = 0;
+      const rect = header.getBoundingClientRect();
+      const scale = rect.height / header.offsetHeight || 1;
+      const visible = `${Math.round(Math.max(0, rect.bottom) / scale)}px`;
+      if (visible === last) return;
+      last = visible;
+      root.style.setProperty("--site-header-visible", visible);
+    };
+    const schedule = () => {
+      if (!frame) frame = window.requestAnimationFrame(publish);
+    };
+    publish();
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    const observer = new ResizeObserver(schedule);
+    observer.observe(header);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      observer.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     setCategoryPage(0);
@@ -495,6 +533,7 @@ export function Header({
 
   return (
     <header
+      ref={headerRef}
       data-vibe={hoverStore ?? undefined}
       className={`site-header sticky top-0 bg-background text-foreground ${
         renderedMega ? "z-[99999]" : "z-40"

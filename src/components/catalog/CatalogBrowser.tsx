@@ -2,7 +2,6 @@ import { Link } from "@tanstack/react-router";
 import { ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ProductCard } from "@/components/product/ProductCard";
-import { useScrollFollow } from "@/hooks/use-scroll-follow";
 import { useCatalogProducts } from "@/context/catalog";
 import { familyIdOf, isFamilyVisible, mothersById } from "@/lib/product-families";
 import { getCategoryLabel, type Product, type SubstoreVibe, type Vibe } from "@/data/products";
@@ -204,7 +203,6 @@ export function CatalogBrowser({
     [productsProp, familyMothers],
   );
   const [drawer, setDrawer] = useState(false);
-  const filterFollower = useScrollFollow(960);
   const [openHorizontalFilter, setOpenHorizontalFilter] = useState<string | null>(null);
   const filters = useMemo(() => parseCatalogSearch(search), [search]);
   // The URL only stores the trimmed query, so the input keeps its own text
@@ -878,14 +876,14 @@ export function CatalogBrowser({
           )}
         </div>
       ) : (
-        <div ref={filterFollower.containerRef} className={`grid gap-6 md:grid-cols-[240px_1fr] ${wideResults ? "px-4 xl:px-[5cm]" : ""}`}>
+        <div className={`grid gap-6 md:grid-cols-[240px_1fr] ${wideResults ? "px-4 xl:px-[5cm]" : ""}`}>
           {/* Sidebar — scrollbar contained inside box */}
-          <aside
-            ref={filterFollower.floatingRef}
-            className="hidden self-start will-change-transform transition-transform duration-500 ease-out md:block"
-            style={{ transform: `translate3d(0, ${filterFollower.offset}px, 0)` }}
-          >
-            <div className={`h-[calc(100vh/var(--page-zoom)-5rem)] overflow-hidden rounded-xl bg-card ${isTiendaLook ? "border-2 border-foreground" : "border border-foreground/15"}`}>
+          {/* Sticky 1rem under whatever part of the header is still on screen
+              (--site-header-visible, set by Header) and sized to the rest of
+              the screen, so the whole box, top and bottom, stays in view while
+              scrolling (owner, 2026-11-18). */}
+          <aside className="sticky top-[calc(var(--site-header-visible,5.75rem)+1rem)] hidden self-start md:block">
+            <div className={`h-[calc(100vh/var(--page-zoom)-var(--site-header-visible,5.75rem)-2rem)] overflow-hidden rounded-xl bg-card ${isTiendaLook ? "border-2 border-foreground" : "border border-foreground/15"}`}>
               <div className="h-full overflow-y-scroll overscroll-contain p-4 [scrollbar-gutter:stable]">
                 {filtersPanel}
               </div>

@@ -279,6 +279,14 @@ const cartActionClassName =
           </div>
         </Link>
 
+        {/* The card's outline drawn again on top, so the photo's hover zoom
+            always stays under it (owner, 2026-11-18). Same classes and box as
+            the card's own border, transparent inside, no clicks. */}
+        <span
+          aria-hidden="true"
+          className={`pointer-events-none absolute inset-0 z-[7] rounded-lg ${boldOutline ? "" : "border"} ${cardOutlineClassName}`}
+        />
+
         {onlyVariant ? (
           <button
             type="button"
