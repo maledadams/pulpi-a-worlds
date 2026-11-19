@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Search, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ProductCard } from "@/components/product/ProductCard";
 import { useCatalogProducts } from "@/context/catalog";
@@ -924,6 +924,39 @@ export function CatalogBrowser({
           </div>
         </div>
       )}
+      <BackToTop />
     </div>
+  );
+}
+
+// Bottom-right arrow back to the top of the page (owner, 2026-11-19), styled
+// like the home rails' arrows. It shows once the page has scrolled a bit.
+function BackToTop() {
+  const [shown, setShown] = useState(false);
+
+  useEffect(() => {
+    const update = () => setShown(window.scrollY > 400);
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    return () => window.removeEventListener("scroll", update);
+  }, []);
+
+  return (
+    <button
+      type="button"
+      aria-label="Volver arriba"
+      tabIndex={shown ? 0 : -1}
+      onClick={() =>
+        window.scrollTo({
+          top: 0,
+          behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+        })
+      }
+      className={`ui-circle fixed bottom-5 right-5 z-40 flex h-11 w-11 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-foreground hover:text-background sm:bottom-6 sm:right-6 ${
+        shown ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-3 opacity-0"
+      }`}
+    >
+      <ChevronUp className="h-5 w-5" />
+    </button>
   );
 }
