@@ -1,7 +1,7 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { Instagram } from "lucide-react";
-import generalFooterPineapple from "@/assets/PULPINAMOONPINA.svg";
 import logoMen from "@/assets/pulpinamenwhite.svg";
+import menPineapple from "@/assets/PULPINAMENPINA.svg";
 import logoMoon from "@/assets/moonwhite.svg";
 import logoSunshine from "@/assets/sunshinewhite.svg";
 
@@ -62,19 +62,20 @@ const FOOTER_THEMES: Record<
   store: {
     accent: "Solicitudes por WhatsApp",
     badge: "General",
-    bg: "bg-[#171111]",
-    border: "border-[#171111]",
-    icon: "bg-[#f6efe7]/10 hover:bg-[#f6efe7]/20",
-    logo: generalFooterPineapple,
+    bg: "bg-[#131313]",
+    border: "border-[#131313]",
+    icon: "bg-[#f0f0f0]/10 hover:bg-[#f0f0f0]/20",
+    // Men's pineapple (base-theme redesign), at the general footer's original 80px.
+    logo: menPineapple,
     spacing: "mt-16",
-    text: "text-[#f6efe7]",
-    textSoft: "text-[#f6efe7]/72",
+    text: "text-[#f0f0f0]",
+    textSoft: "text-[#f0f0f0]/72",
   },
   moon: {
     accent: "Solicitudes por WhatsApp",
     badge: "Moon",
     bg: "bg-[var(--color-background)]",
-    border: "border-[var(--color-foreground)]",
+    border: "border-[#7b1832]",
     icon: "bg-[color:rgb(from_var(--color-foreground)_r_g_b_/_0.1)] hover:bg-[color:rgb(from_var(--color-foreground)_r_g_b_/_0.18)]",
     logo: logoMoon,
     spacing: "mt-0",
@@ -221,7 +222,7 @@ export function Footer({
         </div>
 
         {/* Centered as a group in the space between the logo and Redes - not each column centered on its own. */}
-        <div className="flex flex-wrap justify-center gap-8 md:gap-12">
+        <div className="flex flex-wrap justify-between gap-8 md:justify-center md:gap-12">
           <div data-footer-store>
             <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Store</div>
             <ul className="space-y-1.5 text-sm">

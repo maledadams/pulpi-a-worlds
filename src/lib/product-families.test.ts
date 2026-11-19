@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Product } from "@/data/products";
-import { collapseFamilies, familyMembers, familyRank } from "./product-families";
+import {
+  collapseFamilies,
+  convertChildBlock,
+  convertMotherBlock,
+  familyMembers,
+  familyRank,
+} from "./product-families";
 
 function product(overrides: Partial<Product> & { id: string }): Product {
   return {
@@ -99,5 +105,43 @@ describe("familyMembers", () => {
     const a = product({ id: "a", motherId: "m", createdAt: "2026-11-02T00:00:00.000Z" });
     const hidden = product({ id: "h", motherId: "m", hidden: true });
     expect(familyMembers(b, [b, hidden, a, mother]).map((p) => p.id)).toEqual(["m", "a", "b"]);
+  });
+});
+
+// Convertir (admin): turning existing products into sub-products of a mother.
+describe("convert rules", () => {
+  const red = { colors: [{ name: "Rojo", hex: "#f00" }] };
+  const blue = { colors: [{ name: "Azul", hex: "#00f" }] };
+  const green = { colors: [{ name: "Verde", hex: "#0f0" }] };
+  const mother = product({ id: "m", ...red });
+  const existingSub = product({ id: "s", motherId: "m", ...blue });
+  const otherMother = product({ id: "om", ...green });
+  const otherSub = product({ id: "os", motherId: "om", ...blue });
+  const free = product({ id: "f", ...green });
+  const all = [mother, existingSub, otherMother, otherSub, free];
+
+  it("blocks a sub-product as the mother", () => {
+    expect(convertMotherBlock(existingSub)).toMatch(/no puede ser madre/);
+    expect(convertMotherBlock(mother)).toBeNull();
+  });
+
+  it("lets a free product with a new color in", () => {
+    expect(convertChildBlock(free, mother, all, new Set())).toBeNull();
+  });
+
+  it("blocks the mother itself, subs, mothers of others and colorless products", () => {
+    expect(convertChildBlock(mother, mother, all, new Set())).toMatch(/madre/);
+    expect(convertChildBlock(existingSub, mother, all, new Set())).toMatch(/esta madre/);
+    expect(convertChildBlock(otherSub, mother, all, new Set())).toMatch(/otro producto/);
+    expect(convertChildBlock(otherMother, mother, all, new Set())).toMatch(/nieto/);
+    expect(convertChildBlock(product({ id: "n", colors: [] }), mother, all, new Set())).toMatch(/color/);
+  });
+
+  it("blocks a color the family or this pick already has", () => {
+    expect(convertChildBlock(product({ id: "r", colors: [{ name: "rojo", hex: "#f00" }] }), mother, all, new Set())).toMatch(
+      /madre ya tiene/,
+    );
+    expect(convertChildBlock(product({ id: "b", ...blue }), mother, all, new Set())).toMatch(/sub-producto de esta madre/);
+    expect(convertChildBlock(free, mother, all, new Set(["verde"]))).toMatch(/Ya elegiste/);
   });
 });

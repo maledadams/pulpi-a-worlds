@@ -335,12 +335,35 @@ export function CatalogBrowser({
   const moonTextClass = "text-[#f2e9e1]";
   const moonMutedTextClass = "text-[#f2e9e1]/66";
   const moonActiveClass = "border-[#8f2015] bg-[#8f2015] text-[#fff7f2]";
+  // Tienda (base theme): selectable filter chips look like the header
+  // dropdown's tabs - light gray, and black with white text when chosen.
+  const isTiendaLook = wideResults && !isMoonVibe;
+  const chipOnClass = "border-foreground bg-foreground text-background";
+  const chipOffClass = isTiendaLook
+    ? "border-transparent bg-muted text-muted-foreground hover:bg-foreground/8 hover:text-foreground"
+    : "border-foreground/20 bg-background text-foreground hover:border-foreground/50";
   const searchControlFrameClass = isMoonVibe
     ? `${moonBorderClass} ${moonSurfaceClass} ${moonTextClass} focus:border-[#f2e9e1]/22`
     : isSunshineVibe
       ? "border-[#d2a0ca] bg-white text-[#3a0a14] focus:border-[#bb82b2]"
-      : "border-foreground/20 bg-card focus:border-foreground";
-  const sortControlFrameClass = searchControlFrameClass;
+      : isTiendaLook
+        ? "!border-2 border-foreground bg-card focus:border-foreground"
+        : "border-foreground/20 bg-card focus:border-foreground";
+  // Moon page: the toolbar's outlines take the Moon footer's hue (styles.css,
+  // .moon-tint).
+  const moonTintClass = vibeScope === "moon" ? "moon-tint" : "";
+  // Sort select on each sub-store's page: the square buttons of that store's
+  // header preview, with no background (owner, 2026-11-18). Moon's outline is
+  // in the footer's hue. Options get a solid color so the open list stays
+  // readable.
+  const sortControlFrameClass =
+    vibeScope === "moon"
+      ? "border-[oklch(1_0.02_15/0.1)] bg-transparent text-[#f5ece8] [&_option]:bg-[#1a0a10]"
+      : vibeScope === "sunshine"
+        ? "border-[#b86f8b] bg-transparent text-[#3a0a14] [&_option]:bg-white"
+        : vibeScope === "men"
+          ? "border-white/10 bg-transparent text-white [&_option]:bg-[#111111]"
+          : searchControlFrameClass;
   const horizontalFilterTheme: "default" | "moon" | "sunshine" = isMoonVibe
     ? "moon"
     : isSunshineVibe
@@ -380,10 +403,10 @@ export function CatalogBrowser({
                 filters.categories.has(c.id)
                   ? isMoonVibe
                     ? moonActiveClass
-                    : "border-foreground bg-foreground text-background"
+                    : chipOnClass
                   : isMoonVibe
                     ? `${moonBorderClass} ${moonSurfaceClass} ${moonTextClass} ${moonBorderHoverClass}`
-                    : "border-foreground/20 bg-background text-foreground hover:border-foreground/50"
+                    : chipOffClass
               }`}
             >
               {c.label}
@@ -407,10 +430,10 @@ export function CatalogBrowser({
                   filters.apparelSizes.has(o.value)
                     ? isMoonVibe
                       ? moonActiveClass
-                      : "border-foreground bg-foreground text-background"
+                      : chipOnClass
                     : isMoonVibe
                       ? `${moonBorderClass} ${moonSurfaceClass} ${moonTextClass} ${moonBorderHoverClass}`
-                      : "border-foreground/20 bg-background text-foreground hover:border-foreground/50"
+                      : chipOffClass
                 }`}
                 title={`${sizeLabel(o.value)} (${o.count})`}
               >
@@ -433,10 +456,10 @@ export function CatalogBrowser({
                   filters.shoeSizes.has(o.value)
                     ? isMoonVibe
                       ? moonActiveClass
-                      : "border-foreground bg-foreground text-background"
+                      : chipOnClass
                     : isMoonVibe
                       ? `${moonBorderClass} ${moonSurfaceClass} ${moonTextClass} ${moonBorderHoverClass}`
-                      : "border-foreground/20 bg-background text-foreground hover:border-foreground/50"
+                      : chipOffClass
                 }`}
               >
                 {o.value}
@@ -524,7 +547,7 @@ export function CatalogBrowser({
   /* ── Search + sort bar ── */
   const searchBar = (
     <div
-      className={`mb-5 flex flex-col gap-2 sm:flex-row ${
+      className={`mb-5 flex flex-col gap-2 sm:flex-row ${moonTintClass} ${
         wideProductResultsOnly
           ? "md:w-[calc(100%+5rem)] md:max-w-[calc(100vw-2rem)]"
           : ""
@@ -571,7 +594,9 @@ export function CatalogBrowser({
           className={`flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-semibold md:hidden ${
             isMoonVibe
               ? `${moonBorderClass} ${moonSurfaceClass} ${moonTextClass}`
-              : "border-foreground/20 bg-card"
+              : isTiendaLook
+                ? "border-foreground bg-card"
+                : "border-foreground/20 bg-card"
           }`}
         >
           <SlidersHorizontal className="h-3.5 w-3.5" /> Filtros
@@ -587,7 +612,7 @@ export function CatalogBrowser({
 
   /* ── Horizontal filter pills ── */
   const horizontalFilters = (
-    <div className="mb-5">
+    <div className={`mb-5 ${moonTintClass}`}>
       <div className="flex flex-wrap justify-center gap-2">
         {showDepartmentFilter && departmentOptions.length > 0 && (
           <HorizontalFilter
@@ -807,6 +832,8 @@ export function CatalogBrowser({
               soldOutMode={soldOutMode}
               showSubtitle={false}
               tone={tone}
+              boldOutline={isTiendaLook}
+              outlineVibe={vibeScope}
               themeVibe={themeVibe ?? vibeScope}
             />
           ))}
@@ -858,7 +885,7 @@ export function CatalogBrowser({
             className="hidden self-start will-change-transform transition-transform duration-500 ease-out md:block"
             style={{ transform: `translate3d(0, ${filterFollower.offset}px, 0)` }}
           >
-            <div className="h-[calc(100vh/var(--page-zoom)-5rem)] overflow-hidden rounded-xl border border-foreground/15 bg-card">
+            <div className={`h-[calc(100vh/var(--page-zoom)-5rem)] overflow-hidden rounded-xl bg-card ${isTiendaLook ? "border-2 border-foreground" : "border border-foreground/15"}`}>
               <div className="h-full overflow-y-scroll overscroll-contain p-4 [scrollbar-gutter:stable]">
                 {filtersPanel}
               </div>

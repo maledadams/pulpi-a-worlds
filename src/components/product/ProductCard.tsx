@@ -11,7 +11,7 @@ const FRESH_BADGE = "bg-[#d9ff6f] text-[#243011]";
 
 const PRODUCT_BADGE_THEME = {
   pulpina: {
-    sale: "bg-[#c5475f] text-white",
+    sale: "bg-[#121212] text-white",
     fresh: FRESH_BADGE,
     soldOut: "bg-black/70 text-white",
   },
@@ -48,12 +48,18 @@ export function ProductCard({
   showSubtitle = false,
   tone = "vibe",
   themeVibe,
+  boldOutline = false,
+  outlineVibe,
 }: {
   product: Product;
   soldOutMode?: "standard" | "vibe";
   showSubtitle?: boolean;
   tone?: "store" | "vibe";
   themeVibe?: Product["vibe"];
+  /** Base-theme redesign (tienda, inicio): a 2px black outline. */
+  boldOutline?: boolean;
+  /** The store whose header wave color outlines the card (defaults to the card's theme). */
+  outlineVibe?: Product["vibe"];
 }) {
   void soldOutMode;
   const cart = useCart();
@@ -64,26 +70,43 @@ export function ProductCard({
   const soldOut = !product.available;
   const visualVibe = themeVibe ?? product.vibe;
   const badgeTheme = PRODUCT_BADGE_THEME[product.vibe];
-  // The discounted price on a sale card uses the general announcement red
-  // everywhere except Sunshine, which keeps its own pink.
-  const saleAccentColor = visualVibe === "sunshine" ? "#ff4ea3" : "#c5475f";
+  // Prices (owner, 2026-11-18): the card's own text color at 80% opacity;
+  // a sale's new price in that same color at full opacity. The
+  // strikethrough price keeps its own style.
+  // Normal prices are not bold; a sale's new price is (owner, 2026-11-18).
+  const priceOpacityClass = onSale ? "font-black" : "font-normal opacity-80";
   const isMoonCard = tone === "vibe" && visualVibe === "moon";
-  const cardOutlineClassName =
-    tone === "store"
-      ? "border-foreground/20"
-      : visualVibe === "sunshine"
-        ? "border-[#d2a0ca]"
-        : "border-foreground/20";
+  // Outlines (owner, final 2026-11-18): each sub-store's cards use the color of
+  // its hero wave line (heroWaveColor in routes/sunshine|moon|men.tsx), both in
+  // its own catalog (outlineVibe) and on its product pages. The base theme's
+  // tienda and home rails are black (boldOutline).
+  const cardOutlineClassName = outlineVibe === "sunshine"
+    ? "border-2 border-[#ff4ea3]"
+    : outlineVibe === "moon"
+      ? "border-2 border-[#7b1832]"
+      : outlineVibe === "men"
+        ? "border-2 border-[#8f2015]"
+        : boldOutline
+          ? "border-2 border-foreground"
+          : tone === "store"
+            ? "border-foreground/20"
+            : visualVibe === "sunshine"
+              ? "border-[#ff4ea3]"
+              : visualVibe === "moon"
+                ? "border-[#7b1832]"
+                : visualVibe === "men"
+                  ? "border-[#8f2015]"
+                  : "border-foreground";
   const noticeTextClassName =
     tone === "store"
-      ? "text-[#231717]"
+      ? "text-[#1b1b1b]"
       : product.vibe === "moon"
         ? "text-[#3a1c28]"
         : product.vibe === "sunshine"
           ? "text-[#3a0a14]"
           : product.vibe === "men"
             ? "text-[#3a0808]"
-            : "text-[#231717]";
+            : "text-[#1b1b1b]";
   const colors =
     product.colors ??
     (product.options.find((option) => option.name === "Color")?.values ?? []).map(
@@ -128,14 +151,14 @@ export function ProductCard({
   };
 
 const cartActionClassName =
-  "absolute right-2 top-2 z-[8] flex h-9 w-9 items-center justify-center rounded-full border border-black/15 bg-white text-[#231717] shadow-none transition-[transform,background-color] duration-150 hover:scale-105 hover:bg-white hover:shadow-none disabled:cursor-not-allowed disabled:opacity-45";
+  "absolute right-2 top-2 z-[8] flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#231717] shadow-none transition-[transform,background-color] duration-150 hover:scale-105 hover:bg-white hover:shadow-none disabled:cursor-not-allowed disabled:opacity-45";
 
   return (
     <>
       <div className="card-lift group relative block h-full rounded-lg">
         <Link to="/producto/$slug" params={{ slug: product.slug }} className="block h-full">
           <div
-            className={`flex aspect-[4/7] h-full flex-col overflow-hidden rounded-lg border shadow-sm ${cardOutlineClassName} ${
+            className={`flex aspect-[4/7] h-full flex-col overflow-hidden rounded-lg ${boldOutline ? "" : "border"} shadow-sm ${cardOutlineClassName} ${
               isMoonCard ? "bg-[#111111] text-[#f2e9e1]" : "bg-card"
             }`}
           >
@@ -224,8 +247,7 @@ const cartActionClassName =
                   </span>
                 ) : null}
                 <span
-                  className={`text-sm font-black sm:text-[0.95rem] ${onSale ? "hidden sm:inline" : ""}`}
-                  style={onSale ? { color: saleAccentColor } : undefined}
+                  className={`text-sm sm:text-[0.95rem] ${onSale ? "hidden sm:inline" : ""} ${priceOpacityClass}`}
                 >
                   {formatPrice(product.price, product.currencyCode)}
                 </span>
@@ -243,7 +265,7 @@ const cartActionClassName =
                   ) : (
                     <span />
                   )}
-                  <span className="text-sm font-black" style={{ color: saleAccentColor }}>
+                  <span className="text-sm font-black">
                     {formatPrice(product.price, product.currencyCode)}
                   </span>
                 </div>

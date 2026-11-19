@@ -229,7 +229,7 @@ function InquiryPage() {
   if (createdOrder) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-8 sm:py-12">
-        <div className="rounded-3xl border border-foreground/15 bg-card p-6 sm:p-8">
+        <div className="rounded-3xl border border-foreground bg-card p-6 sm:p-8">
           <div className="flex flex-col items-center text-center">
             <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-emerald-900">
               <CheckCircle2 className="h-4 w-4" />
@@ -267,7 +267,7 @@ function InquiryPage() {
                   const image = variant?.image ?? product?.featuredImage ?? null;
 
                   return (
-                    <div key={`${line.variantId}-${line.quantity}`} className="rounded-2xl border border-foreground/10 bg-card p-3">
+                    <div key={`${line.variantId}-${line.quantity}`} className="rounded-2xl border border-foreground bg-card p-3">
                       <div className="flex items-start gap-4">
                         {image ? (
                           <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-foreground/20">
@@ -288,7 +288,7 @@ function InquiryPage() {
                             <div className="mt-1 text-xs text-muted-foreground">{line.variantLabel}</div>
                             <div className="mt-2 text-xs text-muted-foreground">Cantidad: {line.quantity}</div>
                           </div>
-                          <div className="text-right font-bold">{formatPrice(line.unitPrice * line.quantity)}</div>
+                          <div className="text-right">{formatPrice(line.unitPrice * line.quantity)}</div>
                         </div>
                       </div>
                     </div>
@@ -347,7 +347,7 @@ function InquiryPage() {
   if (cart.lines.length > 0 && cart.hasUnavailableLines) {
     return (
       <div className="mx-auto max-w-lg px-4 py-20 text-center">
-        <ShoppingBag className="mx-auto h-10 w-10 text-[#c5475f]" />
+        <ShoppingBag className="mx-auto h-10 w-10 text-[#121212]" />
         <h1 className="mt-4 font-body text-3xl font-bold">Revisa tu carrito</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Hay productos agotados o eliminados. No se pueden incluir en la solicitud.
@@ -389,7 +389,7 @@ function InquiryPage() {
       <div ref={orderFormFollower.containerRef} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_404px]">
         <section
           ref={orderFormFollower.floatingRef}
-          className="flex self-start flex-col rounded-3xl border border-foreground/15 bg-card p-5 will-change-transform transition-transform duration-500 ease-out sm:p-6"
+          className="flex self-start flex-col rounded-3xl border border-foreground bg-card p-5 will-change-transform transition-transform duration-500 ease-out sm:p-6"
           style={{ transform: `translate3d(0, ${orderFormFollower.offset}px, 0)` }}
         >
           <h1 className="font-body text-3xl font-bold sm:text-4xl" style={{ transform: "none" }}>Genera tu numero de orden</h1>
@@ -529,8 +529,8 @@ function InquiryPage() {
                   maxLength={ORDER_FIELD_LIMITS.name}
                   autoComplete="name"
                   placeholder="Tu nombre"
-                  className={`w-full rounded-2xl border bg-[#fbf4e8] px-4 py-3 text-[#231717] caret-[#231717] placeholder:text-[#7c665f] ${
-                    fieldErrors.customerName ? "border-red-500" : "border-[#231717]/15"
+                  className={`w-full rounded-2xl border bg-white px-4 py-3 text-[#1b1b1b] caret-[#1b1b1b] placeholder:text-[#6c6c6c] ${
+                    fieldErrors.customerName ? "border-red-500" : "border-[#1b1b1b]/15"
                   }`}
                   onChange={(event) => {
                     setCustomerName(event.target.value);
@@ -547,8 +547,8 @@ function InquiryPage() {
                   autoComplete="email"
                   autoCapitalize="none"
                   placeholder="Tu correo"
-                  className={`w-full rounded-2xl border bg-[#fbf4e8] px-4 py-3 text-[#231717] caret-[#231717] placeholder:text-[#7c665f] ${
-                    fieldErrors.customerEmail ? "border-red-500" : "border-[#231717]/15"
+                  className={`w-full rounded-2xl border bg-white px-4 py-3 text-[#1b1b1b] caret-[#1b1b1b] placeholder:text-[#6c6c6c] ${
+                    fieldErrors.customerEmail ? "border-red-500" : "border-[#1b1b1b]/15"
                   }`}
                   onChange={(event) => {
                     setCustomerEmail(event.target.value);
@@ -566,18 +566,18 @@ function InquiryPage() {
 
             <div>
               <div
-                className={`flex w-full items-center rounded-2xl border bg-[#fbf4e8] px-4 py-3 text-[#231717] ${
-                  fieldErrors.customerPhone ? "border-red-500" : "border-[#231717]/15"
+                className={`flex w-full items-center rounded-2xl border bg-white px-4 py-3 text-[#1b1b1b] ${
+                  fieldErrors.customerPhone ? "border-red-500" : "border-[#1b1b1b]/15"
                 }`}
               >
-                <span className="mr-2 shrink-0 text-[#7c665f]">+1</span>
+                <span className="mr-2 shrink-0 text-[#6c6c6c]">+1</span>
                 <input
                   type="tel"
                   inputMode="numeric"
                   autoComplete="tel"
                   value={customerPhone}
                   placeholder="(809) 000-0000"
-                  className="w-full bg-transparent text-[#231717] caret-[#231717] placeholder:text-[#7c665f] focus:outline-none"
+                  className="w-full bg-transparent text-[#1b1b1b] caret-[#1b1b1b] placeholder:text-[#6c6c6c] focus:outline-none"
                   onChange={(event) => {
                     setCustomerPhone((previous) => formatPhoneInput(event.target.value, previous));
                     if (fieldErrors.customerPhone) setFieldErrors((prev) => ({ ...prev, customerPhone: undefined }));
@@ -591,7 +591,7 @@ function InquiryPage() {
               <input
                 value={discountCode}
                 placeholder="Código de descuento"
-                className="w-full rounded-2xl border border-[#231717]/15 bg-[#fbf4e8] px-4 py-3 uppercase text-[#231717] caret-[#231717] placeholder:normal-case placeholder:text-[#7c665f]"
+                className="w-full rounded-2xl border border-[#1b1b1b]/15 bg-white px-4 py-3 uppercase text-[#1b1b1b] caret-[#1b1b1b] placeholder:normal-case placeholder:text-[#6c6c6c]"
                 onChange={(event) => {
                   setDiscountCode(event.target.value.toUpperCase());
                   setAppliedDiscountCode("");
@@ -603,7 +603,7 @@ function InquiryPage() {
               <button
                 type="button"
                 disabled={applyingDiscount || !discountCode.trim() || !customerEmail.trim()}
-                className="border border-[#231717] bg-[#231717] px-5 py-3 text-sm font-bold uppercase text-[#fbf4e8] disabled:cursor-not-allowed disabled:opacity-45"
+                className="border border-[#1b1b1b] bg-[#1b1b1b] px-5 py-3 text-sm font-bold uppercase text-[#f5f5f5] disabled:cursor-not-allowed disabled:opacity-45"
                 onClick={() => {
                   const email = normalizeOrderEmail(customerEmail);
                   if (!ORDER_EMAIL_PATTERN.test(email)) {
@@ -658,12 +658,12 @@ function InquiryPage() {
                 onClick={() => setFulfillmentMethod("pickup")}
                 className={`rounded-2xl border px-4 py-4 text-left transition ${
                   fulfillmentMethod === "pickup"
-                    ? "border-[#231717] bg-[#231717] text-[#fbf4e8]"
-                    : "border-[#231717]/15 bg-[#fbf4e8] text-[#231717]"
+                    ? "border-[#1b1b1b] bg-[#1b1b1b] text-[#f5f5f5]"
+                    : "border-[#1b1b1b]/15 bg-white text-[#1b1b1b]"
                 }`}
               >
                 <div className="text-sm font-bold">Recoger</div>
-                <div className={`mt-1 text-xs ${fulfillmentMethod === "pickup" ? "text-[#fbf4e8]/75" : "text-[#6b5a55]"}`}>
+                <div className={`mt-1 text-xs ${fulfillmentMethod === "pickup" ? "text-[#f5f5f5]/75" : "text-[#5e5e5e]"}`}>
                   Sin costo adicional.
                 </div>
               </button>
@@ -672,12 +672,12 @@ function InquiryPage() {
                 onClick={() => setFulfillmentMethod("delivery")}
                 className={`rounded-2xl border px-4 py-4 text-left transition ${
                   fulfillmentMethod === "delivery"
-                    ? "border-[#231717] bg-[#231717] text-[#fbf4e8]"
-                    : "border-[#231717]/15 bg-[#fbf4e8] text-[#231717]"
+                    ? "border-[#1b1b1b] bg-[#1b1b1b] text-[#f5f5f5]"
+                    : "border-[#1b1b1b]/15 bg-white text-[#1b1b1b]"
                 }`}
               >
                 <div className="text-sm font-bold">Delivery</div>
-                <div className={`mt-1 text-xs ${fulfillmentMethod === "delivery" ? "text-[#fbf4e8]/75" : "text-[#6b5a55]"}`}>
+                <div className={`mt-1 text-xs ${fulfillmentMethod === "delivery" ? "text-[#f5f5f5]/75" : "text-[#5e5e5e]"}`}>
                   Agrega direccion. El monto se confirma luego.
                 </div>
               </button>
@@ -690,8 +690,8 @@ function InquiryPage() {
                     value={addressLine1}
                     maxLength={ORDER_FIELD_LIMITS.address}
                     placeholder="Calle, numero, sector o referencia (ej: Calle Duarte #45, apto 3B)"
-                    className={`w-full rounded-2xl border bg-[#fbf4e8] px-4 py-3 text-[#231717] caret-[#231717] placeholder:text-[#7c665f] ${
-                      fieldErrors.addressLine1 ? "border-red-500" : "border-[#231717]/15"
+                    className={`w-full rounded-2xl border bg-white px-4 py-3 text-[#1b1b1b] caret-[#1b1b1b] placeholder:text-[#6c6c6c] ${
+                      fieldErrors.addressLine1 ? "border-red-500" : "border-[#1b1b1b]/15"
                     }`}
                     onChange={(event) => {
                       setAddressLine1(event.target.value);
@@ -705,8 +705,8 @@ function InquiryPage() {
                     value={addressCity}
                     maxLength={ORDER_FIELD_LIMITS.city}
                     placeholder="Ciudad"
-                    className={`w-full rounded-2xl border bg-[#fbf4e8] px-4 py-3 text-[#231717] caret-[#231717] placeholder:text-[#7c665f] ${
-                      fieldErrors.addressCity ? "border-red-500" : "border-[#231717]/15"
+                    className={`w-full rounded-2xl border bg-white px-4 py-3 text-[#1b1b1b] caret-[#1b1b1b] placeholder:text-[#6c6c6c] ${
+                      fieldErrors.addressCity ? "border-red-500" : "border-[#1b1b1b]/15"
                     }`}
                     onChange={(event) => {
                       setAddressCity(event.target.value);
@@ -718,9 +718,9 @@ function InquiryPage() {
                 <div>
                   <select
                     value={addressProvince}
-                    className={`w-full rounded-2xl border bg-[#fbf4e8] px-4 py-3 text-[#231717] ${
-                      addressProvince ? "" : "text-[#7c665f]"
-                    } ${fieldErrors.addressProvince ? "border-red-500" : "border-[#231717]/15"}`}
+                    className={`w-full rounded-2xl border bg-white px-4 py-3 text-[#1b1b1b] ${
+                      addressProvince ? "" : "text-[#6c6c6c]"
+                    } ${fieldErrors.addressProvince ? "border-red-500" : "border-[#1b1b1b]/15"}`}
                     onChange={(event) => {
                       setAddressProvince(event.target.value);
                       if (fieldErrors.addressProvince) setFieldErrors((prev) => ({ ...prev, addressProvince: undefined }));
@@ -745,7 +745,7 @@ function InquiryPage() {
               value={notes}
               maxLength={ORDER_FIELD_LIMITS.notes}
               placeholder="Notas opcionales: horario, referencia, dudas de talla, etc."
-              className="w-full rounded-2xl border border-[#231717]/15 bg-[#fbf4e8] px-4 py-3 text-[#231717] caret-[#231717] placeholder:text-[#7c665f]"
+              className="w-full rounded-2xl border border-[#1b1b1b]/15 bg-white px-4 py-3 text-[#1b1b1b] caret-[#1b1b1b] placeholder:text-[#6c6c6c]"
               onChange={(event) => setNotes(event.target.value)}
             />
 
@@ -771,13 +771,13 @@ function InquiryPage() {
           </form>
         </section>
 
-        <aside className="rounded-3xl border border-foreground/15 bg-card p-5">
+        <aside className="rounded-3xl border border-foreground bg-card p-5">
           <div className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">
             <ShoppingBag className="h-4 w-4" /> Resumen del pedido
           </div>
           <div className="grid gap-3">
             {summaryCards.map((line) => (
-              <div key={line.id} className="rounded-2xl border border-foreground/10 bg-background p-3">
+              <div key={line.id} className="rounded-2xl border border-foreground bg-background p-3">
                 <div className="flex items-stretch gap-6">
                   {line.image ? (
                     <div className="h-24 w-24 shrink-0 overflow-hidden border border-foreground/20">
@@ -796,7 +796,7 @@ function InquiryPage() {
                     <div className="leading-tight">{line.title}</div>
                     {line.options ? <div className="mt-1 text-xs text-muted-foreground">{line.options}</div> : null}
                     <div className="mt-2 text-xs text-muted-foreground">Cantidad: {line.quantity}</div>
-                    <div className="mt-2 font-bold">{formatPrice(line.total, cart.currencyCode)}</div>
+                    <div className="mt-2">{formatPrice(line.total, cart.currencyCode)}</div>
                   </div>
                 </div>
               </div>

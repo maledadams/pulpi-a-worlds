@@ -139,13 +139,14 @@ function HomeRailSection({
               {products.map((product) => (
                 <CarouselItem
                   key={product.id}
-                  className="basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5 xl:basis-1/6"
+                  className="basis-[60%] sm:basis-1/3 md:basis-1/4 lg:basis-1/5 xl:basis-1/6"
                 >
                   <ProductCard
                     product={product}
                     soldOutMode="standard"
                     showSubtitle={false}
                     tone="store"
+                    boldOutline
                   />
                 </CarouselItem>
               ))}
@@ -156,7 +157,7 @@ function HomeRailSection({
             aria-label={`Anterior en ${title}`}
             disabled={!canScrollPrev}
             onClick={() => api?.scrollPrev()}
-            className="absolute -left-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-background/90 disabled:hover:text-foreground sm:-left-4 md:-left-2 lg:-left-3 xl:-left-16"
+            className="ui-circle absolute -left-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-background/90 disabled:hover:text-foreground sm:-left-4 md:-left-2 lg:-left-3 xl:-left-16"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
@@ -165,7 +166,7 @@ function HomeRailSection({
             aria-label={`Siguiente en ${title}`}
             disabled={!canScrollNext}
             onClick={() => api?.scrollNext()}
-            className="absolute -right-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-background/90 disabled:hover:text-foreground sm:-right-4 md:-right-2 lg:-right-3 xl:-right-16"
+            className="ui-circle absolute -right-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-background/90 disabled:hover:text-foreground sm:-right-4 md:-right-2 lg:-right-3 xl:-right-16"
           >
             <ChevronRight className="h-5 w-5" />
           </button>
@@ -251,7 +252,7 @@ function Home() {
       </h1>
       <section className="flex min-h-[calc(100vh/var(--page-zoom)-4.75rem)] w-full items-start px-4 pt-10 pb-16 md:pb-20">
         <div
-          className="relative w-full overflow-hidden rounded-[2rem] border border-[#f4e9df]/10 px-5 py-12 sm:px-8 md:px-10 md:py-14"
+          className="relative w-full overflow-hidden rounded-[2rem] border border-[#ebebeb]/10 px-5 py-12 sm:px-8 md:px-10 md:py-14"
         >
           <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(7,7,8,0.99)_0%,rgba(14,14,15,0.98)_52%,rgba(22,22,24,0.98)_100%)]" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_50%,rgba(116,36,62,0.26),transparent_24%),radial-gradient(circle_at_82%_50%,rgba(146,146,152,0.2),transparent_24%)]" />
@@ -304,39 +305,29 @@ function Home() {
         <HomeRailSection key={section.id} title={section.title} products={section.products} />
       ))}
 
-      <section className="relative overflow-hidden bg-white px-4 py-14 text-center">
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 hidden lg:block">
-          <img
-            src={partyHat}
-            alt=""
-            className="absolute left-[2%] top-1/2 w-24 -translate-y-1/2 -rotate-[16deg] object-contain xl:w-32 2xl:w-[9.5rem]"
-          />
-          <img
-            src={cakeTwo}
-            alt=""
-            className="absolute left-[18%] top-1/2 hidden w-44 -translate-y-1/2 -rotate-[10deg] object-contain 2xl:block"
-          />
-          <img
-            src={cakeFour}
-            alt=""
-            className="absolute right-[18%] top-1/2 hidden w-44 -translate-y-1/2 rotate-[10deg] object-contain 2xl:block"
-          />
-          <img
-            src={partyHatTwo}
-            alt=""
-            className="absolute right-[2%] top-1/2 w-24 -translate-y-1/2 rotate-[16deg] object-contain xl:w-32 2xl:w-40"
-          />
-        </div>
-        <div className="relative z-10 flex items-center justify-center gap-3">
+      <section className="relative overflow-hidden border-y-2 border-foreground/15 bg-muted px-4 py-14 text-center">
+        <div className="relative z-10 flex items-center justify-center gap-3 lg:gap-6">
           <img
             src={cakeTwo}
             alt=""
             aria-hidden="true"
             className="h-16 w-16 shrink-0 object-contain sm:hidden"
           />
+          <img
+            src={partyHat}
+            alt=""
+            aria-hidden="true"
+            className="hidden h-28 w-28 shrink-0 -rotate-[16deg] object-contain lg:block"
+          />
           <h2 className="text-4xl md:text-6xl" style={{ transform: "none" }}>
             {birthdayTitle}
           </h2>
+          <img
+            src={partyHatTwo}
+            alt=""
+            aria-hidden="true"
+            className="hidden h-28 w-28 shrink-0 rotate-[16deg] object-contain lg:block"
+          />
           <img
             src={cakeFour}
             alt=""
@@ -393,7 +384,7 @@ function Home() {
             required
             value={newsletterEmail}
             placeholder="tu@correo.com"
-            className="w-full min-w-0 rounded-full border border-foreground/20 bg-background px-3 py-2.5 text-sm outline-none focus:border-foreground sm:px-4"
+            className="w-full min-w-0 rounded-full border-2 border-foreground/15 bg-background px-3 py-2.5 text-sm outline-none focus:border-foreground sm:px-4"
             onChange={(event) => {
               setNewsletterEmail(event.target.value);
               setBirthdaySaved(false);
@@ -404,7 +395,7 @@ function Home() {
             required
             value={birthdayDate}
             aria-label="Fecha de cumpleaños"
-            className="w-full min-w-0 rounded-full border border-foreground/20 bg-background px-3 py-2.5 text-sm outline-none focus:border-foreground sm:px-4"
+            className="w-full min-w-0 rounded-full border-2 border-foreground/15 bg-background px-3 py-2.5 text-sm outline-none focus:border-foreground sm:px-4"
             onChange={(event) => {
               setBirthdayDate(event.target.value);
               setBirthdaySaved(false);

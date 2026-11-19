@@ -154,11 +154,10 @@ const NAV: NavItem[] = [
   { to: "/contacto", label: "Contacto" },
 ];
 
-/* ── per-vibe mega panel styling ───────────────── */
+/* ── per-vibe mega panel ───────────────────────── */
+// Each store's preview takes its background and text from that store's own
+// theme (data-vibe on the panel); its pills and square buttons are these.
 type VibePanelStyle = {
-  panelBg: string;
-  text: string;
-  muted: string;
   linkCls: string;
   tabActiveCls: string;
   tabIdleCls: string;
@@ -168,33 +167,25 @@ type VibePanelStyle = {
 
 const VIBE_PANEL: Partial<Record<MegaKey, VibePanelStyle>> = {
   moon: {
-    panelBg: "linear-gradient(135deg,#0a0408 0%,#2a0a14 55%,#5a1420 100%)",
-    text: "text-[#f5ece8]",
-    muted: "text-[#c4a8a2]",
     linkCls: "border-white/10 bg-white/5 text-[#f5ece8] hover:bg-white/12",
-    tabActiveCls: "bg-[#f5ece8] text-[#2a0a14]",
+    tabActiveCls: "bg-foreground text-background",
     tabIdleCls: "bg-white/10 text-[#f5ece8] hover:bg-white/18",
     logo: logoMoonImg,
     logoBlend: "mix-blend-screen",
   },
   sunshine: {
-    panelBg: "linear-gradient(135deg,#ff8fc9 0%,#ffe66a 55%,#c5f56a 100%)",
-    text: "text-[#3a0a14]",
-    muted: "text-[#5a1828]",
     linkCls: "border-[#b86f8b] bg-[#5a1830]/10 text-[#3a0a14] hover:bg-[#5a1830]/18",
-    tabActiveCls: "bg-[#3a0a14] text-[#fff1b8]",
+    tabActiveCls: "bg-foreground text-background",
     tabIdleCls: "bg-[#5a1830]/10 text-[#3a0a14] hover:bg-[#5a1830]/18",
     logo: logoSunImg,
-    /* no blend — show logo naturally on the light gradient */
+    /* no blend — show logo naturally on the light background */
     logoBlend: "",
   },
   men: {
-    panelBg: "linear-gradient(135deg,#0a0a0a 0%,#1c1010 55%,#3a0808 100%)",
-    text: "text-[#f0e8e6]",
-    muted: "text-[#b09898]",
-    linkCls: "border-white/10 bg-white/5 text-[#f0e8e6] hover:bg-white/12",
-    tabActiveCls: "bg-[#f0e8e6] text-[#3a0808]",
-    tabIdleCls: "bg-white/10 text-[#f0e8e6] hover:bg-white/18",
+    // White text on Men's buttons (owner, 2026-11-18).
+    linkCls: "border-white/10 bg-white/5 text-white hover:bg-white/12",
+    tabActiveCls: "bg-foreground text-background",
+    tabIdleCls: "bg-white/10 text-white hover:bg-white/18",
     logo: logoMenImg,
     logoBlend: "mix-blend-screen",
   },
@@ -204,11 +195,9 @@ const VIBE_PANEL: Partial<Record<MegaKey, VibePanelStyle>> = {
 function CategoryCircle({
   item,
   textCls = "text-foreground",
-  isVibe = false,
 }: {
   item: MegaSection["categories"][number];
   textCls?: string;
-  isVibe?: boolean;
 }) {
   const p = item.product;
   const image = item.image ?? p?.featuredImage ?? null;
@@ -225,7 +214,7 @@ function CategoryCircle({
         style={
           p
             ? { background: `linear-gradient(135deg, ${p.swatch[0]}, ${p.swatch[1]})` }
-            : { background: isVibe ? "rgba(255,255,255,0.15)" : "#f3ece2" }
+            : { background: "var(--muted)" }
         }
       >
         {image ? (
@@ -237,7 +226,7 @@ function CategoryCircle({
             className="ui-circle h-full w-full object-cover"
           />
         ) : (
-          <span className={`font-display text-lg uppercase ${isVibe ? "text-white/80" : "text-foreground/55"}`}>
+          <span className="font-display text-lg uppercase text-foreground/55">
             {initials(p?.name ?? item.label)}
           </span>
         )}
@@ -282,10 +271,10 @@ function getAnnouncementTheme(themeKey: AnnouncementThemeKey): AnnouncementTheme
   }
 
   return {
-    background: "bg-[#c5475f]",
+    background: "bg-[#121212]",
     border: "border-transparent",
     text: "text-white",
-    badgeBackground: "bg-[#c5475f]",
+    badgeBackground: "bg-[#121212]",
     badgeText: "text-white",
   };
 }
@@ -354,10 +343,21 @@ export function Header({
           : loc.pathname.startsWith("/men")
             ? "men"
             : "store");
-  const announcementTheme = getAnnouncementTheme(activeThemeKey);
+  // Base theme = not Moon, Sunshine or Men. Header links hover in each
+  // theme's own muted color: light gray in the base theme; the sub-stores
+  // keep their original hover.
+  const isBaseTheme = activeThemeKey === "store";
+  const hoverCls = "hover:bg-muted hover:text-foreground";
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
   const [activeMega, setActiveMega] = useState<MegaKey | null>(null);
+  // Hovering Moon, Sunshine or Men switches the whole header to that store's
+  // theme while its preview is open; hovering off returns to the page's theme.
+  // Tienda/Nuevo/Oferta never switch it. No color animation (owner,
+  // 2026-11-18): see .site-header in styles.css.
+  const hoverStore = activeMega && VIBE_PANEL[activeMega] ? (activeMega as "moon" | "sunshine" | "men") : null;
+  const headerThemeKey = hoverStore ?? activeThemeKey;
+  const announcementTheme = getAnnouncementTheme(headerThemeKey);
   const [renderedMega, setRenderedMega] = useState<MegaKey | null>(null);
   const [categoryPage, setCategoryPage] = useState(0);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -495,17 +495,21 @@ export function Header({
 
   return (
     <header
-      className={`sticky top-0 bg-background/95 backdrop-blur transition-colors duration-300 ${
+      data-vibe={hoverStore ?? undefined}
+      className={`site-header sticky top-0 bg-background text-foreground ${
         renderedMega ? "z-[99999]" : "z-40"
       }`}
       onMouseLeave={handleMouseLeaveHeader}
     >
       {/* ── Top bar ── */}
-      <div className="relative z-20 mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4">
+      {/* Full-width, with the header's own background: the mega panel's extra
+          strip (below) tucks behind this row, out of sight. */}
+      <div className="relative z-20 bg-background">
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4">
         {/* Logo */}
         <Link to="/" className="flex shrink-0 items-center gap-2 -mr-[2.2rem]">
           <StorePineapple
-            theme={activeThemeKey}
+            theme={headerThemeKey}
             className="h-6 w-6 shrink-0 object-contain sm:h-9"
           />
           <span
@@ -535,7 +539,7 @@ export function Header({
                 className={`ui-nav-rounded px-3 py-1.5 text-sm font-semibold transition-colors ${
                   active || megaActive
                     ? "bg-foreground text-background"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    : `text-muted-foreground ${hoverCls}`
                 }`}
               >
                 {n.label}
@@ -546,12 +550,12 @@ export function Header({
 
         {/* Icons */}
         <div className="flex items-center gap-1">
-          <Link to="/tienda" className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Buscar">
+          <Link to="/tienda" className="rounded-full p-2 text-muted-foreground" aria-label="Buscar">
             <Search className="h-5 w-5" />
           </Link>
           <button
             onClick={() => cart.setOpen(true)}
-            className="relative rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="relative rounded-full p-2 text-muted-foreground"
             aria-label="Carrito"
           >
             <ShoppingBag className="h-5 w-5" />
@@ -565,50 +569,73 @@ export function Header({
           </button>
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground md:hidden"
+            className={`rounded-full p-2 text-muted-foreground md:hidden ${hoverCls}`}
             aria-label="Menú"
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
       </div>
+      </div>
 
       {/* ── Desktop mega menu ── */}
-      <AnnouncementBar announcements={announcements} theme={announcementTheme} />
+      {/* The announcement keeps the page's own color while a store preview is
+          hovered; it only changes when the page itself changes (owner, 2026-11-18). */}
+      <AnnouncementBar announcements={announcements} theme={getAnnouncementTheme(activeThemeKey)} />
       {/* Hangs off the bottom of the nav row (top-14 = its h-14), so it covers
           the announcement bar instead of opening below it. Pure CSS on
           purpose: html has a per-breakpoint `zoom` (styles.css), and JS
           measurements under zoom disagree between Safari and Chrome. */}
       <div
-          className={`absolute inset-x-0 top-14 hidden overflow-hidden shadow-xl transition-[max-height,opacity,transform] duration-250 md:block ${
+          // Starts 1rem above the nav row's bottom (top-10, not top-14) so a
+          // strip of its own background sits behind the header; pt-9 below
+          // keeps the content exactly where it was. While it slides, that
+          // strip covers the gap (owner, 2026-11-18). Opens coming down out of
+          // the header (mega-in), closes going back up behind it (mega-out).
+          className={`absolute inset-x-0 top-10 hidden max-h-[35rem] overflow-hidden shadow-xl md:block ${
             megaOpen
-              ? "pointer-events-auto max-h-[34rem] translate-y-0 opacity-100"
-              : "pointer-events-none max-h-0 -translate-y-1 opacity-0"
+              ? "pointer-events-auto opacity-100 [animation:mega-in_250ms_ease]"
+              : renderedMega
+                ? "pointer-events-none opacity-0 [animation:mega-out_250ms_ease]"
+                : "pointer-events-none opacity-0"
           }`}
+          // Moon, Sunshine and Men previews wear their own store's palette on
+          // every page (owner, 2026-11-18); General/Nuevo/Oferta follow the
+          // page you are on. Raw var(--...) here, not --color-*, so they
+          // resolve against this data-vibe.
+          data-vibe={currentMega && VIBE_PANEL[currentMega.key] ? currentMega.key : undefined}
           style={{
-            background: currentMega
-              ? (VIBE_PANEL[currentMega.key]?.panelBg ?? "var(--color-background)")
-              : "var(--color-background)",
-            /* thin white bottom border always visible on vibe panels */
-            borderBottom: currentMega && VIBE_PANEL[currentMega.key]
-              ? "1px solid rgba(255,255,255,0.18)"
-              : "1px solid var(--color-border)",
-            transition: "max-height 0.25s ease, opacity 0.25s ease, transform 0.25s ease",
-            zIndex: 99999,
+            background: "var(--background)",
+            borderBottom: "1px solid var(--border)",
+            // Under the nav row (z-20) so the extra strip hides behind it,
+            // over the announcement bar.
+            zIndex: 10,
           }}
           onMouseEnter={handleMouseEnterPanel}
         >
           {currentMega && (() => {
           const vs = VIBE_PANEL[currentMega.key];
-          const textCls  = vs?.text  ?? "text-foreground";
-          const mutedCls = vs?.muted ?? "text-muted-foreground";
-          const linkCls  = vs?.linkCls ?? "border-foreground/10 bg-card text-foreground hover:bg-muted";
-          const tabActiveCls = vs?.tabActiveCls ?? "bg-foreground text-background";
-          const tabIdleCls   = vs?.tabIdleCls   ?? "bg-muted text-muted-foreground hover:bg-foreground/8 hover:text-foreground";
-          const borderDiv    = vs ? "border-white/12" : "border-foreground/8";
+          // Text colors resolve against the panel's data-vibe above.
+          const textCls  = "text-foreground";
+          const mutedCls = "text-muted-foreground";
+          // General/Nuevo/Oferta panels: light gray buttons in the base theme;
+          // on the Moon and Sunshine pages, that store's own preview pills and
+          // square buttons; on the Men page their own style with white text
+          // (owner, 2026-11-18).
+          const pageVs =
+            activeThemeKey === "moon" || activeThemeKey === "sunshine" ? VIBE_PANEL[activeThemeKey] : undefined;
+          const isMenPage = activeThemeKey === "men";
+          const linkCls  = vs?.linkCls ?? pageVs?.linkCls ?? (isBaseTheme
+            ? "border-foreground/15 bg-muted text-muted-foreground hover:bg-foreground/8 hover:text-foreground"
+            : `border-foreground/10 bg-card ${isMenPage ? "text-white" : "text-foreground"} hover:bg-muted`);
+          const tabActiveCls = vs?.tabActiveCls ?? pageVs?.tabActiveCls ?? "bg-foreground text-background";
+          const tabIdleCls   = vs?.tabIdleCls   ?? pageVs?.tabIdleCls   ?? (isMenPage
+            ? "bg-muted text-white hover:bg-foreground/8"
+            : "bg-muted text-muted-foreground hover:bg-foreground/8 hover:text-foreground");
+          const borderDiv    = "border-foreground/8";
 
           return (
-            <div className="mx-auto max-w-7xl px-4 py-5">
+            <div className="mx-auto max-w-7xl px-4 pb-5 pt-9">
               {/* ── Section tabs ── */}
               <div className={`mb-5 flex flex-wrap items-center gap-1.5 border-b pb-4 ${borderDiv}`}>
                 {(["tienda","moon","sunshine","men","nuevo","oferta"] as MegaKey[]).map((key) => {
@@ -733,7 +760,6 @@ export function Header({
                               key={`${currentMega.key}-${item.label}`}
                               item={item}
                               textCls={textCls}
-                              isVibe={!!vs}
                             />
                           ))}
                         </div>
@@ -761,7 +787,7 @@ export function Header({
                       to={n.to}
                       onClick={() => !n.children && setMobileOpen(false)}
                       className={`ui-nav-rounded flex-1 px-3 py-2.5 text-sm font-semibold transition-colors ${
-                        active ? "bg-foreground text-background" : "hover:bg-muted"
+                        active ? "bg-foreground text-background" : hoverCls
                       }`}
                     >
                       {n.label}
@@ -769,7 +795,7 @@ export function Header({
                     {n.children && (
                       <button
                         onClick={() => setMobileExpanded(expanded ? null : n.to)}
-                        className="ui-nav-rounded ml-1 p-2 hover:bg-muted"
+                        className={`ui-nav-rounded ml-1 p-2 ${hoverCls}`}
                       >
                         <span className={`block h-4 w-4 text-muted-foreground transition-transform ${expanded ? "rotate-90" : ""}`}>
                           ›
@@ -785,7 +811,7 @@ export function Header({
                           to={child.to}
                           search={child.search}
                           onClick={() => setMobileOpen(false)}
-                          className="ui-nav-rounded px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                          className={`ui-nav-rounded px-3 py-2 text-sm text-muted-foreground ${hoverCls}`}
                         >
                           {child.label}
                         </Link>

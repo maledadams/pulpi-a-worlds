@@ -33,10 +33,12 @@ import {
   uploadAdminProductImage,
 } from "@/lib/admin-content";
 import {
+  convertAdminProductsToSubs,
   deleteAdminCatalogProduct,
   getAdminCatalogProducts,
   saveAdminCatalogProduct,
 } from "@/lib/catalog";
+import { convertChildBlock, convertMotherBlock, familyColorKey } from "@/lib/product-families";
 import { formatPrice, getCategoryLabel } from "@/data/products";
 import { PRODUCT_COLOR_PRESETS, buildProductColorRecord, normalizeProductColorName } from "@/lib/product-colors";
 import { getSizeOptionsForFormat, normalizeSizeList } from "@/lib/product-sizing";
@@ -259,6 +261,83 @@ function AdminProductsPage() {
       product.motherId && matchIds.has(product.motherId) ? [] : [product, ...(subsByMother.get(product.id) ?? [])],
     );
   }, [rows, query, scope]);
+
+  // "Convertir": turns existing products into sub-products of a mother. Step 1
+  // picks the mother, step 2 the children; the shared family rules
+  // (lib/product-families) mark what can't be picked and why, and the server
+  // checks them all again.
+  const [convertStep, setConvertStep] = useState<"closed" | "mother" | "children">("closed");
+  const [convertQuery, setConvertQuery] = useState("");
+  const [convertMother, setConvertMother] = useState<AdminProductRecord | null>(null);
+  const [convertPicked, setConvertPicked] = useState<string[]>([]);
+  const [convertNotice, setConvertNotice] = useState("");
+  const [isConverting, setIsConverting] = useState(false);
+  const savedRows = useMemo(() => rows.filter((product) => persistedIds.has(product.id)), [rows, persistedIds]);
+  const convertMatches = useMemo(
+    () =>
+      savedRows
+        .filter(
+          (product) =>
+            (convertStep !== "children" || product.id !== convertMother?.id) &&
+            matchesAdminSearch([product.name, product.id, product.slug], convertQuery),
+        )
+        .slice(0, 40),
+    [savedRows, convertStep, convertMother, convertQuery],
+  );
+  const pickedProducts = convertPicked.flatMap((id) => rowsById.get(id) ?? []);
+  const childBlock = (candidate: AdminProductRecord) =>
+    convertMother
+      ? convertChildBlock(
+          candidate,
+          convertMother,
+          savedRows,
+          new Set(pickedProducts.filter((product) => product.id !== candidate.id).map(familyColorKey)),
+        )
+      : null;
+
+  const closeConvert = () => {
+    setConvertStep("closed");
+    setConvertQuery("");
+    setConvertMother(null);
+    setConvertPicked([]);
+    setConvertNotice("");
+  };
+
+  const handleConvert = async () => {
+    if (!convertMother || convertPicked.length === 0) return;
+    setIsConverting(true);
+    setConvertNotice("");
+    try {
+      const converted = await convertAdminProductsToSubs({
+        data: { motherId: convertMother.id, childIds: convertPicked },
+      });
+      const convertedIds = new Set(converted.map((product) => product.id));
+      const fresh = await getAdminCatalogProducts();
+      const freshById = new Map(fresh.map((product) => [product.id, product]));
+      // Fresh rows for everything saved; the product open in the editor keeps
+      // what is being typed unless it was one of the converted ones.
+      setRows((current) =>
+        current
+          .filter((product) => !persistedIds.has(product.id) || freshById.has(product.id))
+          .map((product) =>
+            product.id === draft?.id && !convertedIds.has(product.id) ? product : (freshById.get(product.id) ?? product),
+          ),
+      );
+      if (draft && convertedIds.has(draft.id)) {
+        const freshDraft = freshById.get(draft.id);
+        if (freshDraft) setDraft(cloneProduct(freshDraft));
+      }
+      closeConvert();
+      showSaveMessage(
+        `${converted.length === 1 ? "1 producto ahora es" : `${converted.length} productos ahora son`} sub-producto de ${convertMother.name}.`,
+        "success",
+      );
+    } catch (error) {
+      setConvertNotice(getAdminErrorMessage(error, "No se pudo convertir ahora mismo."));
+    } finally {
+      setIsConverting(false);
+    }
+  };
 
   const motherCandidates = useMemo(
     () =>
@@ -740,6 +819,9 @@ function AdminProductsPage() {
           </AdminButton>
           <AdminButton tone="secondary" onClick={handleDuplicate} disabled={!draft}>
             Duplicar
+          </AdminButton>
+          <AdminButton tone="secondary" onClick={() => setConvertStep("mother")}>
+            Convertir
           </AdminButton>
           <AdminButton tone="save" onClick={handleSave} disabled={!draft || isSaving || isDeleting || isUploadingImage}>
             {isSaving ? "Guardando..." : "Guardar"}
@@ -1306,6 +1388,129 @@ function AdminProductsPage() {
               <AlertDialog.Cancel asChild>
                 <AdminButton tone="secondary">Cancelar</AdminButton>
               </AlertDialog.Cancel>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
+
+      {/* "Convertir": 1) the mother, 2) the children. */}
+      <AlertDialog.Root
+        open={convertStep !== "closed"}
+        onOpenChange={(open) => {
+          if (!open && !isConverting) closeConvert();
+        }}
+      >
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay className="fixed inset-0 z-[100] bg-[#130808]/40" />
+          <AlertDialog.Content className="admin-shell fixed left-1/2 top-1/2 z-[101] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-[var(--admin-edge)] bg-[var(--admin-surface)] p-5 shadow-[0_24px_48px_-28px_rgb(19_8_8/0.45)] focus:outline-none">
+            <AlertDialog.Title className="text-base font-semibold">
+              {convertStep === "mother" ? "Convertir · 1. Producto madre" : "Convertir · 2. Productos hijos"}
+            </AlertDialog.Title>
+            <AlertDialog.Description className="mt-1 text-sm text-[var(--admin-muted)]">
+              {convertStep === "mother"
+                ? "Elige el producto madre. Sus hijos toman su subtienda, categorías y descripción; lo demás (precio, oferta, fotos, tallas, color) se queda como está."
+                : `Elige los productos que pasarán a ser sub-productos de ${convertMother?.name || "la madre"}. Uno por color.`}
+            </AlertDialog.Description>
+            <AdminInput
+              autoFocus
+              className="mt-4"
+              value={convertQuery}
+              onChange={(event) => setConvertQuery(event.target.value)}
+              placeholder="Nombre o ID del producto"
+            />
+            <div className="mt-2 grid max-h-72 gap-1 overflow-y-auto">
+              {convertMatches.length === 0 ? (
+                <p className="px-1 py-3 text-sm text-[var(--admin-faint)]">No hay productos con ese nombre o ID.</p>
+              ) : (
+                convertMatches.map((product) => {
+                  const isPicked = convertPicked.includes(product.id);
+                  const block = convertStep === "mother" ? null : childBlock(product);
+                  const isMotherChoice = convertStep === "mother" && convertMother?.id === product.id;
+                  return (
+                    <button
+                      key={product.id}
+                      type="button"
+                      disabled={Boolean(block) && !isPicked}
+                      onClick={() => {
+                        if (convertStep === "mother") {
+                          const motherBlock = convertMotherBlock(product);
+                          setConvertNotice(motherBlock ? `"${product.name || product.id}": ${motherBlock}` : "");
+                          setConvertMother(motherBlock ? null : product);
+                          return;
+                        }
+                        setConvertPicked((current) =>
+                          current.includes(product.id) ? current.filter((id) => id !== product.id) : [...current, product.id],
+                        );
+                      }}
+                      className={cn(
+                        "flex items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors hover:bg-[var(--admin-accent-soft)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent",
+                        (isPicked || isMotherChoice) && "bg-[var(--admin-accent-soft)]",
+                      )}
+                    >
+                      {convertStep === "children" ? (
+                        <span
+                          className={cn(
+                            "flex h-4 w-4 shrink-0 items-center justify-center rounded border border-[var(--admin-line)]",
+                            isPicked && "border-[var(--admin-ink)] bg-[var(--admin-ink)] text-[var(--admin-on-invert)]",
+                          )}
+                        >
+                          {isPicked ? <Check className="h-3 w-3" /> : null}
+                        </span>
+                      ) : null}
+                      <span
+                        className="h-4 w-4 shrink-0 rounded-full border border-black/10"
+                        style={{ backgroundColor: product.colors[0]?.hex ?? "transparent" }}
+                      />
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium">
+                          {product.name || "Sin nombre"}
+                          {product.motherId ? <span className="ml-1 text-xs text-[var(--admin-faint)]">(sub-producto)</span> : null}
+                        </span>
+                        <span className="block truncate text-xs text-[var(--admin-muted)]">
+                          {block && !isPicked ? block : `${product.id}${product.colors[0]?.name ? ` · ${product.colors[0].name}` : ""}`}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            {convertNotice ? <p className="mt-3 text-sm font-medium text-red-600">{convertNotice}</p> : null}
+            <div className="mt-5 flex justify-end gap-2">
+              {convertStep === "children" ? (
+                <AdminButton
+                  tone="ghost"
+                  disabled={isConverting}
+                  onClick={() => {
+                    setConvertStep("mother");
+                    setConvertPicked([]);
+                    setConvertQuery("");
+                    setConvertNotice("");
+                  }}
+                >
+                  Atrás
+                </AdminButton>
+              ) : null}
+              <AlertDialog.Cancel asChild>
+                <AdminButton tone="secondary" disabled={isConverting}>Cancelar</AdminButton>
+              </AlertDialog.Cancel>
+              {convertStep === "mother" ? (
+                <AdminButton
+                  tone="save"
+                  disabled={!convertMother}
+                  onClick={() => {
+                    setConvertStep("children");
+                    setConvertQuery("");
+                    setConvertNotice("");
+                  }}
+                >
+                  Siguiente
+                </AdminButton>
+              ) : (
+                <AdminButton tone="save" disabled={convertPicked.length === 0 || isConverting} onClick={() => void handleConvert()}>
+                  {isConverting ? "Convirtiendo..." : `Convertir (${convertPicked.length})`}
+                </AdminButton>
+              )}
             </div>
           </AlertDialog.Content>
         </AlertDialog.Portal>

@@ -10,6 +10,7 @@ import {
 import { enforceAdminAccess } from "@/lib/admin-access";
 import type { AdminProductRecord, AdminStockMovement } from "@/lib/admin-types";
 import { toAdminProductRecord } from "@/lib/admin-service";
+import { convertChildBlock, convertMotherBlock, familyColorKey } from "@/lib/product-families";
 import { getProductColorHex, normalizeProductColorName } from "@/lib/product-colors";
 import { normalizeSizeList } from "@/lib/product-sizing";
 import { applyDiscountsToProducts, listActiveDiscountsInternal } from "@/lib/store-discounts";
@@ -751,8 +752,7 @@ export async function getCatalogVariantByIdInternal(variantId: string) {
 }
 
 function colorKeyOf(product: Pick<Product, "colors"> | Pick<AdminProductRecord, "colors">) {
-  const name = product.colors?.[0]?.name;
-  return name ? normalizeProductColorName(name).toLowerCase() : "";
+  return familyColorKey(product);
 }
 
 // Sub-products (docs/superpowers/specs/2026-11-18-sub-products-design.md):
@@ -1365,6 +1365,61 @@ export const saveAdminCatalogProduct = createServerFn({ method: "POST" })
       console.error("[saveAdminCatalogProduct] save failed", data.id, error);
       throw error;
     }
+  });
+
+// Convertir (admin): makes existing products sub-products of a mother
+// (docs/superpowers/specs/2026-11-18-sub-products-design.md). Nothing is
+// created or deleted. Every child is checked first with the shared family
+// rules; then each one goes through the normal save with its new mother, which
+// copies the inherited fields (subtienda, categorías, descripción, destacado
+// off) and re-applies every family check. Everything else stays the child's
+// own, sale included. A failure midway leaves the earlier children converted.
+async function convertProductsToSubsInternal(input: { motherId: string; childIds: string[] }) {
+  const products = await listCatalogProductsInternal();
+  const mother = products.find((product) => product.id === input.motherId);
+  if (!mother) throw new Error("El producto madre ya no existe.");
+  const motherBlock = convertMotherBlock(mother);
+  if (motherBlock) throw new Error(motherBlock);
+
+  const pickedColors = new Set<string>();
+  const children = Array.from(new Set(input.childIds)).map((childId) => {
+    const child = products.find((product) => product.id === childId);
+    if (!child) throw new Error(`El producto ${childId} ya no existe.`);
+    const block = convertChildBlock(child, mother, products, pickedColors);
+    if (block) throw new Error(`"${child.name || child.id}": ${block}`);
+    pickedColors.add(familyColorKey(child));
+    return child;
+  });
+
+  const converted: AdminProductRecord[] = [];
+  for (const child of children) {
+    try {
+      const saved = await saveCatalogProductInternal(toAdminProductRecord(child), {
+        keepStoredStock: true,
+        forceMotherId: mother.id,
+      });
+      converted.push(toAdminProductRecord(saved));
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      const done = converted.length ? ` Ya se convirtieron: ${converted.map((record) => record.name).join(", ")}.` : "";
+      throw new Error(`No se pudo convertir "${child.name || child.id}": ${reason}${done}`);
+    }
+  }
+  return converted;
+}
+
+const convertProductsSchema = z.object({
+  motherId: z.string().trim().min(1),
+  childIds: z.array(z.string().trim().min(1)).min(1).max(50),
+});
+
+export const convertAdminProductsToSubs = createServerFn({ method: "POST" })
+  .inputValidator((data: z.input<typeof convertProductsSchema>) => convertProductsSchema.parse(data))
+  .handler(async ({ data }) => {
+    const { setResponseHeader } = await import("@tanstack/react-start/server");
+    await enforceAdminAccess();
+    setResponseHeader("Cache-Control", "private, no-store");
+    return convertProductsToSubsInternal(data);
   });
 
 export const deleteAdminCatalogProduct = createServerFn({ method: "POST" })

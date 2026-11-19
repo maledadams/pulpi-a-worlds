@@ -94,7 +94,7 @@ export function OrderFeedbackForm({ orderId, token }: { orderId: string; token: 
                       className="flex h-11 w-11 items-center justify-center rounded-full transition-transform active:scale-95"
                     >
                       <Star
-                        className={`h-6 w-6 ${selected ? "fill-[#c5475f] text-[#c5475f]" : "text-foreground/30"}`}
+                        className={`h-6 w-6 ${selected ? "fill-[#121212] text-[#121212]" : "text-foreground/30"}`}
                         strokeWidth={1.75}
                       />
                     </button>
@@ -120,7 +120,7 @@ export function OrderFeedbackForm({ orderId, token }: { orderId: string; token: 
         )}
       </div>
       {error ? (
-        <p role="alert" className="mt-3 text-center text-sm text-[#c5475f]">
+        <p role="alert" className="mt-3 text-center text-sm text-[#121212]">
           {error}
         </p>
       ) : null}

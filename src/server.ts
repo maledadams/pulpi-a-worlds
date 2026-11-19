@@ -93,7 +93,11 @@ function withRequestSeoHeaders(request: Request, response: Response) {
 }
 
 function finalizeResponse(request: Request, response: Response) {
-  return withSecurityHeaders(withRequestSeoHeaders(request, response));
+  const finished = withSecurityHeaders(withRequestSeoHeaders(request, response));
+  // Local development only: never cache pages, so a refresh always shows the
+  // code just edited (the store's 60-second page cache kept old versions).
+  if (import.meta.env.DEV) finished.headers.set("Cache-Control", "no-store");
+  return finished;
 }
 
 // Old product slugs Google indexed before a rename/merge, redirected to
@@ -127,7 +131,8 @@ function getProductSlugRedirect(pathname: string): string | null {
 const EDGE_CACHEABLE_PATH = /^\/(?!admin(?:\/|$)|acceso-admin$|carrito$|solicitud$|_serverFn)/;
 
 function isEdgeCacheable(request: Request, pathname: string) {
-  return request.method === "GET" && EDGE_CACHEABLE_PATH.test(pathname);
+  // Not in local development: the cached copy would hide fresh edits.
+  return !import.meta.env.DEV && request.method === "GET" && EDGE_CACHEABLE_PATH.test(pathname);
 }
 
 async function renderAndFinalize(request: Request, env: unknown, ctx: unknown) {

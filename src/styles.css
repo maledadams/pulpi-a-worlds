@@ -67,15 +67,19 @@
 
 :root {
   --radius: 0;
-  --cream: oklch(0.97 0.02 80);
-  --ink: oklch(0.18 0.03 50);
+  /* Base theme neutrals: same lightness as the old cream and ink, saturation 0
+     (redesign, 2026-11-18: no cream undertone left). */
+  --cream: oklch(0.97 0 0);
+  --ink: oklch(0.18 0 0);
   --bubblegum: oklch(0.74 0.21 350);
   --lime: oklch(0.85 0.21 130);
   --sun: oklch(0.88 0.18 95);
   --blood: oklch(0.45 0.20 25);
   --charcoal: oklch(0.22 0.01 280);
 
-  --background: var(--cream);
+  /* Base theme (Pulpiña general pages): white background, not cream
+     (redesign, 2026-11-18). Moon, Sunshine and Men set their own below. */
+  --background: oklch(1 0 0);
   --foreground: var(--ink);
   --card: oklch(1 0 0);
   --card-foreground: var(--ink);
@@ -83,19 +87,20 @@
   --popover-foreground: var(--ink);
   --primary: var(--ink);
   --primary-foreground: var(--cream);
-  --secondary: oklch(0.93 0.03 70);
+  /* Base theme palette (redesign, 2026-11-18): white, light gray and black.
+     The old warm beige is gone from the general pages. */
+  --secondary: oklch(0.94 0 0);
   --secondary-foreground: var(--ink);
-  /* warm beige muted — no gray */
-  --muted: oklch(0.93 0.03 70);
-  --muted-foreground: oklch(0.50 0.05 55);
+  --muted: oklch(0.94 0 0);
+  --muted-foreground: oklch(0.45 0 0);
   --accent: var(--bubblegum);
   --accent-foreground: oklch(1 0 0);
   --destructive: oklch(0.55 0.22 25);
   --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.18 0.03 50 / 0.10);
-  --input: oklch(0.18 0.03 50 / 0.12);
+  --border: oklch(0.18 0 0 / 0.10);
+  --input: oklch(0.18 0 0 / 0.12);
   --ring: var(--bubblegum);
-  --scrollbar-thumb: oklch(0.40 0.05 55 / 0.30);
+  --scrollbar-thumb: oklch(0.40 0 0 / 0.30);
 }
 
 /* === SUB-BRAND THEMES === */
@@ -296,6 +301,13 @@ video {
   background: #07070b;
   box-shadow: 0 0 0 100vmax #07070b;
   clip-path: inset(0 -100vmax);
+}
+
+/* Redesign (2026-11-18): every full outline on the site is 2px, not 1px -
+   cards, inputs, buttons, boxes, in every store. One-sided lines (border-t,
+   border-b...) are dividers, not outlines, and stay 1px. The admin keeps 1px. */
+html:not(:has(.admin-shell)) .border {
+  border-width: 2px;
 }
 
 /* The site scales the page down on desktop (html zoom), so the admin's
@@ -588,6 +600,15 @@ html[data-admin-theme="dark"] .admin-shell .admin-logo {
     .announcement-fade { animation: none; }
   }
 
+  /* ---- Header: colors never animate (owner, 2026-11-18) ----
+     Switching store themes (hover or page change) and hover colors are
+     instant. Movement still animates: the mega panel's fade and slide
+     (opacity, transform) and the category circles' lift. */
+  .site-header,
+  .site-header * {
+    transition-property: opacity, transform, translate, scale, rotate !important;
+  }
+
   /* ---- Product card hover lift ---- */
   .card-lift {
     transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -596,4 +617,32 @@ html[data-admin-theme="dark"] .admin-shell .admin-logo {
     transform: translateY(-3px);
     box-shadow: 0 12px 28px -8px rgb(0 0 0 / 0.18);
   }
+  /* Sub-stores (Moon, Sunshine, Men): lift without the shadow (owner, 2026-11-18). */
+  html[data-vibe] .card-lift:hover {
+    box-shadow: none;
+  }
+}
+
+/* Moon page catalog toolbar (search, Destacados, filter buttons, their open
+   menus and chips): outlines take the Moon footer background's hue and chroma
+   (oklch 0.15 0.02 15 -> chroma 0.02, hue 15), each keeping its own lightness
+   (0.96) and opacity (owner, 2026-11-18). Applied via .moon-tint in
+   CatalogBrowser; the outlines there are border-foreground/NN utilities. */
+.moon-tint .border-foreground\/10 { border-color: oklch(0.96 0.02 15 / 0.1); }
+.moon-tint .border-foreground\/15 { border-color: oklch(0.96 0.02 15 / 0.15); }
+.moon-tint .border-foreground\/20 { border-color: oklch(0.96 0.02 15 / 0.2); }
+.moon-tint .border-foreground\/25 { border-color: oklch(0.96 0.02 15 / 0.25); }
+.moon-tint .hover\:border-foreground\/50:hover { border-color: oklch(0.96 0.02 15 / 0.5); }
+.moon-tint .hover\:border-foreground\/60:hover { border-color: oklch(0.96 0.02 15 / 0.6); }
+.moon-tint .focus\:border-foreground:focus { border-color: oklch(0.96 0.02 15); }
+
+/* Header mega panel (owner, 2026-11-18): opens coming down out from behind
+   the header, closes going back up behind it. */
+@keyframes mega-in {
+  from { opacity: 0; translate: 0 -0.5rem; }
+  to { opacity: 1; translate: 0 0; }
+}
+@keyframes mega-out {
+  from { opacity: 1; translate: 0 0; }
+  to { opacity: 0; translate: 0 -0.5rem; }
 }

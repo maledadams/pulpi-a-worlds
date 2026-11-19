@@ -49,7 +49,7 @@ function NotFoundComponent() {
         <p className="mt-2 text-muted-foreground">Esta vibra no existe.</p>
         <Link
           to="/"
-          className="mt-6 inline-block bg-[#c5475f] px-5 py-2.5 font-bold text-white"
+          className="mt-6 inline-block bg-[#121212] px-5 py-2.5 font-bold text-white"
         >
           Volver al inicio
         </Link>
@@ -77,7 +77,7 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
               reset();
               void router.invalidate();
             }}
-            className="bg-[#c5475f] px-5 py-2.5 font-bold text-white"
+            className="bg-[#121212] px-5 py-2.5 font-bold text-white"
           >
             Reintentar
           </button>

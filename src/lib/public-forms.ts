@@ -274,7 +274,7 @@ async function sendBirthdayEmail(email: string, dateKey: string) {
         <p style="font-size:14px;line-height:1.6;color:#231717;margin:0 0 20px">
           Hoy celebramos contigo. Usa este código durante todo este mes y recibe <strong>20% de descuento</strong> en toda la tienda.
         </p>
-        <div style="margin:8px auto 20px;padding:16px;border:2px dashed #c5475f;border-radius:12px;font-size:26px;font-weight:800;letter-spacing:.16em;color:#231717">
+        <div style="margin:8px auto 20px;padding:16px;border:2px dashed #121212;border-radius:12px;font-size:26px;font-weight:800;letter-spacing:.16em;color:#231717">
           ${BIRTHDAY_COUPON_CODE}
         </div>
         <div style="margin-top:8px">

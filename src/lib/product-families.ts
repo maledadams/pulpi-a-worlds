@@ -1,4 +1,5 @@
 import type { Product } from "@/data/products";
+import { normalizeProductColorName } from "@/lib/product-colors";
 
 // Sub-products: one product per color, linked to a "mother" product through
 // `motherId` (spec: docs/superpowers/specs/2026-11-18-sub-products-design.md).
@@ -93,4 +94,51 @@ export function familyMembers(product: Product, all: Product[]) {
     .sort(
       (a, b) => Number(Boolean(a.motherId)) - Number(Boolean(b.motherId)) || a.createdAt.localeCompare(b.createdAt),
     );
+}
+
+/** A product's one color, as a comparable key ("" when it has none). */
+export function familyColorKey(product: Pick<Product, "colors">) {
+  const name = product.colors?.[0]?.name;
+  return name ? normalizeProductColorName(name).toLowerCase() : "";
+}
+
+type ConvertMember = Pick<Product, "id" | "motherId" | "colors">;
+
+// Convertir (admin): makes existing products sub-products of a mother. These
+// are the family rules, shared by the admin pop-up and the server (which
+// re-checks everything). null = allowed.
+
+/** Why `product` can't be the mother of a conversion. */
+export function convertMotherBlock(product: ConvertMember): string | null {
+  return product.motherId ? "Un sub-producto no puede ser madre (no hay nietos)." : null;
+}
+
+/**
+ * Why `candidate` can't become a sub of `mother`. `all` is the full catalog;
+ * `pickedColors` holds the colors of the products already chosen in this
+ * same conversion.
+ */
+export function convertChildBlock(
+  candidate: ConvertMember,
+  mother: ConvertMember,
+  all: ConvertMember[],
+  pickedColors: Set<string>,
+): string | null {
+  if (candidate.id === mother.id) return "Es el producto madre.";
+  if (candidate.motherId) {
+    return candidate.motherId === mother.id
+      ? "Ya es sub-producto de esta madre."
+      : "Ya es sub-producto de otro producto.";
+  }
+  if (all.some((product) => product.motherId === candidate.id)) {
+    return "Ya es madre de otros productos (serían nietos).";
+  }
+  const color = familyColorKey(candidate);
+  if (!color) return "No tiene color.";
+  if (color === familyColorKey(mother)) return "La madre ya tiene ese color.";
+  if (all.some((product) => product.motherId === mother.id && familyColorKey(product) === color)) {
+    return "Un sub-producto de esta madre ya tiene ese color.";
+  }
+  if (pickedColors.has(color)) return "Ya elegiste otro producto con ese color.";
+  return null;
 }

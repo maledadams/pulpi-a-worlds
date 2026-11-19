@@ -429,7 +429,9 @@ function ProductDetails({ product }: { product: Product }) {
                 {formatPrice(selectedVariant.compareAtPrice!, selectedVariant.currencyCode)}
               </span>
             ) : null}
-            <span className="text-3xl font-bold">{formatPrice(selectedVariant.price, selectedVariant.currencyCode)}</span>
+            {/* Normal price at 80% opacity and not bold; a sale's new price
+                at full opacity and bold (owner, 2026-11-18). */}
+            <span className={`text-3xl ${onSale ? "font-bold" : "font-normal opacity-80"}`}>{formatPrice(selectedVariant.price, selectedVariant.currencyCode)}</span>
           </div>
           <p className="mt-4 text-muted-foreground">{product.description}</p>
           <div
@@ -529,7 +531,7 @@ function ProductDetails({ product }: { product: Product }) {
                       quantity: qty,
                     })
                   }
-                  className={`flex-1 rounded-full border border-foreground/20 px-6 py-3 font-bold uppercase ${
+                  className={`flex-1 rounded-full px-6 py-3 font-bold uppercase ${
                     product.vibe === "men"
                       ? "bg-[#8f2015] text-[#fff7f2]"
                       : "bg-primary text-primary-foreground"
