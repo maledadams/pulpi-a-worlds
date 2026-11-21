@@ -72,16 +72,23 @@ function srcSet(asset: ThemeAssetRef) {
 function startDrag(
   event: React.PointerEvent<HTMLSpanElement>,
   picked: PickedSticker,
-  mode: "move" | "resize",
+  mode: "move" | "resize" | "rotate",
 ) {
   // The sticker's own span, whether the grab was on it or on its resize handle.
-  const element = (event.currentTarget.closest(".theme-sticker") ?? event.currentTarget) as HTMLElement;
+  const element = (event.currentTarget.closest(".theme-sticker") ??
+    event.currentTarget) as HTMLElement;
   const desktop = window.matchMedia("(width >= 60rem)").matches;
   const fit = desktop ? picked.sticker.desktop : picked.sticker.mobile;
+  const frame = (element.offsetParent ?? document.body).getBoundingClientRect();
   const container =
     picked.sticker.anchor === "viewport"
       ? { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight }
-      : (element.offsetParent ?? document.body).getBoundingClientRect();
+      : isScreenMeasured(picked)
+        ? // Page stickers: across = % of the page width, down = % of one screen from the
+          // page's top (Lucia, 2026-11-21). The screen is measured in the frame's own units,
+          // so the page zoom can't throw it off.
+          { left: frame.left, top: frame.top, width: frame.width, height: screenHeightIn(element) }
+        : frame;
   const percent = (value: number) => Math.round(value * 10) / 10;
   const position = (clientX: number, clientY: number) => ({
     x: percent(((clientX - container.left) / container.width) * 100),
@@ -102,11 +109,25 @@ function startDrag(
   const start = { x: event.clientX, y: event.clientY, w: fit.w };
   let last = mode === "move" ? position(event.clientX, event.clientY) : { x: fit.x, y: fit.y };
   let width = fit.w;
+  // Rotating: the sticker turns by however much the pointer has turned around its center.
+  const angle = (clientX: number, clientY: number) =>
+    (Math.atan2(clientY - center.y, clientX - center.x) * 180) / Math.PI;
+  const startAngle = angle(event.clientX, event.clientY);
+  let rot = fit.rot;
   const move = (moveEvent: PointerEvent) => {
+    if (mode === "rotate") {
+      const turned = fit.rot + angle(moveEvent.clientX, moveEvent.clientY) - startAngle;
+      // Back into -180..180, whole degrees.
+      rot = Math.round(((((turned + 180) % 360) + 360) % 360) - 180);
+      element.style.setProperty(desktop ? "--st-drot" : "--st-rot", `${rot}deg`);
+      return;
+    }
     if (mode === "move") {
       last = position(moveEvent.clientX, moveEvent.clientY);
       element.style.setProperty(desktop ? "--st-dx" : "--st-x", `${last.x}%`);
       element.style.setProperty(desktop ? "--st-dy" : "--st-y", `${last.y}%`);
+      if (isScreenMeasured(picked))
+        element.style.setProperty(desktop ? "--st-dyn" : "--st-yn", String(last.y));
       return;
     }
     const before = Math.hypot(start.x - center.x, start.y - center.y) || 1;
@@ -126,12 +147,29 @@ function startDrag(
       x: Math.min(150, Math.max(-50, last.x)),
       y: Math.min(150, Math.max(-50, last.y)),
       ...(mode === "resize" ? { w: width } : {}),
+      ...(mode === "rotate" ? { rot } : {}),
     };
     window.parent.postMessage(message, window.location.origin);
   };
   target.addEventListener("pointermove", move);
   target.addEventListener("pointerup", end);
   target.addEventListener("pointercancel", end);
+}
+
+/** Editor preview only: mirror the sticker left to right (the editor saves it). */
+function flipSticker(picked: PickedSticker) {
+  const desktop = window.matchMedia("(width >= 60rem)").matches;
+  const fit = desktop ? picked.sticker.desktop : picked.sticker.mobile;
+  const message: ThemePreviewStickerMoved = {
+    type: THEME_PREVIEW_STICKER_MOVED,
+    area: picked.area,
+    index: picked.index,
+    device: desktop ? "desktop" : "mobile",
+    x: fit.x,
+    y: fit.y,
+    flip: !picked.sticker.flip,
+  };
+  window.parent.postMessage(message, window.location.origin);
 }
 
 /** Which sticker the editor preview has selected (one at a time, across every list). */
@@ -161,6 +199,22 @@ function useSelectedSticker(key: string, enabled: boolean) {
   return selected;
 }
 
+/** Page-anchored stickers of the page itself (not the footer's or dropdown's): height in screens. */
+function isScreenMeasured(picked: PickedSticker) {
+  return picked.sticker.anchor === "page" && !CONTAINED_AREAS.includes(picked.area);
+}
+
+/** One screen's height, in the same units as the element's container. */
+function screenHeightIn(element: HTMLElement) {
+  const probe = document.createElement("div");
+  probe.style.cssText =
+    "position:absolute;top:0;left:0;width:1px;height:calc(100vh / var(--page-zoom, 1));visibility:hidden;pointer-events:none";
+  (element.offsetParent ?? document.body).appendChild(probe);
+  const height = probe.getBoundingClientRect().height || window.innerHeight;
+  probe.remove();
+  return height;
+}
+
 function StickerItem({ picked, asset }: { picked: PickedSticker; asset: ThemeAssetRef }) {
   const { sticker } = picked;
   const imageRef = useRef<HTMLImageElement>(null);
@@ -174,6 +228,7 @@ function StickerItem({ picked, asset }: { picked: PickedSticker; asset: ThemeAss
   const classes = [
     "theme-sticker",
     sticker.anchor === "viewport" ? "theme-sticker-fixed" : "",
+    isScreenMeasured(picked) ? "theme-sticker-page" : "",
     sticker.layer === "behind" ? "theme-sticker-behind" : "theme-sticker-front",
     picked.onPhone ? "" : "theme-sticker-desktop-only",
   ]
@@ -216,11 +271,26 @@ function StickerItem({ picked, asset }: { picked: PickedSticker; asset: ThemeAss
         className={`theme-sticker-img theme-motion-${sticker.motion}`}
       />
       {previewing && selected ? (
-        <span
-          className="theme-sticker-handle"
-          title="Arrastra para agrandar o achicar"
-          onPointerDown={(event) => startDrag(event, picked, "resize")}
-        />
+        <>
+          <span
+            className="theme-sticker-handle"
+            title="Arrastra para agrandar o achicar"
+            onPointerDown={(event) => startDrag(event, picked, "resize")}
+          />
+          <span
+            className="theme-sticker-rotate"
+            title="Arrastra para girar"
+            onPointerDown={(event) => startDrag(event, picked, "rotate")}
+          />
+          <button
+            type="button"
+            className="theme-sticker-flip"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={() => flipSticker(picked)}
+          >
+            Voltear
+          </button>
+        </>
       ) : null}
     </span>
   );

@@ -117,6 +117,8 @@ const stickerSchema = z.object({
   motion: z.enum(["none", "float", "sway", "drift", "fall", "bounce", "spin", "pulse", "wiggle"]),
   layer: z.enum(["behind", "front"]),
   hideOnPhone: z.boolean(),
+  /** Mirrored left to right (Lucia, 2026-11-21). */
+  flip: z.boolean().default(false),
   desktop: fitSchema,
   mobile: fitSchema,
 });

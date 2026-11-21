@@ -178,11 +178,13 @@ export function ThemeEditor({
           if (!sticker) return current;
           list[moved.index] = {
             ...sticker,
+            ...(moved.flip === undefined ? {} : { flip: moved.flip }),
             [moved.device]: {
               ...sticker[moved.device],
               x: moved.x,
               y: moved.y,
               ...(moved.w === undefined ? {} : { w: moved.w }),
+              ...(moved.rot === undefined ? {} : { rot: moved.rot }),
             },
           };
           return { ...current, stickers: { ...current.stickers, [moved.area]: list } };

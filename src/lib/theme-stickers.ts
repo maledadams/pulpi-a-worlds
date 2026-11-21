@@ -41,10 +41,16 @@ function fitVars(fit: ThemeFit, prefix: "" | "d") {
     [`--st${p}y`]: `${fit.y}%`,
     [`--st${p}w`]: `${fit.w}%`,
     [`--st${p}rot`]: `${fit.rot}deg`,
+    // The same height as a plain number, for page stickers (measured in screens).
+    [`--st${p}yn`]: String(fit.y),
   };
 }
 
 /** CSS variables for .theme-sticker: phone values, then desktop (from the md breakpoint). */
 export function stickerStyle(sticker: ThemeSticker): Record<string, string> {
-  return { ...fitVars(sticker.mobile, ""), ...fitVars(sticker.desktop, "d") };
+  return {
+    ...fitVars(sticker.mobile, ""),
+    ...fitVars(sticker.desktop, "d"),
+    ...(sticker.flip ? { "--st-flip": "-1" } : {}),
+  };
 }

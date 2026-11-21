@@ -26,4 +26,8 @@ export type ThemePreviewStickerMoved = {
   y: number;
   /** New width (percent of its area) when the sticker was resized instead of moved. */
   w?: number;
+  /** New rotation (degrees) when the sticker was turned with its handle. */
+  rot?: number;
+  /** New mirror state when its flip button was pressed. */
+  flip?: boolean;
 };
