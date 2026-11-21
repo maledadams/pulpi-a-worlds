@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { sanitizePromoBannerDraft } from "@/lib/theme-schema";
+import { announcementDateProblem, isAnnouncementLive } from "@/lib/announcement-schedule";
+import { onceReady } from "@/lib/once-ready";
 import { createServerFn } from "@tanstack/react-start";
 import type {
   AdminAnnouncementRecord,
@@ -72,6 +75,8 @@ type DiscountRow = {
   category_ids_json: string | null;
   max_redemptions: number | null;
   one_per_customer: number | null;
+  web_only?: number | null;
+  banner_json?: string | null;
 };
 
 type SizeFormatRow = {
@@ -134,12 +139,29 @@ const discountSchema = z.object({
   categoryIds: z.array(z.string().trim().min(1)),
   maxRedemptions: z.number().int().positive().nullable(),
   onePerCustomer: z.boolean(),
+  webOnly: z.boolean().optional().default(false),
+  // Checked leniently on save (sanitizePromoBannerDraft): Promociones autosaves half-filled banners.
+  banner: z
+    .unknown()
+    .optional()
+    .transform((value) => sanitizePromoBannerDraft(value)),
 });
+
+const announcementDate = z
+  .string()
+  .trim()
+  .refine((value) => Number.isFinite(Date.parse(value)), "Fecha de anuncio inválida.")
+  .nullish();
 
 const announcementSchema = z.object({
   id: z.string().trim().min(1),
   text: z.string().trim(),
   active: z.boolean(),
+  // Optional dates (theme engine spec §5.6b). Kept here so saving Configuración never drops them.
+  startsAt: announcementDate,
+  endsAt: announcementDate,
+  countdownTo: announcementDate,
+  discountId: z.string().trim().max(120).nullish(),
 });
 
 const footerLinkSchema = z.object({
@@ -229,7 +251,6 @@ const memoryCollections = new Map<string, AdminCollectionRecord>();
 const memoryDiscounts = new Map<string, AdminDiscountRecord>();
 const memorySizeFormats = new Map<AdminSizeFormat, AdminSizeFormatRecord>();
 let memorySettings: AdminSettingsRecord = cloneSettings(ADMIN_SETTINGS);
-let adminContentReadyPromise: Promise<void> | null = null;
 let memoryContentSeeded = false;
 
 const SETTINGS_CACHE_TTL_MS = 60_000;
@@ -425,9 +446,7 @@ async function ensureSeededOnce(
   await markSeeded();
 }
 
-async function ensureAdminContentReady(db: D1Database) {
-  if (!adminContentReadyPromise) {
-    adminContentReadyPromise = (async () => {
+const ensureAdminContentReady = onceReady(async (db: D1Database) => {
       await db.exec(
         `
         CREATE TABLE IF NOT EXISTS categories (
@@ -498,6 +517,8 @@ async function ensureAdminContentReady(db: D1Database) {
         "ALTER TABLE discounts ADD COLUMN one_per_customer INTEGER NOT NULL DEFAULT 0;",
         "ALTER TABLE discounts ADD COLUMN kind TEXT NOT NULL DEFAULT 'code';",
         "ALTER TABLE discounts ADD COLUMN category_ids_json TEXT NOT NULL DEFAULT '[]';",
+        "ALTER TABLE discounts ADD COLUMN web_only INTEGER NOT NULL DEFAULT 0;",
+        "ALTER TABLE discounts ADD COLUMN banner_json TEXT;",
       ];
 
       for (const statement of migrations) {
@@ -510,7 +531,7 @@ async function ensureAdminContentReady(db: D1Database) {
 
       await ensureSeededOnce(db, "categories_seeded", "SELECT COUNT(*) AS count FROM categories", async () => {
         const insertCategory = db.prepare(`
-          INSERT INTO categories (id, slug, name_es, is_nsfw, department_scope, size_format, sort_order, images_json)
+          INSERT OR IGNORE INTO categories (id, slug, name_es, is_nsfw, department_scope, size_format, sort_order, images_json)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `);
         await db.batch(
@@ -531,7 +552,7 @@ async function ensureAdminContentReady(db: D1Database) {
 
       await ensureSeededOnce(db, "size_formats_seeded", "SELECT COUNT(*) AS count FROM size_formats", async () => {
         const insertSizeFormat = db.prepare(`
-          INSERT INTO size_formats (id, label, sizes_json, sort_order)
+          INSERT OR IGNORE INTO size_formats (id, label, sizes_json, sort_order)
           VALUES (?, ?, ?, ?)
         `);
         await db.batch(
@@ -543,7 +564,7 @@ async function ensureAdminContentReady(db: D1Database) {
 
       await ensureSeededOnce(db, "collections_seeded", "SELECT COUNT(*) AS count FROM collections", async () => {
         const insertCollection = db.prepare(`
-          INSERT INTO collections (
+          INSERT OR IGNORE INTO collections (
             id,
             slug,
             name,
@@ -586,7 +607,7 @@ async function ensureAdminContentReady(db: D1Database) {
 
       await ensureSeededOnce(db, "discounts_seeded", "SELECT COUNT(*) AS count FROM discounts", async () => {
         const insertDiscount = db.prepare(`
-          INSERT INTO discounts (id, kind, code, label, discount_type, amount, active, scope, category_ids_json, max_redemptions, one_per_customer)
+          INSERT OR IGNORE INTO discounts (id, kind, code, label, discount_type, amount, active, scope, category_ids_json, max_redemptions, one_per_customer)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         await db.batch(
@@ -607,14 +628,7 @@ async function ensureAdminContentReady(db: D1Database) {
           ),
         );
       });
-    })().catch((error) => {
-      adminContentReadyPromise = null;
-      throw error;
-    });
-  }
-
-  return adminContentReadyPromise;
-}
+});
 
 function withCategoryStats(
   categories: AdminCategoryRecord[],
@@ -697,6 +711,16 @@ function parseCollectionRow(row: CollectionRow): AdminCollectionRecord {
   };
 }
 
+/** A promotion's banner from its column (lenient: a half-filled draft is kept for editing). */
+function readBannerJson(json: string | null | undefined) {
+  if (!json) return null;
+  try {
+    return sanitizePromoBannerDraft(JSON.parse(json));
+  } catch {
+    return null;
+  }
+}
+
 function parseDiscountRow(row: DiscountRow): AdminDiscountRecord {
   let categoryIds: string[] = [];
   try {
@@ -718,6 +742,8 @@ function parseDiscountRow(row: DiscountRow): AdminDiscountRecord {
     categoryIds,
     maxRedemptions: row.max_redemptions ?? null,
     onePerCustomer: row.one_per_customer === 1,
+    webOnly: row.web_only === 1,
+    banner: readBannerJson(row.banner_json),
   };
 }
 
@@ -833,7 +859,7 @@ async function saveSizeFormatInternal(input: AdminSizeFormatRecord) {
   return cloneSizeFormat(normalized);
 }
 
-async function listCategoriesInternal() {
+export async function listCategoriesInternal() {
   const products = await listCatalogProductsInternal();
   const db = await getDatabase();
   if (!db) {
@@ -883,6 +909,7 @@ async function reassignCategoryReferences(previousId: string, nextId: string) {
             category: product.category === normalizedPreviousId ? normalizedNextId : product.category,
             categories: nextCategories,
           }),
+          { keepStoredStock: true },
         );
       }),
   );
@@ -1216,7 +1243,7 @@ async function getStorefrontCollectionBySlugInternal(slug: string) {
   return collections.find((collection) => collection.slug === slug.trim().toLowerCase()) ?? null;
 }
 
-async function listDiscountsInternal() {
+export async function listDiscountsInternal() {
   const db = await getDatabase();
   if (!db) {
     seedMemoryContent();
@@ -1228,7 +1255,7 @@ async function listDiscountsInternal() {
   await ensureAdminContentReady(db);
   const rows = await db
     .prepare(`
-      SELECT id, kind, code, label, discount_type, amount, active, scope, category_ids_json, max_redemptions, one_per_customer
+      SELECT id, kind, code, label, discount_type, amount, active, scope, category_ids_json, max_redemptions, one_per_customer, web_only, banner_json
       FROM discounts
       ORDER BY active DESC, code ASC
     `)
@@ -1237,7 +1264,7 @@ async function listDiscountsInternal() {
   return (rows.results ?? []).map(parseDiscountRow);
 }
 
-async function saveDiscountInternal(input: AdminDiscountRecord) {
+export async function saveDiscountInternal(input: AdminDiscountRecord) {
   const id = normalizeDiscountId(input.id, input.code || input.label);
   // Promotions have no visible code (they auto-apply, nothing to type at
   // checkout) but the code column is NOT NULL UNIQUE, so give them an
@@ -1256,6 +1283,8 @@ async function saveDiscountInternal(input: AdminDiscountRecord) {
     categoryIds: input.kind === "promotion" ? [...input.categoryIds] : [],
     maxRedemptions: input.kind === "promotion" ? null : input.maxRedemptions,
     onePerCustomer: input.kind === "promotion" ? false : input.onePerCustomer,
+    webOnly: Boolean(input.webOnly),
+    banner: sanitizePromoBannerDraft(input.banner),
   } satisfies AdminDiscountRecord;
 
   const db = await getDatabase();
@@ -1267,10 +1296,25 @@ async function saveDiscountInternal(input: AdminDiscountRecord) {
   }
 
   await ensureAdminContentReady(db);
+  // A new promo's id comes from its name/code, so a new one named like an
+  // existing one got the same id and the upsert below silently replaced the
+  // existing promo. Block that, and a code another promo already uses.
+  const isNew = !input.id.trim() || input.id.trim().startsWith("draft-discount-");
+  const clash = await db
+    .prepare("SELECT id FROM discounts WHERE (id = ? AND ?) OR (code = ? AND id <> ?) LIMIT 1")
+    .bind(normalized.id, isNew ? 1 : 0, normalized.code, normalized.id)
+    .first<{ id: string }>();
+  if (clash) {
+    throw new Error(
+      normalized.kind === "promotion"
+        ? "Ya existe otra promocion con ese nombre. Usa un nombre distinto."
+        : "Ya existe otro descuento con ese codigo. Usa un codigo distinto.",
+    );
+  }
   await db
     .prepare(`
-      INSERT INTO discounts (id, kind, code, label, discount_type, amount, active, scope, category_ids_json, max_redemptions, one_per_customer)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO discounts (id, kind, code, label, discount_type, amount, active, scope, category_ids_json, max_redemptions, one_per_customer, web_only, banner_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         kind = excluded.kind,
         code = excluded.code,
@@ -1281,7 +1325,9 @@ async function saveDiscountInternal(input: AdminDiscountRecord) {
         scope = excluded.scope,
         category_ids_json = excluded.category_ids_json,
         max_redemptions = excluded.max_redemptions,
-        one_per_customer = excluded.one_per_customer
+        one_per_customer = excluded.one_per_customer,
+        web_only = excluded.web_only,
+        banner_json = excluded.banner_json
     `)
     .bind(
       normalized.id,
@@ -1295,6 +1341,8 @@ async function saveDiscountInternal(input: AdminDiscountRecord) {
       JSON.stringify(normalized.categoryIds),
       normalized.maxRedemptions,
       normalized.onePerCustomer ? 1 : 0,
+      normalized.webOnly ? 1 : 0,
+      normalized.banner ? JSON.stringify(normalized.banner) : null,
     )
     .run();
 
@@ -1376,6 +1424,10 @@ async function saveSettingsInternal(input: AdminSettingsRecord) {
         id: normalizeAnnouncementId(announcement.id || `announcement-${index + 1}`),
         text: announcement.text.trim(),
         active: announcement.active,
+        startsAt: validDate(announcement.startsAt),
+        endsAt: validDate(announcement.endsAt),
+        countdownTo: validDate(announcement.countdownTo),
+        discountId: announcement.discountId?.trim() || null,
       }))
       .filter((announcement) => announcement.text.length > 0),
   });
@@ -1402,14 +1454,30 @@ async function saveSettingsInternal(input: AdminSettingsRecord) {
   return cloneSettings(normalized);
 }
 
+function validDate(value: string | null | undefined) {
+  return value && Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : null;
+}
+
 async function listStorefrontAnnouncementsInternal() {
   const settings = await getSettingsInternal();
+  const now = Date.now();
+  // Announcements tied to a promotion show only while it is on (by hand or by its theme).
+  const needsPromos = settings.announcements.some((announcement) => announcement.discountId);
+  const promosOn = needsPromos
+    ? new Set(
+        (await (await import("@/lib/store-discounts")).listActiveDiscountsInternal()).map(
+          (discount) => discount.id,
+        ),
+      )
+    : new Set<string>();
   return settings.announcements
-    .filter((announcement) => announcement.active && announcement.text.trim().length > 0)
+    .filter((announcement) => isAnnouncementLive(announcement, now))
+    .filter((announcement) => !announcement.discountId || promosOn.has(announcement.discountId))
     .map((announcement) => ({
       id: announcement.id,
       text: announcement.text.trim(),
-    } satisfies Pick<AdminAnnouncementRecord, "id" | "text">));
+      countdownTo: announcement.countdownTo ?? null,
+    } satisfies Pick<AdminAnnouncementRecord, "id" | "text" | "countdownTo">));
 }
 
 async function listStorefrontCategoriesInternal() {
@@ -1704,6 +1772,7 @@ async function uploadProductImageInternal(formData: FormData) {
       featuredImage: current.featuredImage ?? nextImage,
       images: nextImages,
     }),
+    { keepStoredStock: true },
   );
 
   return toAdminProductRecord(saved);
@@ -1746,6 +1815,7 @@ async function deleteProductImageInternal(input: { productId: string; url: strin
       featuredImage: nextFeaturedImage,
       images: nextImages,
     }),
+    { keepStoredStock: true },
   );
 
   return toAdminProductRecord(saved);
@@ -1876,6 +1946,29 @@ export const saveAdminSettingsRecord = createServerFn({ method: "POST" })
     await enforceAdminAccess();
     setResponseHeader("Cache-Control", "private, no-store");
     return saveSettingsInternal(data);
+  });
+
+const announcementsInput = z.object({
+  announcements: z.array(announcementSchema).max(20),
+});
+
+/**
+ * Saves only the announcements (the editor lives in /admin/temas, spec §5.6b), reading the
+ * rest of the settings fresh, so it never overwrites changes made in Configuración.
+ */
+export const saveAdminAnnouncements = createServerFn({ method: "POST" })
+  .inputValidator((data: z.input<typeof announcementsInput>) => announcementsInput.parse(data))
+  .handler(async ({ data }) => {
+    const { setResponseHeader } = await import("@tanstack/react-start/server");
+    await enforceAdminAccess();
+    setResponseHeader("Cache-Control", "private, no-store");
+    for (const announcement of data.announcements) {
+      const problem = announcementDateProblem(announcement);
+      if (problem) throw new Error(`"${announcement.text || "Anuncio"}": ${problem}`);
+    }
+    const current = await getSettingsInternal();
+    const saved = await saveSettingsInternal({ ...current, announcements: data.announcements });
+    return saved.announcements;
   });
 
 export const getStorefrontAnnouncements = createServerFn({ method: "GET" }).handler(async () => {

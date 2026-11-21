@@ -9,7 +9,7 @@ export const Route = createFileRoute("/acceso-admin")({
 
 function AdminAccessPage() {
   return (
-    <div className="mx-auto flex min-h-[72vh] max-w-6xl items-center px-4 py-10">
+    <div className="mx-auto flex min-h-[calc(72vh/var(--page-zoom))] max-w-6xl items-center px-4 py-10">
       <div className="grid w-full gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <section className="rounded-[32px] border-2 border-[#231717] bg-[#231717] p-8 text-white sm:p-10">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em]">

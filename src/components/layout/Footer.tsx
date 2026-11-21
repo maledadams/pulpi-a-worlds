@@ -1,7 +1,9 @@
 import { Link, useLocation } from "@tanstack/react-router";
+import { ThemeAreaStickers, useAreaHasStickers } from "@/components/theme/ThemeStickers";
+import { ThemeImage } from "@/components/theme/ThemeImage";
 import { Instagram } from "lucide-react";
-import generalFooterPineapple from "@/assets/PULPINAMOONPINA.svg";
 import logoMen from "@/assets/pulpinamenwhite.svg";
+import menPineapple from "@/assets/PULPINAMENPINA.svg";
 import logoMoon from "@/assets/moonwhite.svg";
 import logoSunshine from "@/assets/sunshinewhite.svg";
 
@@ -62,19 +64,21 @@ const FOOTER_THEMES: Record<
   store: {
     accent: "Solicitudes por WhatsApp",
     badge: "General",
-    bg: "bg-[#171111]",
-    border: "border-[#171111]",
-    icon: "bg-[#f6efe7]/10 hover:bg-[#f6efe7]/20",
-    logo: generalFooterPineapple,
+    // Theme variables (src/lib/theme-tokens.ts, "Footer"); defaults #131313 / #f0f0f0.
+    bg: "bg-[color:var(--t-footer-bg)]",
+    border: "border-[color:var(--t-footer-bg)]",
+    icon: "bg-[color:var(--t-footer-text)]/10 hover:bg-[color:var(--t-footer-text)]/20",
+    // Men's pineapple (base-theme redesign), at the general footer's original 80px.
+    logo: menPineapple,
     spacing: "mt-16",
-    text: "text-[#f6efe7]",
-    textSoft: "text-[#f6efe7]/72",
+    text: "text-[color:var(--t-footer-text)]",
+    textSoft: "text-[color:var(--t-footer-text)]/72",
   },
   moon: {
     accent: "Solicitudes por WhatsApp",
     badge: "Moon",
     bg: "bg-[var(--color-background)]",
-    border: "border-[var(--color-foreground)]",
+    border: "border-[#7b1832]",
     icon: "bg-[color:rgb(from_var(--color-foreground)_r_g_b_/_0.1)] hover:bg-[color:rgb(from_var(--color-foreground)_r_g_b_/_0.18)]",
     logo: logoMoon,
     spacing: "mt-0",
@@ -130,6 +134,9 @@ export function Footer({
   const location = useLocation();
   const themeKey = themeOverride ?? getFooterTheme(location.pathname);
   const theme = FOOTER_THEMES[themeKey];
+  // Theme stickers live only in the general footer (spec §2); the footer becomes a
+  // positioned box only when it has some, so nothing changes without them.
+  const footerStickers = useAreaHasStickers("footer") && themeKey === "store";
   const resolvedSettings: FooterSettings = {
     businessName: "Pulpiña RD",
     supportEmail: "hola@pulpinastore.com",
@@ -198,12 +205,16 @@ export function Footer({
   );
 
   return (
-    <footer className={`${theme.spacing} overflow-hidden border-t-2 ${theme.border} ${theme.bg} ${theme.text}`}>
+    <footer
+      className={`${theme.spacing} overflow-hidden border-t-2 ${theme.border} ${theme.bg} ${theme.text}${footerStickers ? " relative" : ""}`}
+    >
+      {footerStickers ? <ThemeAreaStickers area="footer" /> : null}
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 md:grid-cols-[auto_1fr_auto]">
         <div data-footer-brand className="min-w-max">
           <div className="flex h-full min-h-[7.875rem] items-center gap-4">
             <div className="flex h-[5.5rem] w-[5.5rem] shrink-0 items-center justify-center overflow-hidden" data-footer-logo-slot>
-              <img
+              <ThemeImage
+                slot={themeKey === "store" ? "pineapple.general" : `logo.footer.${themeKey}`}
                 src={theme.logo}
                 alt={theme.badge}
                 className={`${themeKey === "store" ? "h-20 w-20" : "h-full w-full"} object-contain`}
@@ -213,7 +224,7 @@ export function Footer({
                 overshoot past the letterforms' nominal box (most visible on the
                 "D"), and clipping it made the wordmark misread as "Rl". */}
             <div className="flex h-[5.5rem] items-center pr-2" data-footer-wordmark-slot>
-              <div className="brand-wordmark whitespace-nowrap font-display text-[2.075rem] leading-none min-[1440px]:text-[2.5rem]">
+              <div className="brand-wordmark whitespace-nowrap font-display text-[2.075rem] leading-none min-[1800px]:text-[2.5rem]">
                 {footerHeading}
               </div>
             </div>
@@ -221,7 +232,7 @@ export function Footer({
         </div>
 
         {/* Centered as a group in the space between the logo and Redes - not each column centered on its own. */}
-        <div className="flex flex-wrap justify-center gap-8 md:gap-12">
+        <div className="flex flex-wrap justify-between gap-8 md:justify-center md:gap-12">
           <div data-footer-store>
             <div className={`mb-3 text-xs font-bold uppercase tracking-[0.18em] ${theme.textSoft}`}>Store</div>
             <ul className="space-y-1.5 text-sm">

@@ -178,7 +178,7 @@ function AdminStockPage() {
       .finally(() => setBusy(false));
   };
 
-  const removeVariant = (variantId: string) => {
+  const removeVariant = async (variantId: string) => {
     if (!draft) return;
     const variant = draft.variants.find((entry) => entry.id === variantId);
     if (!variant) return;
@@ -190,7 +190,7 @@ function AdminStockPage() {
       showMessage("Primero registra una salida para dejar esta variante en cero.", "error");
       return;
     }
-    if (!confirmAdminDestructiveAction(`Quitar la variante ${variant.title}? Su historial se conservara.`)) return;
+    if (!(await confirmAdminDestructiveAction(`Quitar la variante ${variant.title}? Su historial se conservara.`))) return;
     setDraft({ ...draft, variants: draft.variants.filter((entry) => entry.id !== variantId) });
   };
 
@@ -200,10 +200,10 @@ function AdminStockPage() {
       title="Stock"
       actions={
         <>
-          <AdminButton tone="primary" onClick={saveChanges} disabled={!draft || busy}>Guardar cambios</AdminButton>        </>
+          <AdminButton tone="save" onClick={saveChanges} disabled={!draft || busy}>Guardar cambios</AdminButton>        </>
       }
     >
-      <div ref={listFollower.containerRef} className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
+      <div ref={listFollower.containerRef} className="grid grid-cols-1 items-start gap-4 axl:grid-cols-[320px_minmax(0,1fr)]">
         <div
           ref={listFollower.floatingRef as RefObject<HTMLDivElement>}
           className="will-change-transform transition-transform duration-500 ease-out"
@@ -214,8 +214,8 @@ function AdminStockPage() {
           <button
             type="button"
             onClick={() => setLowStockOnly((current) => !current)}
-            className={`mt-2 w-full rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-[0.1em] transition ${
-              lowStockOnly ? "border-[#231717] bg-[#231717] text-white" : "border-[#231717]/15 bg-[#faf6f0] text-[#5f4941] hover:bg-[#f3eadf]"
+            className={`mt-2 w-full rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
+              lowStockOnly ? "border-transparent bg-[var(--admin-select)] text-[var(--admin-on-invert)]" : "bg-[var(--admin-soft)] text-[var(--admin-muted)] hover:bg-[var(--admin-soft-hover)]"
             }`}
           >
             {lowStockOnly ? "Mostrando solo stock bajo" : "Filtrar solo stock bajo"}
@@ -227,12 +227,12 @@ function AdminStockPage() {
                 <button
                   key={product.id}
                   onClick={() => selectProduct(product.id)}
-                  className={`rounded-xl border p-3 text-left transition ${selectedId === product.id ? "border-[#231717] bg-[#231717] text-white" : "border-[#231717]/10 bg-[#faf6f0] hover:bg-[#f3eadf]"}`}
+                  className={`rounded-xl px-3 py-2.5 text-left transition-colors ${selectedId === product.id ? "bg-[var(--admin-accent-soft)] text-[var(--admin-accent-ink)]" : "hover:bg-[var(--admin-accent-soft)]"}`}
                 >
                   <div className="font-bold">{product.name}</div>
                   <div className="mt-1 flex items-center justify-between text-xs opacity-75">
                     <span>{getVibeLabel(product.vibe)}</span>
-                    <span className={lowStock && selectedId !== product.id ? "font-bold text-[#9a3423] opacity-100" : undefined}>
+                    <span className={lowStock && selectedId !== product.id ? "font-bold text-[var(--admin-danger)] opacity-100" : undefined}>
                       {product.stock ?? 0} unidades
                     </span>
                   </div>
@@ -244,8 +244,8 @@ function AdminStockPage() {
         </div>
 
         {draft ? (
-          <div className="grid gap-4">
-            <AdminPanel title={draft.name} actions={<AdminTag>{draft.stock ?? 0} unidades</AdminTag>}>
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
+            <AdminPanel title={draft.name} actions={<AdminTag tone={(draft.stock ?? 0) > 0 ? "success" : "danger"}>{draft.stock ?? 0} unidades</AdminTag>}>
               <div className="grid gap-4 sm:grid-cols-3">
                 <div>
                   <AdminSectionLabel>Categorias</AdminSectionLabel>
@@ -272,27 +272,27 @@ function AdminStockPage() {
                   </div>
                 </div>
               </div>
-              <p className="mt-4 text-xs leading-5 text-[#8b756d]">
+              <p className="mt-4 text-xs leading-5 text-[var(--admin-faint)]">
                 Para cambiar categorias, tallas o colores, edita este producto en Productos.
               </p>
             </AdminPanel>
 
-            <AdminPanel title="Variantes, precio y movimientos" className="overflow-hidden">
+            <AdminPanel editor title="Variantes, precio y movimientos" className="overflow-hidden">
               <div className="mb-4 grid gap-3 sm:grid-cols-[120px_minmax(0,1fr)]">
                 <AdminField label="Cantidad"><AdminInput type="number" min={1} value={quantity === 1 ? "" : quantity} placeholder="1" onChange={(event) => setQuantity(event.target.value === "" ? 1 : Math.max(1, Number(event.target.value) || 1))} /></AdminField>
                 <AdminField label="Motivo (opcional)"><AdminInput value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Ej. reposicion del proveedor, ajuste por dano" /></AdminField>
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-[920px] text-left text-sm">
-                  <thead className="text-[11px] font-black uppercase tracking-[0.14em] text-[#7c665f]"><tr><th className="pb-3">Variante</th><th className="pb-3">Disponible</th><th className="pb-3">Stock</th><th className="pb-3">Precio</th><th className="pb-3">Registrar</th><th className="pb-3">Quitar</th></tr></thead>
+                  <thead className="text-xs font-medium text-[var(--admin-faint)]"><tr><th className="pb-3">Variante</th><th className="pb-3">Disponible</th><th className="pb-3">Stock</th><th className="pb-3">Precio</th><th className="pb-3">Registrar</th><th className="pb-3">Quitar</th></tr></thead>
                   <tbody>
                     {draft.variants.map((variant) => (
-                      <tr key={variant.id} className="border-t border-[#231717]/10 align-top">
-                        <td className="py-3 pr-3"><div className="font-bold">{variant.title}</div><div className="text-[10px] text-[#7c665f]">{variant.id}</div></td>
+                      <tr key={variant.id} className="border-t border-[var(--admin-line)] align-top">
+                        <td className="py-3 pr-3"><div className="font-bold">{variant.title}</div><div className="text-[10px] text-[var(--admin-muted)]">{variant.id}</div></td>
                         <td className="py-3 pr-3"><AdminCheckbox label="Activa" checked={variant.available} onCheckedChange={(checked) => updateDraft((current) => ({ ...current, variants: current.variants.map((entry) => entry.id === variant.id ? { ...entry, available: checked } : entry) }))} /></td>
-                        <td className="py-3 pr-3 text-lg font-black">{variant.quantityAvailable ?? 0}</td>
-                        <td className="py-3 pr-3"><AdminInput type="number" value={variant.price === 0 ? "" : variant.price} onChange={(event) => updateDraft((current) => ({ ...current, variants: current.variants.map((entry) => entry.id === variant.id ? { ...entry, price: event.target.value === "" ? 0 : Math.max(0, Number(event.target.value) || 0) } : entry) }))} /><div className="mt-1 text-xs text-[#6b5a55]">{formatPrice(variant.price)}</div></td>
-                        <td className="py-3 pr-3"><div className="flex gap-2"><AdminButton tone="primary" disabled={busy} onClick={() => registerMovement(variant.id, 1)}>+ Entrada</AdminButton><AdminButton tone="warning" disabled={busy} onClick={() => registerMovement(variant.id, -1)}>- Salida</AdminButton></div></td>
+                        <td className="py-3 pr-3 text-lg font-semibold">{variant.quantityAvailable ?? 0}</td>
+                        <td className="py-3 pr-3"><AdminInput type="number" value={variant.price === 0 ? "" : variant.price} onChange={(event) => updateDraft((current) => ({ ...current, variants: current.variants.map((entry) => entry.id === variant.id ? { ...entry, price: event.target.value === "" ? 0 : Math.max(0, Number(event.target.value) || 0) } : entry) }))} /><div className="mt-1 text-xs text-[var(--admin-muted)]">{formatPrice(variant.price)}</div></td>
+                        <td className="py-3 pr-3"><div className="flex gap-2"><AdminButton tone="secondary" disabled={busy} onClick={() => registerMovement(variant.id, 1)}>+ Entrada</AdminButton><AdminButton tone="secondary" disabled={busy} onClick={() => registerMovement(variant.id, -1)}>- Salida</AdminButton></div></td>
                         <td className="py-3"><AdminButton tone="danger" onClick={() => removeVariant(variant.id)}>Quitar</AdminButton></td>
                       </tr>
                     ))}
@@ -304,7 +304,7 @@ function AdminStockPage() {
             <AdminPanel title="Historial de movimientos">
               {movements.length === 0 ? <AdminEmptyState title="Sin movimientos" body="Las entradas, salidas, reservas y cancelaciones apareceran aqui." /> : (
                 <>
-                  <div className="overflow-x-auto"><table className="min-w-[780px] text-left text-sm"><thead className="text-[11px] font-black uppercase tracking-[0.14em] text-[#7c665f]"><tr><th className="pb-3 pr-3">Fecha</th><th className="pb-3 pr-3">Producto</th><th className="pb-3 pr-3">Movimiento</th><th className="pb-3 pr-3">Saldo</th><th className="pb-3">Motivo</th></tr></thead><tbody>{pagedMovements.map((movement) => <tr key={movement.id} className="border-t border-[#231717]/10"><td className="py-3 pr-3 text-xs">{formatMovementDate(movement.createdAt)}</td><td className="py-3 pr-3"><div className="font-bold">{movement.productName}</div><div className="text-xs text-[#6b5a55]">{movement.variantLabel}</div></td><td className={`py-3 pr-3 font-black ${movement.delta > 0 ? "text-emerald-700" : "text-[#9a3423]"}`}>{movement.delta > 0 ? "+" : ""}{movement.delta}</td><td className="py-3 pr-3 font-bold">{movement.balanceAfter}</td><td className="py-3"><div>{movement.reason}</div>{movement.referenceId ? <div className="text-xs text-[#6b5a55]">{movement.referenceId}</div> : null}</td></tr>)}</tbody></table></div>
+                  <div className="overflow-x-auto"><table className="min-w-[780px] text-left text-sm"><thead className="text-xs font-medium text-[var(--admin-faint)]"><tr><th className="pb-3 pr-3">Fecha</th><th className="pb-3 pr-3">Producto</th><th className="pb-3 pr-3">Movimiento</th><th className="pb-3 pr-3">Saldo</th><th className="pb-3">Motivo</th></tr></thead><tbody>{pagedMovements.map((movement) => <tr key={movement.id} className="border-t border-[var(--admin-line)]"><td className="py-3 pr-3 text-xs">{formatMovementDate(movement.createdAt)}</td><td className="py-3 pr-3"><div className="font-bold">{movement.productName}</div><div className="text-xs text-[var(--admin-muted)]">{movement.variantLabel}</div></td><td className={`py-3 pr-3 font-semibold ${movement.delta > 0 ? "text-[var(--admin-ok)]" : "text-[var(--admin-danger)]"}`}>{movement.delta > 0 ? "+" : ""}{movement.delta}</td><td className="py-3 pr-3 font-bold">{movement.balanceAfter}</td><td className="py-3"><div>{movement.reason}</div>{movement.referenceId ? <div className="text-xs text-[var(--admin-muted)]">{movement.referenceId}</div> : null}</td></tr>)}</tbody></table></div>
                   <div className="mt-3">
                     <AdminPagination page={safeMovementPage} pages={movementPages} onChange={setMovementPage} />
                   </div>

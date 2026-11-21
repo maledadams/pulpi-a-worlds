@@ -30,11 +30,29 @@ interface R2PutOptions {
   customMetadata?: Record<string, string>;
 }
 
+interface R2ObjectBody {
+  body: ReadableStream;
+  arrayBuffer(): Promise<ArrayBuffer>;
+  httpMetadata?: { contentType?: string };
+}
+
 interface R2Bucket {
   put(key: string, value: ArrayBuffer | ArrayBufferView | string | Blob, options?: R2PutOptions): Promise<unknown>;
+  get(key: string): Promise<R2ObjectBody | null>;
   delete(keys: string | string[]): Promise<void>;
 }
 
 interface CacheStorage {
   readonly default: Cache;
+}
+
+// Workers' streaming HTML rewriter (only the parts this app uses).
+interface HTMLRewriterElement {
+  getAttribute(name: string): string | null;
+  setAttribute(name: string, value: string): HTMLRewriterElement;
+}
+
+declare class HTMLRewriter {
+  on(selector: string, handlers: { element?(element: HTMLRewriterElement): void }): HTMLRewriter;
+  transform(response: Response): Response;
 }

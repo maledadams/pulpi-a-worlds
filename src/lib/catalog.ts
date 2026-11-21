@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { onceReady } from "@/lib/once-ready";
 import { createServerFn } from "@tanstack/react-start";
 import {
   FALLBACK_PRODUCTS,
@@ -9,6 +10,7 @@ import {
 import { enforceAdminAccess } from "@/lib/admin-access";
 import type { AdminProductRecord, AdminStockMovement } from "@/lib/admin-types";
 import { toAdminProductRecord } from "@/lib/admin-service";
+import { convertChildBlock, convertMotherBlock, familyColorKey } from "@/lib/product-families";
 import { getProductColorHex, normalizeProductColorName } from "@/lib/product-colors";
 import { normalizeSizeList } from "@/lib/product-sizing";
 import { applyDiscountsToProducts, listActiveDiscountsInternal } from "@/lib/store-discounts";
@@ -91,6 +93,8 @@ const adminProductSchema = z.object({
   variants: z.array(productVariantSchema),
   tags: z.array(z.string().trim().min(1)),
   createdAt: z.string().trim().min(1),
+  // Sub-products: only read when the product is first created (see saveCatalogProductInternal).
+  motherId: z.string().trim().min(1).nullable().optional(),
 });
 
 const deleteProductSchema = z.object({
@@ -131,7 +135,6 @@ const catalogMemoryState = (() => {
 
 const memoryCatalog = catalogMemoryState.catalog;
 const memoryStockMovements = catalogMemoryState.movements;
-let catalogStorageReadyPromise: Promise<void> | null = null;
 
 function cloneImage(image: ProductImage): ProductImage {
   return {
@@ -287,9 +290,7 @@ async function getDatabase() {
   return workerEnv.DB ?? null;
 }
 
-async function ensureCatalogStorageReady(db: D1Database) {
-  if (!catalogStorageReadyPromise) {
-    catalogStorageReadyPromise = (async () => {
+const ensureCatalogStorageReady = onceReady(async (db: D1Database) => {
       await db.exec(
         `
         CREATE TABLE IF NOT EXISTS products (
@@ -413,7 +414,12 @@ async function ensureCatalogStorageReady(db: D1Database) {
           updated_at
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT DO NOTHING
       `);
+      // ON CONFLICT DO NOTHING: on an empty database two module instances (dev
+      // loads catalog.ts twice, plus ?tss-serverfn-split) can both pass the
+      // count check and seed at once. Without it the loser threw a UNIQUE error
+      // and the dev server hung on every request until restarted.
 
       const batch = FALLBACK_PRODUCTS.filter((product) => product.vibe !== "pulpina").map((product, index) => {
         const categories = product.categories?.length ? product.categories : [product.category];
@@ -443,14 +449,7 @@ async function ensureCatalogStorageReady(db: D1Database) {
 
       await db.batch(batch);
       await markSeeded();
-    })().catch((error) => {
-      catalogStorageReadyPromise = null;
-      throw error;
-    });
-  }
-
-  return catalogStorageReadyPromise;
-}
+});
 
 function parseStoredProduct(row: ProductRow) {
   if (!row.product_json) return null;
@@ -468,6 +467,9 @@ function productFromRow(row: ProductRow) {
   if (parsed) {
     return localizeStoredProduct({
       ...parsed,
+      // Same rule as on save, for products stored before it: every variant
+      // shows the product's current cover.
+      variants: parsed.variants.map((variant) => ({ ...variant, image: parsed.featuredImage ?? null })),
       sortOrder: row.sort_order ?? parsed.sortOrder ?? 0,
       slug: row.slug,
       name: row.name,
@@ -613,7 +615,10 @@ function normalizeVariants(record: AdminProductRecord, swatch: [string, string],
       price: Math.max(0, price),
       compareAtPrice,
       currencyCode: "DOP",
-      image: currentVariant?.image ?? featuredImage ?? record.images[index] ?? null,
+      // A product has one color, so every variant shows the product's current
+      // cover. Keeping a variant's old image let it outlive the photo it
+      // pointed to (deleted from storage), and carts showed a broken image.
+      image: featuredImage,
       selectedOptions: [
         { name: "Talla", value: size },
         { name: "Color", value: colorName },
@@ -675,6 +680,7 @@ function normalizeProduct(record: AdminProductRecord, existing?: Product) {
     sizes,
     colors,
     salePrice: productCompareAtPrice ? productPrice : null,
+    motherId: record.motherId?.trim() || null,
   } satisfies Product;
 }
 
@@ -718,13 +724,23 @@ export async function listCatalogProductsInternal() {
   return (rows.results ?? []).map(productFromRow).filter((product) => product.vibe !== "pulpina");
 }
 
-export async function listStorefrontCatalogProductsInternal() {
-  const [products, discounts] = await Promise.all([
+export async function listStorefrontCatalogProductsInternal(
+  options: { channel?: "web" | "admin" } = {},
+) {
+  const [products, active] = await Promise.all([
     listCatalogProductsInternal(),
     listActiveDiscountsInternal(),
   ]);
+  // Orders made from admin never get a website-only promotion.
+  const discounts =
+    options.channel === "admin" ? active.filter((discount) => !discount.webOnly) : active;
 
-  return applyDiscountsToProducts(products, discounts);
+  // A hidden mother hides her whole family. Marked here, at the one source of
+  // every storefront list, product page, cart check and checkout lookup.
+  const hiddenMothers = new Set(products.filter((product) => product.hidden && !product.motherId).map((product) => product.id));
+  return applyDiscountsToProducts(products, discounts).map((product) =>
+    product.motherId && hiddenMothers.has(product.motherId) ? { ...product, hidden: true } : product,
+  );
 }
 
 export async function getCatalogProductBySlugInternal(slug: string) {
@@ -732,8 +748,11 @@ export async function getCatalogProductBySlugInternal(slug: string) {
   return products.find((product) => product.slug === slug) ?? null;
 }
 
-export async function getCatalogVariantByIdInternal(variantId: string) {
-  const products = await listStorefrontCatalogProductsInternal();
+export async function getCatalogVariantByIdInternal(
+  variantId: string,
+  options: { channel?: "web" | "admin" } = {},
+) {
+  const products = await listStorefrontCatalogProductsInternal(options);
   for (const product of products) {
     const variant = product.variants.find((candidate) => candidate.id === variantId);
     if (variant) {
@@ -746,10 +765,92 @@ export async function getCatalogVariantByIdInternal(variantId: string) {
   return null;
 }
 
-export async function saveCatalogProductInternal(record: AdminProductRecord) {
+function colorKeyOf(product: Pick<Product, "colors"> | Pick<AdminProductRecord, "colors">) {
+  return familyColorKey(product);
+}
+
+// Sub-products (docs/superpowers/specs/2026-11-18-sub-products-design.md):
+// what a sub takes from its mother, enforced here so no client can drift it.
+function inheritFromMother(record: AdminProductRecord, mother: Product): AdminProductRecord {
+  return {
+    ...record,
+    motherId: mother.id,
+    vibe: mother.vibe,
+    secondaryVibe: mother.secondaryVibe ?? null,
+    primaryCategory: mother.category,
+    categories: mother.categories?.length ? [...mother.categories] : [mother.category],
+    description: mother.description,
+    featured: false,
+  };
+}
+
+export async function saveCatalogProductInternal(
+  input: AdminProductRecord,
+  options: {
+    keepStoredStock?: boolean;
+    /** Internal only: re-points a sub when its mother is deleted. */
+    forceMotherId?: string | null;
+  } = {},
+) {
   const currentProducts = await listCatalogProductsInternal();
-  const existing = currentProducts.find((product) => product.id === record.id);
+  const existing = currentProducts.find((product) => product.id === input.id);
+  // Admin product saves (Productos, Stock) send the stock the page loaded with,
+  // which may be stale: an order closed meanwhile, or another tab. Saving it
+  // back silently undid those stock changes. Stock only changes through
+  // adjustCatalogVariantInventoryInternal, so existing variants keep the
+  // stored quantity here; only brand-new variants take the one sent.
+  let record: AdminProductRecord =
+    options.keepStoredStock && existing
+      ? {
+          ...input,
+          variants: input.variants.map((variant) => {
+            const stored = existing.variants.find((candidate) => candidate.id === variant.id);
+            return stored ? { ...variant, quantityAvailable: stored.quantityAvailable } : variant;
+          }),
+        }
+      : input;
+
+  // The mother link is set when a product is first created and never edited
+  // afterwards; only deleting a mother re-points its subs (forceMotherId).
+  const motherId =
+    options.forceMotherId !== undefined
+      ? options.forceMotherId
+      : existing
+        ? (existing.motherId ?? null)
+        : record.motherId?.trim() || null;
+  record = { ...record, motherId };
+  const mother = motherId ? currentProducts.find((product) => product.id === motherId) : undefined;
+  if (motherId) {
+    if (!mother) throw new Error("El producto madre ya no existe.");
+    if (mother.motherId) throw new Error("Un sub-producto no puede tener sub-productos.");
+    if (motherId === record.id.trim()) throw new Error("Un producto no puede ser su propia madre.");
+    if (currentProducts.some((product) => product.motherId === record.id.trim())) {
+      throw new Error("Este producto ya es madre de otros, no puede ser sub-producto.");
+    }
+    record = inheritFromMother(record, mother);
+    const color = colorKeyOf(record);
+    const sameColor = currentProducts.find(
+      (product) =>
+        product.id !== record.id.trim() &&
+        (product.id === motherId || product.motherId === motherId) &&
+        colorKeyOf(product) === color,
+    );
+    if (sameColor) {
+      throw new Error(`El color ${record.colors[0]?.name} ya lo tiene "${sameColor.name}" en esta familia. Elige otro color.`);
+    }
+  } else {
+    // A mother can't switch to a color one of its subs already has.
+    const color = colorKeyOf(record);
+    const subWithColor = currentProducts.find(
+      (product) => product.motherId === record.id.trim() && colorKeyOf(product) === color,
+    );
+    if (subWithColor) {
+      throw new Error(`El color ${record.colors[0]?.name} ya lo tiene el sub-producto "${subWithColor.name}". Elige otro color.`);
+    }
+  }
+
   const normalized = normalizeProduct(record, existing);
+  if (mother) normalized.descriptionHtml = mother.descriptionHtml;
 
   // Same defense the client already applies before calling this function -
   // repeated here since `products.slug` has its own UNIQUE constraint that
@@ -787,7 +888,9 @@ export async function saveCatalogProductInternal(record: AdminProductRecord) {
   const db = await getDatabase();
 
   if (!db) {
-    return saveMemoryProduct(normalized);
+    const saved = saveMemoryProduct(normalized);
+    await cascadeToSubProducts(normalized, existing, currentProducts);
+    return saved;
   }
 
   await ensureCatalogStorageReady(db);
@@ -864,10 +967,36 @@ export async function saveCatalogProductInternal(record: AdminProductRecord) {
     )
     .run();
 
+  await cascadeToSubProducts(normalized, existing, currentProducts);
   return normalized;
 }
 
-async function pruneDeletedProductReferences(db: D1Database, productId: string) {
+// A mother's save updates its subs: the inherited fields always, and its
+// sale: losing it removes the subs' sales; gaining it puts subs that are not
+// already on sale on the same percentage off. A sub's own sale never flows up.
+async function cascadeToSubProducts(mother: Product, previous: Product | undefined, currentProducts: Product[]) {
+  if (mother.motherId) return;
+  const subs = currentProducts.filter((product) => product.motherId === mother.id);
+  const motherOnSale = mother.compareAtPrice !== null;
+  const motherWasOnSale = Boolean(previous && previous.compareAtPrice !== null);
+
+  for (const sub of subs) {
+    let record = toAdminProductRecord(sub);
+    // Only on the mother's change of state, so a sub's own sale (set while the
+    // mother is not on sale) survives the mother's other saves.
+    if (motherWasOnSale && !motherOnSale && record.compareAtPrice !== null) {
+      record = { ...record, price: record.compareAtPrice, compareAtPrice: null };
+    } else if (motherOnSale && !motherWasOnSale && record.compareAtPrice === null && mother.compareAtPrice) {
+      const ratio = mother.price / mother.compareAtPrice;
+      record = { ...record, compareAtPrice: record.price, price: Math.round(record.price * ratio) };
+    }
+    await saveCatalogProductInternal(record, { keepStoredStock: true });
+  }
+}
+
+// `replacementId`: a deleted mother's place in collections goes to the sub that
+// became the new mother, so the family stays in those collections.
+async function pruneDeletedProductReferences(db: D1Database, productId: string, replacementId?: string) {
   // Collections store their product list as a JSON array (product_ids_json),
   // not a real foreign key, so deleting a product never cascades there on
   // its own - the id just lingers forever as a ghost entry. Clean it out of
@@ -889,7 +1018,9 @@ async function pruneDeletedProductReferences(db: D1Database, productId: string) 
 
       if (!Array.isArray(ids) || !ids.includes(productId)) continue;
 
-      const nextIds = ids.filter((entry) => entry !== productId);
+      const nextIds = replacementId
+        ? Array.from(new Set(ids.map((entry) => (entry === productId ? replacementId : entry))))
+        : ids.filter((entry) => entry !== productId);
       await db
         .prepare("UPDATE collections SET product_ids_json = ? WHERE id = ?")
         .bind(JSON.stringify(nextIds), row.id)
@@ -903,6 +1034,20 @@ async function pruneDeletedProductReferences(db: D1Database, productId: string) 
 
 export async function deleteCatalogProductInternal(id: string) {
   const normalizedId = id.trim();
+
+  // Deleting a mother: its oldest sub becomes the mother and the other subs
+  // are re-pointed to it, so no sub is ever left without a mother.
+  const subs = (await listCatalogProductsInternal())
+    .filter((product) => product.motherId === normalizedId)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  if (subs.length > 0) {
+    const [newMother, ...rest] = subs;
+    await saveCatalogProductInternal(toAdminProductRecord(newMother!), { keepStoredStock: true, forceMotherId: null });
+    for (const sub of rest) {
+      await saveCatalogProductInternal(toAdminProductRecord(sub), { keepStoredStock: true, forceMotherId: newMother!.id });
+    }
+  }
+
   const db = await getDatabase();
 
   if (!db) {
@@ -912,7 +1057,7 @@ export async function deleteCatalogProductInternal(id: string) {
 
   await ensureCatalogStorageReady(db);
   await db.prepare("DELETE FROM products WHERE id = ?").bind(normalizedId).run();
-  await pruneDeletedProductReferences(db, normalizedId);
+  await pruneDeletedProductReferences(db, normalizedId, subs[0]?.id);
   return { success: true };
 }
 
@@ -1228,12 +1373,67 @@ export const saveAdminCatalogProduct = createServerFn({ method: "POST" })
     setResponseHeader("Cache-Control", "private, no-store");
 
     try {
-      const savedProduct = await saveCatalogProductInternal(data);
+      const savedProduct = await saveCatalogProductInternal(data, { keepStoredStock: true });
       return toAdminProductRecord(savedProduct);
     } catch (error) {
       console.error("[saveAdminCatalogProduct] save failed", data.id, error);
       throw error;
     }
+  });
+
+// Convertir (admin): makes existing products sub-products of a mother
+// (docs/superpowers/specs/2026-11-18-sub-products-design.md). Nothing is
+// created or deleted. Every child is checked first with the shared family
+// rules; then each one goes through the normal save with its new mother, which
+// copies the inherited fields (subtienda, categorías, descripción, destacado
+// off) and re-applies every family check. Everything else stays the child's
+// own, sale included. A failure midway leaves the earlier children converted.
+async function convertProductsToSubsInternal(input: { motherId: string; childIds: string[] }) {
+  const products = await listCatalogProductsInternal();
+  const mother = products.find((product) => product.id === input.motherId);
+  if (!mother) throw new Error("El producto madre ya no existe.");
+  const motherBlock = convertMotherBlock(mother);
+  if (motherBlock) throw new Error(motherBlock);
+
+  const pickedColors = new Set<string>();
+  const children = Array.from(new Set(input.childIds)).map((childId) => {
+    const child = products.find((product) => product.id === childId);
+    if (!child) throw new Error(`El producto ${childId} ya no existe.`);
+    const block = convertChildBlock(child, mother, products, pickedColors);
+    if (block) throw new Error(`"${child.name || child.id}": ${block}`);
+    pickedColors.add(familyColorKey(child));
+    return child;
+  });
+
+  const converted: AdminProductRecord[] = [];
+  for (const child of children) {
+    try {
+      const saved = await saveCatalogProductInternal(toAdminProductRecord(child), {
+        keepStoredStock: true,
+        forceMotherId: mother.id,
+      });
+      converted.push(toAdminProductRecord(saved));
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      const done = converted.length ? ` Ya se convirtieron: ${converted.map((record) => record.name).join(", ")}.` : "";
+      throw new Error(`No se pudo convertir "${child.name || child.id}": ${reason}${done}`);
+    }
+  }
+  return converted;
+}
+
+const convertProductsSchema = z.object({
+  motherId: z.string().trim().min(1),
+  childIds: z.array(z.string().trim().min(1)).min(1).max(50),
+});
+
+export const convertAdminProductsToSubs = createServerFn({ method: "POST" })
+  .inputValidator((data: z.input<typeof convertProductsSchema>) => convertProductsSchema.parse(data))
+  .handler(async ({ data }) => {
+    const { setResponseHeader } = await import("@tanstack/react-start/server");
+    await enforceAdminAccess();
+    setResponseHeader("Cache-Control", "private, no-store");
+    return convertProductsToSubsInternal(data);
   });
 
 export const deleteAdminCatalogProduct = createServerFn({ method: "POST" })

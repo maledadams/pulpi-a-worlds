@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AdminPanel, AdminShell } from "@/components/admin/AdminShell";
-import {  AdminButton,
+import {
+  AdminButton,
   AdminField,
   AdminInput,
   AdminTabs,
@@ -14,13 +15,15 @@ import {  AdminButton,
 import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { getAdminSettingsRecord, saveAdminSettingsRecord } from "@/lib/admin-content";
+import { type AdminTheme, applyAdminTheme, saveAdminTheme, useAdminTheme } from "@/lib/admin-theme";
 
-type SettingsTab = "contacto" | "faqs" | "legal";
+type SettingsTab = "contacto" | "faqs" | "legal" | "apariencia";
 
 const SETTINGS_TABS: Array<{ id: SettingsTab; label: string }> = [
   { id: "contacto", label: "Contacto" },
   { id: "faqs", label: "Preguntas frecuentes" },
   { id: "legal", label: "Legal y privacidad" },
+  { id: "apariencia", label: "Apariencia" },
 ];
 
 export const Route = createFileRoute("/admin/configuracion")({
@@ -41,6 +44,15 @@ function AdminSettingsPage() {
   };
   const [tab, setTab] = useState<SettingsTab>("contacto");
   const [expandedLegalId, setExpandedLegalId] = useState<string | null>(null);
+  const theme = useAdminTheme();
+
+  // Applies at once; saved on this admin's account, not with "Guardar cambios".
+  const chooseTheme = (next: AdminTheme) => {
+    applyAdminTheme(next);
+    void saveAdminTheme({ data: next }).catch(() => {
+      showSaveMessage("No se pudo guardar el modo en tu cuenta.", "error");
+    });
+  };
 
   useEffect(() => {
     if (!saveMessage) return;
@@ -69,7 +81,7 @@ function AdminSettingsPage() {
       title="Configuracion"
       actions={
         <>
-          <AdminButton tone="primary" onClick={handleSave}>
+          <AdminButton tone="save" onClick={handleSave}>
             Guardar cambios
           </AdminButton>        </>
       }
@@ -77,9 +89,26 @@ function AdminSettingsPage() {
       <div className="grid gap-4">
         <AdminTabs tabs={SETTINGS_TABS} active={tab} onChange={setTab} />
 
+        {tab === "apariencia" ? (
+          <AdminPanel editor title="Modo de la pantalla" eyebrow="Se guarda en tu cuenta">
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  ["light", "Claro"],
+                  ["dark", "Oscuro"],
+                ] as const
+              ).map(([value, label]) => (
+                <AdminButton key={value} tone={theme === value ? "active" : "secondary"} onClick={() => chooseTheme(value)}>
+                  {label}
+                </AdminButton>
+              ))}
+            </div>
+          </AdminPanel>
+        ) : null}
+
         {tab === "contacto" ? (
-        <AdminPanel title="Canales de contacto">
-          <div className="grid gap-3 md:grid-cols-2">
+        <AdminPanel editor title="Canales de contacto">
+          <div className="grid gap-3 amd:grid-cols-2">
             <AdminField label="Nombre del negocio">
               <AdminInput
                 value={form.businessName}
@@ -135,11 +164,11 @@ function AdminSettingsPage() {
         ) : null}
 
         {tab === "faqs" ? (
-        <AdminPanel
+        <AdminPanel editor
           title="Preguntas frecuentes"
           actions={
             <AdminButton
-              tone="secondary"
+              tone="add"
               onClick={() =>
                 setForm((current) => ({
                   ...current,
@@ -156,17 +185,20 @@ function AdminSettingsPage() {
         >
           <div className="grid gap-3">
             {form.contactFaqs.map((faq) => (
-              <div key={faq.id} className="rounded-[18px] bg-[#faf6f0] p-4">
+              <div key={faq.id} className="rounded-2xl border border-[var(--admin-line)] bg-[var(--admin-surface)] p-4">
                 <div className="grid gap-3">
                   <div className="flex justify-end">
                     <AdminButton
-                      tone="ghost"
+                      tone="dangerSolid"
                       onClick={() =>
-                        confirmAdminDestructiveAction("Vas a eliminar esta pregunta frecuente. ¿Quieres continuar?") &&
-                        setForm((current) => ({
-                          ...current,
-                          contactFaqs: current.contactFaqs.filter((entry) => entry.id !== faq.id),
-                        }))
+                        void confirmAdminDestructiveAction("Vas a eliminar esta pregunta frecuente. ¿Quieres continuar?").then(
+                          (ok) =>
+                            ok &&
+                            setForm((current) => ({
+                              ...current,
+                              contactFaqs: current.contactFaqs.filter((entry) => entry.id !== faq.id),
+                            })),
+                        )
                       }
                     >
                       Quitar
@@ -207,11 +239,11 @@ function AdminSettingsPage() {
         ) : null}
 
         {tab === "legal" ? (
-        <AdminPanel
+        <AdminPanel editor
           title="Legal y privacidad"
           actions={
             <AdminButton
-              tone="secondary"
+              tone="addAlt"
               onClick={() => {
                 const newId = `legal-${Date.now()}`;
                 setForm((current) => ({
@@ -226,7 +258,7 @@ function AdminSettingsPage() {
           }
         >
           <div className="grid gap-3">
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-3 amd:grid-cols-2">
               <AdminField label="Titulo legal">
                 <AdminInput
                   value={form.legalPageTitle}
@@ -282,26 +314,29 @@ function AdminSettingsPage() {
             {form.legalSections.map((section) => {
               const isOpen = expandedLegalId === section.id;
               return (
-                <div key={section.id} className="rounded-[18px] border border-[#231717]/15 bg-[#faf6f0]">
+                <div key={section.id} className="rounded-2xl border border-[var(--admin-line)] bg-[var(--admin-surface)]">
                   <button
                     type="button"
                     onClick={() => setExpandedLegalId(isOpen ? null : section.id)}
                     className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
                   >
                     <span className="min-w-0 truncate text-sm font-bold">{section.title || "Bloque sin titulo"}</span>
-                    <ChevronDown className={`h-4 w-4 shrink-0 text-[#7c665f] transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                    <ChevronDown className={`h-4 w-4 shrink-0 text-[var(--admin-muted)] transition-transform ${isOpen ? "rotate-180" : ""}`} />
                   </button>
                   {isOpen ? (
-                    <div className="grid gap-3 border-t border-[#231717]/10 p-4">
+                    <div className="grid gap-3 border-t border-[var(--admin-line)] p-4">
                       <div className="flex justify-end">
                         <AdminButton
-                          tone="ghost"
+                          tone="dangerSolid"
                           onClick={() =>
-                            confirmAdminDestructiveAction("Vas a eliminar este bloque legal. ¿Quieres continuar?") &&
-                            setForm((current) => ({
-                              ...current,
-                              legalSections: current.legalSections.filter((entry) => entry.id !== section.id),
-                            }))
+                            void confirmAdminDestructiveAction("Vas a eliminar este bloque legal. ¿Quieres continuar?").then(
+                              (ok) =>
+                                ok &&
+                                setForm((current) => ({
+                                  ...current,
+                                  legalSections: current.legalSections.filter((entry) => entry.id !== section.id),
+                                })),
+                            )
                           }
                         >
                           Quitar

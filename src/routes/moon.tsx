@@ -57,7 +57,7 @@ function MoonPage() {
         intro: settings.moonPageIntro,
         catalogHeading: settings.vibeCatalogHeading,
         catalogThemeVibe: "men",
-        heroWaveColor: "#f3e8e6",
+        heroWaveColor: "#7b1832",
         searchPlaceholderClassName: "placeholder:text-[#8d8d8d]",
         bg: "linear-gradient(135deg,#0a0408,#2a0a14 60%,#5a0a14)",
         logo,

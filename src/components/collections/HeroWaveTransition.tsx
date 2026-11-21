@@ -2,11 +2,22 @@ import { useEffect, useRef } from "react";
 
 type HeroWaveTransitionProps = {
   lineColor: string;
+  /** Color under the wave; without it, the background of whatever follows the hero. */
+  fillColor?: string | null;
+  /** Placement; defaults to hanging off the bottom of a full-width sub-store hero. */
+  className?: string;
 };
+
+const DEFAULT_PLACEMENT =
+  "pointer-events-none absolute -bottom-[clamp(1.75rem,2.5vw,2.5rem)] left-0 z-20 h-[clamp(4.5rem,7vw,6.5rem)] w-full";
 
 let sharedWavePhase = 0;
 
-export function HeroWaveTransition({ lineColor }: HeroWaveTransitionProps) {
+export function HeroWaveTransition({
+  lineColor,
+  fillColor,
+  className = DEFAULT_PLACEMENT,
+}: HeroWaveTransitionProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -78,7 +89,7 @@ export function HeroWaveTransition({ lineColor }: HeroWaveTransitionProps) {
       context.lineTo(width, height);
       context.lineTo(0, height);
       context.closePath();
-      context.fillStyle = visibleCatalogBackground();
+      context.fillStyle = fillColor || visibleCatalogBackground();
       context.fill();
 
       context.beginPath();
@@ -116,13 +127,13 @@ export function HeroWaveTransition({ lineColor }: HeroWaveTransitionProps) {
       window.removeEventListener("resize", restart);
       observer?.disconnect();
     };
-  }, [lineColor]);
+  }, [lineColor, fillColor]);
 
   return (
     <canvas
       ref={canvasRef}
       aria-hidden="true"
-      className="pointer-events-none absolute -bottom-[clamp(1.75rem,2.5vw,2.5rem)] left-0 z-20 h-[clamp(4.5rem,7vw,6.5rem)] w-full"
+      className={className}
     />
   );
 }

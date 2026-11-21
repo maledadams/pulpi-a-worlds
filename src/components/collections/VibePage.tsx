@@ -1,9 +1,11 @@
 import { type Vibe } from "@/data/products";
+import { HeroEffect } from "@/components/theme/HeroEffect";
+import { ThemeImage } from "@/components/theme/ThemeImage";
 import { CatalogBrowser } from "@/components/catalog/CatalogBrowser";
 import { useCatalogProducts } from "@/context/catalog";
 import { useVibe } from "@/hooks/use-vibe";
 import { type CatalogSearch } from "@/lib/store-filters";
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { HeroWaveTransition } from "@/components/collections/HeroWaveTransition";
 
 type Cfg = {
@@ -34,8 +36,10 @@ export function VibePage({
   onSearchChange: (next: CatalogSearch) => void;
 }) {
   useVibe(cfg.vibe);
-  const products = useCatalogProducts().filter(
-    (product) => product.vibe === cfg.vibe || product.secondaryVibe === cfg.vibe,
+  const allProducts = useCatalogProducts();
+  const products = useMemo(
+    () => allProducts.filter((product) => product.vibe === cfg.vibe || product.secondaryVibe === cfg.vibe),
+    [allProducts, cfg.vibe],
   );
   const catalogHeading = /^toda la linea$/i.test(cfg.catalogHeading.trim())
     ? "Toda la Linea"
@@ -46,7 +50,8 @@ export function VibePage({
       <section className="relative z-10">
         <div className="absolute inset-0" style={{ background: cfg.bg }} />
         {cfg.mood && (
-          <img
+          <ThemeImage
+            slot={`subbrand.mood.${cfg.vibe as "moon" | "sunshine" | "men"}`}
             src={cfg.mood}
             alt=""
             fetchPriority="high"
@@ -54,9 +59,12 @@ export function VibePage({
             className="absolute inset-0 h-full w-full object-cover opacity-30 mix-blend-overlay"
           />
         )}
+        {/* Theme hero effect: above the background and photo, below the logo. */}
+        <HeroEffect hero={cfg.vibe as "moon" | "sunshine" | "men"} />
         <div className="relative mx-auto flex max-w-7xl items-center justify-center px-4 py-20 md:py-28">
           <div className="relative flex w-full justify-center">
-            <img
+            <ThemeImage
+              slot={`logo.${cfg.vibe as "moon" | "sunshine" | "men"}`}
               src={cfg.logo}
               alt={cfg.title}
               className="max-h-[360px] w-auto object-contain drop-shadow-2xl"
@@ -104,6 +112,7 @@ export function VibePage({
             themeVibe={cfg.catalogThemeVibe}
             searchPlaceholderClassName={cfg.searchPlaceholderClassName}
             wideProductResultsOnly
+            crossStoreCatalog={allProducts}
           />
         </div>
       </section>

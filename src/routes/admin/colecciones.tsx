@@ -203,7 +203,7 @@ function AdminCollectionsPage() {
           collection.id === value.id || collection.id === saved.id ? saved : collection,
         );
       });
-      if (saved.id !== value.id) setSelectedId(saved.id);
+      if (saved.id !== value.id) setSelectedId((current) => (current === value.id ? saved.id : current));
       setDraft((current) => (current && current.id === value.id ? cloneCollection(saved) : current));
       if (!options.silent) showSaveMessage("Coleccion guardada.", "success");
     });
@@ -220,7 +220,7 @@ function AdminCollectionsPage() {
     });
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!draft) return;
 
     const productCount = getResolvedCollectionCount(draft, products);
@@ -231,9 +231,9 @@ function AdminCollectionsPage() {
     const warningText = warnings.length > 0 ? ` Esta coleccion ${warnings.join(" y ")}.` : "";
 
     if (
-      !confirmAdminDestructiveAction(
+      !(await confirmAdminDestructiveAction(
         `Vas a eliminar la coleccion ${draft.name || draft.id}.${warningText} Esta accion no se puede deshacer. ¿Quieres continuar?`,
-      )
+      ))
     ) {
       return;
     }
@@ -264,7 +264,7 @@ function AdminCollectionsPage() {
       section="colecciones"
       title="Colecciones"
       actions={
-        <AdminButton tone="primary" onClick={handleCreate}>
+        <AdminButton tone="create" onClick={handleCreate}>
           Nueva coleccion
         </AdminButton>
       }
@@ -277,7 +277,7 @@ function AdminCollectionsPage() {
               {(["all", "store", "moon", "sunshine", "men"] as const).map((entry) => (
                 <AdminButton
                   key={entry}
-                  tone={entry === "all" || entry === "store" ? (scope === entry ? "active" : "ghost") : "custom"}
+                  tone={entry === "all" || entry === "store" ? (scope === entry ? "active" : "secondary") : "custom"}
                   className={
                     entry === "moon" || entry === "sunshine" || entry === "men"
                       ? getAdminVibeButtonClassName(entry, scope === entry)
@@ -291,13 +291,13 @@ function AdminCollectionsPage() {
             </div>
           }
         >
-          <div className="mb-4 flex flex-col gap-3 md:flex-row">
+          <div className="mb-4 flex flex-col gap-3 amd:flex-row">
             <AdminInput
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Buscar por nombre o descripcion"
             />
-            <div className="shrink-0 rounded-xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2.5 text-sm font-semibold">
+            <div className="shrink-0 px-1 py-2.5 text-sm text-[var(--admin-faint)]">
               {filtered.length} colecciones
             </div>
           </div>
@@ -314,7 +314,7 @@ function AdminCollectionsPage() {
             />
           ) : (
             <>
-              <div className="grid gap-3 lg:grid-cols-2">
+              <div className="grid gap-3 alg:grid-cols-2">
                 {paged.map((collection) => (
                   <button
                     key={collection.id}
@@ -322,17 +322,17 @@ function AdminCollectionsPage() {
                     onClick={() => setSelectedId(collection.id)}
                     className={`rounded-3xl border p-4 text-left transition-colors ${
                       selectedId === collection.id
-                        ? "border-[#231717] bg-[#f7f2ec]"
-                        : "border-[#231717]/10 bg-[#faf6f0] hover:bg-[#f3eadf]"
+                        ? "border-transparent bg-[var(--admin-accent-soft)]"
+                        : "border-[var(--admin-line)] bg-[var(--admin-surface)] hover:bg-[var(--admin-accent-soft)]"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <div className="text-sm font-black">{collection.name || "Sin nombre"}</div>
+                        <div className="text-sm font-semibold">{collection.name || "Sin nombre"}</div>
                       </div>
                       <div className="flex flex-wrap justify-end gap-1">
                         {collection.published ? <AdminTag tone="dark">Publica</AdminTag> : <AdminTag tone="warn">Oculta</AdminTag>}
-                        {collection.showOnHome ? <AdminTag tone="soft">Inicio #{collection.homeOrder}</AdminTag> : null}
+                        {collection.showOnHome ? <AdminTag tone="success">Inicio #{collection.homeOrder}</AdminTag> : null}
                       </div>
                     </div>
                       <div className="mt-3 flex flex-wrap gap-1">
@@ -349,15 +349,15 @@ function AdminCollectionsPage() {
           )}
         </AdminPanel>
 
-        <AdminPanel
+        <AdminPanel editor
           title={draft?.name || "Editor"}
           actions={
             <div className="flex flex-wrap gap-2">
+              <AdminButton tone="save" onClick={handleSave} disabled={!draft || isDeleting}>
+                Guardar
+              </AdminButton>
               <AdminButton tone="danger" onClick={handleDelete} disabled={!draft || isDeleting}>
                 {isDeleting ? "Eliminando..." : "Eliminar"}
-              </AdminButton>
-              <AdminButton tone="primary" onClick={handleSave} disabled={!draft || isDeleting}>
-                Guardar
               </AdminButton>            </div>
           }
         >
@@ -425,8 +425,8 @@ function AdminCollectionsPage() {
                         key={category.id}
                         type="button"
                         onClick={() => toggleCategory(category.id)}
-                        className={`rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] transition ${
-                          active ? "border-[#231717] bg-[#231717] text-white" : "border-[#231717]/20 bg-[#faf6f0] text-[#5f4941]"
+                        className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
+                          active ? "border-transparent bg-[var(--admin-select)] text-[var(--admin-on-invert)]" : "bg-[var(--admin-soft)] text-[var(--admin-muted)] hover:bg-[var(--admin-soft-hover)]"
                         }`}
                       >
                         {category.label}
@@ -439,7 +439,7 @@ function AdminCollectionsPage() {
               <div>
                 <div className="flex items-center justify-between gap-3">
                   <AdminSectionLabel>Productos incluidos</AdminSectionLabel>
-                  <div className="text-xs font-semibold text-[#6b5a55]">{draft.productIds.length} seleccionados</div>
+                  <div className="text-xs font-semibold text-[var(--admin-muted)]">{draft.productIds.length} seleccionados</div>
                 </div>
                 <div className="mt-2">
                   <AdminInput
@@ -464,18 +464,18 @@ function AdminCollectionsPage() {
                       <label
                         key={product.id}
                         className={`flex items-start gap-3 rounded-2xl border px-3 py-3 text-sm transition ${
-                          active ? "border-[#231717] bg-[#f7f2ec]" : "border-[#231717]/10 bg-[#faf6f0]"
+                          active ? "border-transparent bg-[var(--admin-accent-soft)]" : "border-[var(--admin-line)] bg-[var(--admin-field)]"
                         }`}
                       >
                         <input
                           type="checkbox"
                           checked={active}
                           onChange={() => toggleProduct(product.id)}
-                          className="mt-1 h-4 w-4 rounded border-[#231717] accent-[#231717]"
+                          className="mt-1 h-4 w-4 rounded accent-[var(--admin-select)]"
                         />
                         <span className="min-w-0">
                           <span className="block font-normal">{product.name}</span>
-                          <span className="mt-0.5 block text-xs text-[#6b5a55]">
+                          <span className="mt-0.5 block text-xs text-[var(--admin-muted)]">
                             {getVibeLabel(product.vibe)} / {getCompactCategoryLabel(product.primaryCategory)}
                           </span>
                         </span>

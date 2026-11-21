@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AdminPanel, AdminShell, AdminTag } from "@/components/admin/AdminShell";
+import { AdminPanel, AdminShell, AdminTag, inquiryStatusTone } from "@/components/admin/AdminShell";
 import {  AdminButton,
   AdminEmptyState,
   AdminField,
@@ -12,6 +12,7 @@ import {  AdminButton,
   AdminTextarea,
   confirmAdminDestructiveAction,
   downloadAdminCsv,
+  getAdminChipClassName,
 } from "@/components/admin/AdminControls";
 import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
@@ -29,7 +30,11 @@ import {
 } from "@/lib/manual-orders";
 import type { AdminInquiryChannel, AdminInquiryRecord, AdminInquiryStatus, AdminProductRecord } from "@/lib/admin-types";
 
+// Narrow screens (one column) use a fixed page. On wide screens the list fills
+// whatever height the order editor beside it gives the panel.
 const PAGE_SIZE = 12;
+// Space kept between the last row and the pagination, on top of its mt-3 (~1cm total).
+const PAGINATION_GAP = 26;
 
 type DraftOrderLine = {
   key: string;
@@ -60,14 +65,6 @@ function cloneInquiry(inquiry: AdminInquiryRecord): AdminInquiryRecord {
     shippingAddress: { ...inquiry.shippingAddress },
     lines: inquiry.lines.map((line) => ({ ...line })),
   };
-}
-
-function statusTone(status: AdminInquiryStatus) {
-  if (status === "pending_contact") return "info";
-  if (status === "new") return "warn";
-  if (status === "closed") return "success";
-  if (status === "cancelled") return "danger";
-  return "info";
 }
 
 function createDraftLine(products: AdminProductRecord[]): DraftOrderLine {
@@ -150,16 +147,16 @@ function ProductSearchField({
         onChange={(event) => onQueryChange(event.target.value)}
         placeholder="Buscar producto por nombre, id o slug"
       />
-      <div className="grid gap-2 rounded-2xl border border-[#231717]/10 bg-[#faf6f0] p-2">
+      <div className="grid gap-1.5 rounded-xl bg-[var(--admin-field)] p-1.5 ring-1 ring-[var(--admin-line)]">
         {matches.map((match) => (
           <button
             key={match.id}
             type="button"
             onClick={() => onProductSelect(match)}
-            className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
+            className={`rounded-lg px-3 py-2 text-left text-sm transition-colors ${
               line.productId === match.id
-                ? "border-[#231717] bg-[#231717] text-white"
-                : "border-[#231717]/10 bg-white text-[#231717]"
+                ? "bg-[var(--admin-accent-soft)] text-[var(--admin-accent-ink)]"
+                : "bg-[var(--admin-surface)] hover:bg-[var(--admin-accent-soft)]"
             }`}
           >
             <div className="font-normal">{match.name}</div>
@@ -171,7 +168,21 @@ function ProductSearchField({
   );
 }
 
+// Status filter buttons wear the same colors as their status tags, with
+// their own darker hover. Selected uses the shared dark selection color.
+const STATUS_FILTER_TONE: Record<AdminInquiryStatus, string> = {
+  pending_contact: "bg-[var(--admin-plum-soft)] text-[var(--admin-plum)] hover:bg-[var(--admin-plum-soft-hover)] hover:text-[var(--admin-plum)]",
+  new: "bg-[var(--admin-warn-soft)] text-[var(--admin-warn)] hover:bg-[var(--admin-warn-soft-hover)] hover:text-[var(--admin-warn)]",
+  follow_up: "bg-[var(--admin-violet-soft)] text-[var(--admin-violet)] hover:bg-[var(--admin-violet-soft-hover)] hover:text-[var(--admin-violet)]",
+  quoted: "bg-[var(--admin-cinnamon-soft)] text-[var(--admin-cinnamon)] hover:bg-[var(--admin-cinnamon-soft-hover)] hover:text-[var(--admin-cinnamon)]",
+  closed: "bg-[var(--admin-ok-soft)] text-[var(--admin-ok)] hover:bg-[var(--admin-ok-soft-hover)] hover:text-[var(--admin-ok)]",
+  cancelled: "bg-[var(--admin-cocoa-soft)] text-[var(--admin-cocoa)] hover:bg-[var(--admin-cocoa-soft-hover)] hover:text-[var(--admin-cocoa)]",
+};
+
 export const Route = createFileRoute("/admin/pedidos")({
+  validateSearch: (search: Record<string, unknown>): { order?: string } => ({
+    order: typeof search.order === "string" && search.order.trim() ? search.order.trim() : undefined,
+  }),
   beforeLoad: () => enforceAdminAccess(),
   loader: async () => {
     const [inquiries, products] = await Promise.all([getAdminOrders(), getAdminCatalogProducts()]);
@@ -183,15 +194,22 @@ export const Route = createFileRoute("/admin/pedidos")({
 
 function AdminOrdersPage() {
   const { inquiries, products } = Route.useLoaderData();
+  const { order: requestedOrderId } = Route.useSearch();
+  const requestedOrder = requestedOrderId
+    ? inquiries.find((inquiry) => inquiry.id === requestedOrderId) ?? null
+    : null;
+  const initialOrder = requestedOrder ?? inquiries[0] ?? null;
   const [rows, setRows] = useState(() => inquiries.map(cloneInquiry));
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | AdminInquiryStatus>("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | AdminInquiryStatus>(
+    requestedOrder?.status === "pending_contact" ? "pending_contact" : "all",
+  );
   const [page, setPage] = useState(0);
-  const [selectedId, setSelectedId] = useState(inquiries[0]?.id ?? "");
+  const [selectedId, setSelectedId] = useState(initialOrder?.id ?? "");
   const activeOrderIdRef = useRef(selectedId);
   activeOrderIdRef.current = selectedId;
-  const [draft, setDraft] = useState<AdminInquiryRecord | null>(inquiries[0] ? cloneInquiry(inquiries[0]) : null);
-  const [draftLines, setDraftLines] = useState<DraftOrderLine[]>(() => inquiries[0] ? buildEditableLines(inquiries[0], products) : []);
+  const [draft, setDraft] = useState<AdminInquiryRecord | null>(initialOrder ? cloneInquiry(initialOrder) : null);
+  const [draftLines, setDraftLines] = useState<DraftOrderLine[]>(() => initialOrder ? buildEditableLines(initialOrder, products) : []);
   const [toastMessage, setToastMessage] = useState("");
   const [toastTone, setToastTone] = useState<AdminToastTone>("info");
   const showToast = (text: string, tone: AdminToastTone = "info") => {
@@ -219,9 +237,30 @@ function AdminOrdersPage() {
     });
   }, [rows, query, statusFilter]);
 
-  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
+  const listRef = useRef<HTMLDivElement>(null);
+  const hasRows = filtered.length > 0;
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const measure = () => {
+      // contain:size is only on at xl (see the list's className): below that,
+      // the list grows with its rows, so keep the fixed page.
+      if (!getComputedStyle(list).contain.includes("size")) return setPageSize(PAGE_SIZE);
+      const row = list.querySelector("tbody tr") as HTMLElement | null;
+      const head = list.querySelector("thead") as HTMLElement | null;
+      if (!row || !head) return;
+      const fit = Math.floor((list.clientHeight - head.offsetHeight - PAGINATION_GAP) / row.offsetHeight);
+      setPageSize(Math.max(1, fit));
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [hasRows]);
+
+  const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, pages - 1);
-  const paged = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+  const paged = filtered.slice(safePage * pageSize, safePage * pageSize + pageSize);
 
   // Sets selectedId together with draft/draftLines in the same event, rather
   // than changing selectedId and letting a separate effect catch up on the
@@ -241,6 +280,14 @@ function AdminOrdersPage() {
   useEffect(() => {
     setPage(0);
   }, [query, statusFilter]);
+
+  useEffect(() => {
+    // On first load and whenever the page size changes (window resized), show
+    // the page holding the open order. Filter/search changes still reset to page 1.
+    const index = filtered.findIndex((inquiry) => inquiry.id === selectedId);
+    if (index >= 0) setPage(Math.floor(index / pageSize));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageSize]);
 
   useEffect(() => {
     if (!filtered.length) {
@@ -271,15 +318,15 @@ function AdminOrdersPage() {
     }));
   };
 
-  const removeDraftLine = (key: string) => {
-    if (!confirmAdminDestructiveAction("Vas a quitar esta linea del pedido. ¿Quieres continuar?")) {
+  const removeDraftLine = async (key: string) => {
+    if (!(await confirmAdminDestructiveAction("Vas a quitar esta linea del pedido. ¿Quieres continuar?"))) {
       return;
     }
     setDraftLines((current) => (current.length > 1 ? current.filter((line) => line.key !== key) : current));
   };
 
-  const removeCreateLine = (key: string) => {
-    if (!confirmAdminDestructiveAction("Vas a quitar esta linea del pedido manual. ¿Quieres continuar?")) {
+  const removeCreateLine = async (key: string) => {
+    if (!(await confirmAdminDestructiveAction("Vas a quitar esta linea del pedido manual. ¿Quieres continuar?"))) {
       return;
     }
     setNewOrder((current) => ({
@@ -308,6 +355,7 @@ function AdminOrdersPage() {
         customerEmail: value.draft.customerEmail,
         customerName: value.draft.customerName,
         customerPhone: value.draft.customerPhone,
+        discount: value.draft.discount,
         fulfillmentMethod: value.draft.fulfillmentMethod,
         id: value.draft.id,
         lines: value.draftLines.map((line) => ({
@@ -387,12 +435,12 @@ function AdminOrdersPage() {
       .finally(() => setCreating(false));
   };
 
-  const handleDeleteOrder = () => {
+  const handleDeleteOrder = async () => {
     if (!draft) return;
     if (
-      !confirmAdminDestructiveAction(
+      !(await confirmAdminDestructiveAction(
         `Vas a eliminar el pedido ${draft.requestNumber}. Esta accion no se puede deshacer. ¿Quieres continuar?`,
-      )
+      ))
     ) {
       return;
     }
@@ -440,9 +488,14 @@ function AdminOrdersPage() {
       {lines.map((line) => {
         const product = findProduct(products, line.productId);
         const variants = getAvailableVariants(product);
+        // A line whose variant has since sold out (or was removed) still shows
+        // that variant; otherwise the select displayed a different one and
+        // touching it switched the order to it.
+        const lineVariant = product?.variants.find((variant) => variant.id === line.variantId);
+        const lineVariantMissing = Boolean(line.variantId) && !variants.some((variant) => variant.id === line.variantId);
 
         return (
-          <div key={line.key} className="rounded-2xl bg-[#faf6f0] p-4">
+          <div key={line.key} className="rounded-2xl border border-[var(--admin-line)] bg-[var(--admin-surface)] p-4">
             <div className="grid gap-3">
               <ProductSearchField
                 line={line}
@@ -465,12 +518,15 @@ function AdminOrdersPage() {
                 }}
               />
 
-              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_120px_120px_auto]">
+              <div className="grid gap-3 amd:grid-cols-[minmax(0,1fr)_120px_120px_auto]">
                 <AdminField label="Variante">
                   <AdminSelect
                     value={line.variantId}
                     onChange={(event) => onLineChange(line.key, (current) => ({ ...current, variantId: event.target.value }))}
                   >
+                    {lineVariantMissing ? (
+                      <option value={line.variantId}>{lineVariant?.title ?? "Variante original"} (agotada)</option>
+                    ) : null}
                     {variants.map((variant) => (
                       <option key={variant.id} value={variant.id}>
                         {variant.title}
@@ -541,33 +597,33 @@ function AdminOrdersPage() {
           <AdminButton tone="ghost" onClick={handleExportCsv} disabled={filtered.length === 0}>
             Exportar CSV
           </AdminButton>
-          <AdminButton tone={isCreating ? "active" : "secondary"} onClick={() => setIsCreating((current) => !current)}>
+          <AdminButton tone={isCreating ? "secondary" : "create"} onClick={() => setIsCreating((current) => !current)}>
             {isCreating ? "Cerrar manual" : "Nuevo pedido manual"}
           </AdminButton>
         </>
       }
     >
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.2fr)_460px]">
+      <div className="grid grid-cols-1 gap-4 axl:grid-cols-[minmax(0,1.2fr)_460px]">
         <AdminPanel
           title="Ordenes"
           actions={
             <div className="flex flex-wrap gap-2">
               {(["all", "pending_contact", "new", "follow_up", "quoted", "closed", "cancelled"] as const).map((entry) => (
-                <AdminButton key={entry} tone={statusFilter === entry ? "active" : "ghost"} onClick={() => setStatusFilter(entry)}>
+                <button key={entry} type="button" className={getAdminChipClassName(statusFilter === entry, entry === "all" || statusFilter === entry ? undefined : STATUS_FILTER_TONE[entry])} onClick={() => setStatusFilter(entry)}>
                   {entry === "all" ? "Todas" : formatAdminInquiryStatus(entry)}
-                </AdminButton>
+                </button>
               ))}
             </div>
           }
         >
           <div className="flex h-full flex-col">
-          <div className="mb-4 flex flex-col gap-3 md:flex-row">
+          <div className="mb-4 flex flex-col gap-3 amd:flex-row">
             <AdminInput
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Buscar por numero PUL, cliente, email o telefono"
             />
-            <div className="shrink-0 rounded-xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2.5 text-sm font-semibold">
+            <div className="shrink-0 px-1 py-2.5 text-sm text-[var(--admin-faint)]">
               {filtered.length} pedidos
             </div>
           </div>
@@ -579,9 +635,11 @@ function AdminOrdersPage() {
             />
           ) : (
             <>
-              <div className="flex-1 overflow-x-auto">
+              {/* axl: contain:size keeps the rows from stretching the panel; the panel
+                  takes the editor's height and the rows fill it. */}
+              <div ref={listRef} className="flex-1 overflow-x-auto axl:min-h-80 axl:[contain:size]">
                 <table className="min-w-full text-left text-sm">
-                  <thead className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">
+                  <thead className="text-xs font-medium text-[var(--admin-faint)]">
                     <tr>
                       <th className="pb-3 pr-3">Pedido</th>
                       <th className="pb-3 pr-3">Cliente</th>
@@ -595,23 +653,23 @@ function AdminOrdersPage() {
                       <tr
                         key={inquiry.id}
                         onClick={() => selectOrder(inquiry.id)}
-                        className={`cursor-pointer border-t border-[#231717]/10 align-top transition-colors ${
-                          selectedId === inquiry.id ? "bg-[#f7f2ec]" : "hover:bg-[#faf6f0]"
+                        className={`cursor-pointer border-t border-[var(--admin-line)] align-top transition-colors ${
+                          selectedId === inquiry.id ? "border-transparent bg-[var(--admin-accent-soft)] [&+tr]:border-transparent" : "hover:bg-[var(--admin-accent-soft)]"
                         }`}
                       >
                         <td className="py-3 pr-3">
                           <div className="font-bold">{inquiry.requestNumber}</div>
-                          <div className="text-xs text-[#6b5a55]">{new Date(inquiry.createdAt).toLocaleDateString("es-DO")}</div>
+                          <div className="text-xs text-[var(--admin-muted)]">{new Date(inquiry.createdAt).toLocaleDateString("es-DO")}</div>
                         </td>
                         <td className="py-3 pr-3">
                           <div>{inquiry.customerName}</div>
-                          <div className="text-xs text-[#6b5a55]">{inquiry.customerPhone}</div>
+                          <div className="text-xs text-[var(--admin-muted)]">{inquiry.customerPhone}</div>
                         </td>
                         <td className="py-3 pr-3">{formatAdminInquiryChannel(inquiry.channel)}</td>
                         <td className="py-3 pr-3">{inquiry.fulfillmentMethod === "delivery" ? "Delivery" : "Recoger"}</td>
                         <td className="py-3 pr-3">
                           <div className="flex flex-wrap gap-1">
-                            <AdminTag tone={statusTone(inquiry.status)}>{formatAdminInquiryStatus(inquiry.status)}</AdminTag>
+                            <AdminTag tone={inquiryStatusTone(inquiry.status)}>{formatAdminInquiryStatus(inquiry.status)}</AdminTag>
                             {inquiry.adminTags.map((tag) => (
                               <AdminTag key={tag} tone={tag === "Correo no enviado" ? "danger" : "warn"}>
                                 {tag}
@@ -634,7 +692,7 @@ function AdminOrdersPage() {
 
         <div className="grid gap-4">
           {isCreating ? (
-            <AdminPanel
+            <AdminPanel editor
               title="Nuevo pedido manual"
               actions={
                 <AdminButton tone="primary" onClick={handleCreateOrder} disabled={creating}>
@@ -643,7 +701,7 @@ function AdminOrdersPage() {
               }
             >
               <div className="grid gap-4">
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-3 amd:grid-cols-2">
                   <AdminField label="Nombre">
                     <AdminInput value={newOrder.customerName} onChange={(event) => setNewOrder((current) => ({ ...current, customerName: event.target.value }))} />
                   </AdminField>
@@ -652,7 +710,7 @@ function AdminOrdersPage() {
                   </AdminField>
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-3 amd:grid-cols-2">
                   <AdminField label="Telefono">
                     <AdminInput value={newOrder.customerPhone} onChange={(event) => setNewOrder((current) => ({ ...current, customerPhone: event.target.value }))} />
                   </AdminField>
@@ -666,7 +724,7 @@ function AdminOrdersPage() {
                   </AdminField>
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-3 amd:grid-cols-2">
                   <AdminField label="Entrega">
                     <AdminSelect
                       value={newOrder.fulfillmentMethod}
@@ -693,7 +751,7 @@ function AdminOrdersPage() {
                   </AdminField>
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-3 amd:grid-cols-2">
                   <AdminField label="Pago">
                     <AdminSelect value={newOrder.paymentStatus} onChange={(event) => setNewOrder((current) => ({ ...current, paymentStatus: event.target.value as AdminInquiryRecord["paymentStatus"] }))}>
                       <option value="pending">Pendiente</option>
@@ -707,8 +765,8 @@ function AdminOrdersPage() {
                 </div>
 
                 {newOrder.fulfillmentMethod === "delivery" ? (
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="md:col-span-2">
+                  <div className="grid gap-3 amd:grid-cols-2">
+                    <div className="amd:col-span-2">
                       <AdminField label="Direccion">
                         <AdminInput
                           value={newOrder.shippingAddress.line1}
@@ -769,23 +827,24 @@ function AdminOrdersPage() {
           ) : null}
 
           {draft ? (
-            <AdminPanel
+            <AdminPanel editor
               title={draft.requestNumber}
               actions={
                 <div className="flex items-center gap-2">
-                  <AdminButton tone="ghost" onClick={handleResendConfirmation} disabled={resending || saving || deleting}>
-                    {resending ? "Enviando..." : "Reenviar"}
-                  </AdminButton>
                   <AdminButton tone="danger" onClick={handleDeleteOrder} disabled={saving || deleting}>
                     {deleting ? "Eliminando..." : "Eliminar"}
                   </AdminButton>
-                  <AdminButton tone="primary" onClick={handleSave} disabled={saving || deleting}>
+                  <AdminButton tone="ghost" onClick={handleResendConfirmation} disabled={resending || saving || deleting}>
+                    {resending ? "Enviando..." : "Reenviar"}
+                  </AdminButton>
+                  <AdminButton tone="save" onClick={handleSave} disabled={saving || deleting}>
                     {saving ? "Guardando..." : "Guardar"}
-                  </AdminButton>                </div>
+                  </AdminButton>
+                </div>
               }
             >
               <div className="grid gap-4">
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-3 amd:grid-cols-2">
                   <AdminField label="Nombre">
                     <AdminInput value={draft.customerName} onChange={(event) => setDraft((current) => (current ? { ...current, customerName: event.target.value } : current))} />
                   </AdminField>
@@ -794,7 +853,7 @@ function AdminOrdersPage() {
                   </AdminField>
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-3 amd:grid-cols-2">
                   <AdminField label="Telefono">
                     <AdminInput value={draft.customerPhone} onChange={(event) => setDraft((current) => (current ? { ...current, customerPhone: event.target.value } : current))} />
                   </AdminField>
@@ -808,7 +867,7 @@ function AdminOrdersPage() {
                   </AdminField>
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-3 amd:grid-cols-2">
                   <AdminField label="Entrega">
                     <AdminSelect
                       value={draft.fulfillmentMethod}
@@ -830,6 +889,8 @@ function AdminOrdersPage() {
                   </AdminField>
                   <AdminField label="Estado">
                     <AdminSelect value={draft.status} onChange={(event) => setDraft((current) => (current ? { ...current, status: event.target.value as AdminInquiryStatus } : current))}>
+                      {/* Without this option a pending_contact order showed "Nuevo" and saving it silently became "new". */}
+                      <option value="pending_contact">Pendiente de contacto</option>
                       <option value="new">Nuevo</option>
                       <option value="follow_up">Seguimiento</option>
                       <option value="quoted">Cotizada</option>
@@ -839,7 +900,7 @@ function AdminOrdersPage() {
                   </AdminField>
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-3 amd:grid-cols-2">
                   <AdminField label="Pago">
                     <AdminSelect value={draft.paymentStatus} onChange={(event) => setDraft((current) => (current ? { ...current, paymentStatus: event.target.value as AdminInquiryRecord["paymentStatus"] } : current))}>
                       <option value="pending">Pendiente</option>
@@ -853,8 +914,8 @@ function AdminOrdersPage() {
                 </div>
 
                 {draft.fulfillmentMethod === "delivery" ? (
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="md:col-span-2">
+                  <div className="grid gap-3 amd:grid-cols-2">
+                    <div className="amd:col-span-2">
                       <AdminField label="Direccion">
                         <AdminInput
                           value={draft.shippingAddress.line1}
@@ -906,7 +967,7 @@ function AdminOrdersPage() {
                   <AdminTextarea value={draft.notes} onChange={(event) => setDraft((current) => (current ? { ...current, notes: event.target.value } : current))} rows={4} />
                 </AdminField>
 
-                <div className="grid gap-3 md:grid-cols-3">
+                <div className="grid gap-3 amd:grid-cols-3">
                   <AdminField label="Subtotal original">
                     <AdminInput value={formatPrice(draft.subtotal)} disabled />
                   </AdminField>

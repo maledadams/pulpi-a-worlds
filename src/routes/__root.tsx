@@ -1,11 +1,14 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ThemePageStickers, usePageLayerStickers } from "@/components/theme/ThemeStickers";
 import {
   HeadContent,
   Link,
   Outlet,
   Scripts,
   createRootRouteWithContext,
+  type ErrorComponentProps,
   useLocation,
+  useRouter,
   useRouterState,
 } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
@@ -21,12 +24,16 @@ import { CartProvider } from "@/context/cart";
 import { CatalogProvider } from "@/context/catalog";
 import { setRuntimeCategoryConfig } from "@/data/products";
 import { isAdminRoutePath } from "@/lib/admin-access";
+import { themeScopeForPath } from "@/lib/theme-css";
 import {
   getStorefrontAnnouncements,
   getStorefrontCategories,
   getStorefrontSettings,
 } from "@/lib/admin-content";
 import { getStorefrontCatalog } from "@/lib/catalog";
+import { activeThemeSnippet } from "@/lib/analytics";
+import { getActiveThemeSlice, getPromoBanners } from "@/lib/themes";
+import { ThemeProvider } from "@/context/theme";
 import { usePageViewTracking } from "@/hooks/use-page-view-tracking";
 import {
   absoluteSiteUrl,
@@ -41,13 +48,13 @@ import generalLogo from "@/assets/logo-sunshine.png";
 
 function NotFoundComponent() {
   return (
-    <div className="min-h-[70vh] flex items-center justify-center px-4 text-center">
+    <div className="min-h-[calc(70vh/var(--page-zoom))] flex items-center justify-center px-4 text-center">
       <div>
         <h1 className="font-display text-7xl">404</h1>
         <p className="mt-2 text-muted-foreground">Esta vibra no existe.</p>
         <Link
           to="/"
-          className="mt-6 inline-block bg-[#c5475f] px-5 py-2.5 font-bold text-white"
+          className="mt-6 inline-block bg-[#121212] px-5 py-2.5 font-bold text-white"
         >
           Volver al inicio
         </Link>
@@ -56,27 +63,66 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error }: { error: Error }) {
-  console.error(error);
+function ErrorComponent({ error, reset }: ErrorComponentProps) {
+  const router = useRouter();
+  useEffect(() => {
+    console.error(error);
+  }, [error]);
   return (
-    <div className="min-h-[70vh] flex items-center justify-center px-4 text-center">
+    <div className="min-h-[calc(70vh/var(--page-zoom))] flex items-center justify-center px-4 text-center">
       <div>
         <h1 className="font-display text-3xl">Algo salió mal</h1>
-        <p className="mt-2 text-sm text-muted-foreground">{error.message}</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          No pudimos cargar esta página. Inténtalo otra vez en unos segundos.
+        </p>
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              reset();
+              void router.invalidate();
+            }}
+            className="bg-[#121212] px-5 py-2.5 font-bold text-white"
+          >
+            Reintentar
+          </button>
+          {/* A full page load, not a client navigation: the app's own state may be what failed. */}
+          <a href="/" className="border border-foreground/30 px-5 py-2.5 font-bold">
+            Volver al inicio
+          </a>
+        </div>
       </div>
     </div>
   );
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  loader: async () => {
-    const [catalogProducts, announcements, categories, settings] = await Promise.all([
+  loader: async ({ location }) => {
+    const previewThemeId = themePreviewIdFrom(location.search);
+    const previewAt = themeDateFrom(location.search);
+    const [catalogProducts, announcements, categories, settings, theme, promoBanners] = await Promise.all([
       getStorefrontCatalog(),
       getStorefrontAnnouncements(),
       getStorefrontCategories(),
       getStorefrontSettings(),
+      // Admin pages are never themed, so they don't ask.
+      isAdminRoutePath(location.pathname)
+        ? Promise.resolve(null)
+        : getActiveThemeSlice({ data: { path: location.pathname, previewThemeId, previewAt } }),
+      // Promotion banners (Inicio, Tienda), on with their promotion, theme or not.
+      isAdminRoutePath(location.pathname)
+        ? Promise.resolve([])
+        : getPromoBanners({ data: { path: location.pathname } }),
     ]);
-    return { catalogProducts, announcements, categories, settings };
+    return {
+      catalogProducts,
+      announcements,
+      categories,
+      settings,
+      theme,
+      previewThemeId,
+      promoBanners,
+    };
   },
   head: ({ loaderData }) => ({
     meta: [
@@ -91,17 +137,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       // Unconditional default: crawlers (Google Search, link unfurlers, etc.)
       // don't evaluate the prefers-color-scheme media queries below, so
       // without this they have nothing dependable to pick up as the icon.
-      { rel: "icon", type: "image/svg+xml", href: generalPineapple },
-      { rel: "icon", type: "image/svg+xml", href: generalPineapple, media: "(prefers-color-scheme: light)" },
-      { rel: "icon", type: "image/svg+xml", href: moonPineapple, media: "(prefers-color-scheme: dark)" },
-      { rel: "icon", href: "/favicon.ico", sizes: "any" },
-      // Explicit square PNGs at sizes Google Search's favicon crawler checks
-      // for (multiples of 48px) - the SVGs above are for browsers, this is
-      // the fallback that keeps working for crawlers that skip SVG icons.
-      { rel: "icon", type: "image/png", href: "/icons/icon-48.png", sizes: "48x48" },
-      { rel: "icon", type: "image/png", href: "/icons/icon-96.png", sizes: "96x96" },
-      { rel: "icon", type: "image/png", href: "/icons/icon-192.png", sizes: "192x192" },
-      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+      ...faviconLinks(loaderData?.theme),
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
@@ -111,6 +147,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     scripts: [
       {
+        // Admin dark mode, before first paint (src/lib/admin-theme.ts).
+        children: `try{if(localStorage.getItem("admin-theme")==="dark")document.documentElement.setAttribute("data-admin-theme","dark")}catch(e){}`,
+      },
+      {
         src: "https://www.googletagmanager.com/gtag/js?id=G-N6LGC4Z2PN",
         async: true,
       },
@@ -119,7 +159,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
 
-gtag('config', 'G-N6LGC4Z2PN');`,
+// Not inside the admin theme editor's preview frame: that is the owner, not a visitor.
+// The theme that is on, for the theme reports (event param active_theme; src/lib/analytics.ts).
+${activeThemeSnippet(loaderData?.theme?.source === "preview" ? null : (loaderData?.theme?.name ?? null))}
+if (window.self === window.top) gtag('config', 'G-N6LGC4Z2PN');`,
       },
       {
         type: "application/ld+json",
@@ -154,9 +197,74 @@ gtag('config', 'G-N6LGC4Z2PN');`,
   errorComponent: ErrorComponent,
 });
 
+/** Browser tab icons: today's set, or the active theme's icon (spec §5.8). */
+function faviconLinks(
+  theme:
+    | { favicon: string | null; assets: Record<string, { url: string; variants: Array<{ url: string; width: number }> }> }
+    | null
+    | undefined,
+) {
+  const themeIcon = theme?.favicon ? theme.assets[theme.favicon] : undefined;
+  if (themeIcon) {
+    // The upload makes 48 / 96 / 192 px copies of the 512 px icon (theme-image-prepare.ts).
+    const sized = (size: number) => themeIcon.variants.find((variant) => variant.width === size)?.url;
+    return [
+      { rel: "icon", type: "image/png", href: themeIcon.url, sizes: "512x512" },
+      ...[48, 96, 192].flatMap((size) =>
+        sized(size) ? [{ rel: "icon", type: "image/png", href: sized(size)!, sizes: `${size}x${size}` }] : [],
+      ),
+      { rel: "apple-touch-icon", href: sized(192) ?? themeIcon.url },
+    ];
+  }
+  return [
+    { rel: "icon", type: "image/svg+xml", href: generalPineapple },
+    { rel: "icon", type: "image/svg+xml", href: generalPineapple, media: "(prefers-color-scheme: light)" },
+    { rel: "icon", type: "image/svg+xml", href: moonPineapple, media: "(prefers-color-scheme: dark)" },
+    { rel: "icon", href: "/favicon.ico", sizes: "any" },
+    // Explicit square PNGs at sizes Google Search's favicon crawler checks
+    // for (multiples of 48px) - the SVGs above are for browsers, this is
+    // the fallback that keeps working for crawlers that skip SVG icons.
+    { rel: "icon", type: "image/png", href: "/icons/icon-48.png", sizes: "48x48" },
+    { rel: "icon", type: "image/png", href: "/icons/icon-96.png", sizes: "96x96" },
+    { rel: "icon", type: "image/png", href: "/icons/icon-192.png", sizes: "192x192" },
+    { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+  ];
+}
+
+/** ?themeDate=YYYY-MM-DDTHH:mm: "Ver como el día…" from /admin/temas (honored only for admins). */
+function themeDateFrom(search: unknown) {
+  const value = (search as Record<string, unknown> | undefined)?.themeDate;
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value) ? value : undefined;
+}
+
+/** ?themePreview=<id>: the admin editor's preview frame (honored only for admins, server side). */
+function themePreviewIdFrom(search: unknown) {
+  const value = (search as Record<string, unknown> | undefined)?.themePreview;
+  return typeof value === "string" && /^[\w-]{1,80}$/.test(value) ? value : undefined;
+}
+
 function RootShell({ children }: { children: React.ReactNode }) {
+  // Where a theme's general colors apply (src/lib/theme-css.ts). Set during
+  // server rendering, so a themed page never flashes today's colors first.
+  const themeScope = useRouterState({
+    select: (state) => {
+      const pathname = state.resolvedLocation?.pathname ?? state.location.pathname;
+      const collectionMatch = state.matches.find((match) => match.routeId === "/coleccion/$slug");
+      const collectionVibe = (
+        collectionMatch?.loaderData as { collection?: { vibe?: string } } | undefined
+      )?.collection?.vibe;
+      return themeScopeForPath(pathname, collectionVibe) ?? undefined;
+    },
+  });
+  // React doesn't update <html> attributes after hydration, so client navigations
+  // (Tienda -> Moon) keep the scope in sync here; the server sets it for first paint.
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    if (themeScope) root.setAttribute("data-theme-scope", themeScope);
+    else root.removeAttribute("data-theme-scope");
+  }, [themeScope]);
   return (
-    <html lang="es">
+    <html lang="es" suppressHydrationWarning data-theme-scope={themeScope}>
       <head>
         <HeadContent />
       </head>
@@ -170,7 +278,8 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  const { catalogProducts, announcements, categories, settings } = Route.useLoaderData();
+  const { catalogProducts, announcements, categories, settings, theme, previewThemeId, promoBanners } =
+    Route.useLoaderData();
   const location = useLocation();
   const isAdminRoute = isAdminRoutePath(location.pathname);
 
@@ -187,7 +296,13 @@ function RootComponent() {
           {isAdminRoute ? (
             <Outlet />
           ) : (
-            <AppChrome announcements={announcements} settings={settings} />
+            <ThemeProvider
+              slice={theme}
+              previewing={Boolean(previewThemeId)}
+              promoBanners={promoBanners}
+            >
+              <AppChrome announcements={announcements} settings={settings} />
+            </ThemeProvider>
           )}
         </CartProvider>
       </CatalogProvider>
@@ -253,6 +368,10 @@ function AppChrome({
 
     return undefined;
   }, [catalogProducts, renderedPathname]);
+  // Theme stickers for this page; the frame becomes `relative` only when one is anchored
+  // to the page, so without stickers the markup is exactly as before.
+  const pageStickers = usePageLayerStickers();
+  const pageAnchoredStickers = pageStickers.some((entry) => entry.sticker.anchor === "page");
   const hasCheckoutTexture =
     renderedPathname === "/carrito" || renderedPathname === "/solicitud";
   const mainThemeOverride = isSubstoreRoute
@@ -262,7 +381,10 @@ function AppChrome({
     : undefined;
 
   return (
-    <div className={`min-h-screen flex flex-col ${hasCheckoutTexture ? "checkout-texture relative isolate" : ""}`}>
+    <div
+      className={`min-h-[calc(100vh/var(--page-zoom))] flex flex-col ${hasCheckoutTexture ? "checkout-texture relative isolate" : ""}${pageAnchoredStickers && !hasCheckoutTexture ? " relative" : ""}`}
+    >
+      <ThemePageStickers picked={pageStickers} />
       {hasCheckoutTexture ? <CheckoutSideWaves /> : null}
       {/* z-20, one above <main>'s z-10, so the header's dropdown paints over
           the checkout form instead of under it. */}

@@ -1,3 +1,4 @@
+import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { createFileRoute } from "@tanstack/react-router";
 import { Check, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -17,8 +18,10 @@ import {  AdminButton,
   downloadAdminCsv,
   getAdminChipClassName,
   getAdminVibeButtonClassName,
+  getAdminVibeTagClassName,
 } from "@/components/admin/AdminControls";
 import { useAdminAutosave } from "@/hooks/use-admin-autosave";
+import { cn } from "@/lib/utils";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { getAdminErrorMessage } from "@/lib/admin-errors";
 import { matchesAdminSearch } from "@/lib/admin-search";
@@ -30,10 +33,12 @@ import {
   uploadAdminProductImage,
 } from "@/lib/admin-content";
 import {
+  convertAdminProductsToSubs,
   deleteAdminCatalogProduct,
   getAdminCatalogProducts,
   saveAdminCatalogProduct,
 } from "@/lib/catalog";
+import { convertChildBlock, convertMotherBlock, familyColorKey } from "@/lib/product-families";
 import { formatPrice, getCategoryLabel } from "@/data/products";
 import { PRODUCT_COLOR_PRESETS, buildProductColorRecord, normalizeProductColorName } from "@/lib/product-colors";
 import { getSizeOptionsForFormat, normalizeSizeList } from "@/lib/product-sizing";
@@ -232,15 +237,120 @@ function AdminProductsPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [persistedIds, setPersistedIds] = useState(() => new Set(products.map((product) => product.id)));
 
+  // "Nuevo producto" asks first: a new product, or a sub-product of a mother.
+  const [createPicker, setCreatePicker] = useState<"closed" | "choose" | "sub">("closed");
+  const [motherQuery, setMotherQuery] = useState("");
+  const rowsById = useMemo(() => new Map(rows.map((product) => [product.id, product])), [rows]);
+
   const filtered = useMemo(() => {
-    return rows.filter((product) => {
+    const matches = rows.filter((product) => {
       const matchesScope = scope === "all" || product.vibe === scope;
       return (
         matchesScope &&
         matchesAdminSearch([product.name, product.slug, product.id, ...product.categories], query)
       );
     });
+    // Sub-products are listed right under their mother.
+    const matchIds = new Set(matches.map((product) => product.id));
+    const subsByMother = new Map<string, AdminProductRecord[]>();
+    for (const product of matches) {
+      if (!product.motherId || !matchIds.has(product.motherId)) continue;
+      subsByMother.set(product.motherId, [...(subsByMother.get(product.motherId) ?? []), product]);
+    }
+    return matches.flatMap((product) =>
+      product.motherId && matchIds.has(product.motherId) ? [] : [product, ...(subsByMother.get(product.id) ?? [])],
+    );
   }, [rows, query, scope]);
+
+  // "Convertir": turns existing products into sub-products of a mother. Step 1
+  // picks the mother, step 2 the children; the shared family rules
+  // (lib/product-families) mark what can't be picked and why, and the server
+  // checks them all again.
+  const [convertStep, setConvertStep] = useState<"closed" | "mother" | "children">("closed");
+  const [convertQuery, setConvertQuery] = useState("");
+  const [convertMother, setConvertMother] = useState<AdminProductRecord | null>(null);
+  const [convertPicked, setConvertPicked] = useState<string[]>([]);
+  const [convertNotice, setConvertNotice] = useState("");
+  const [isConverting, setIsConverting] = useState(false);
+  const savedRows = useMemo(() => rows.filter((product) => persistedIds.has(product.id)), [rows, persistedIds]);
+  const convertMatches = useMemo(
+    () =>
+      savedRows
+        .filter(
+          (product) =>
+            (convertStep !== "children" || product.id !== convertMother?.id) &&
+            matchesAdminSearch([product.name, product.id, product.slug], convertQuery),
+        )
+        .slice(0, 40),
+    [savedRows, convertStep, convertMother, convertQuery],
+  );
+  const pickedProducts = convertPicked.flatMap((id) => rowsById.get(id) ?? []);
+  const childBlock = (candidate: AdminProductRecord) =>
+    convertMother
+      ? convertChildBlock(
+          candidate,
+          convertMother,
+          savedRows,
+          new Set(pickedProducts.filter((product) => product.id !== candidate.id).map(familyColorKey)),
+        )
+      : null;
+
+  const closeConvert = () => {
+    setConvertStep("closed");
+    setConvertQuery("");
+    setConvertMother(null);
+    setConvertPicked([]);
+    setConvertNotice("");
+  };
+
+  const handleConvert = async () => {
+    if (!convertMother || convertPicked.length === 0) return;
+    setIsConverting(true);
+    setConvertNotice("");
+    try {
+      const converted = await convertAdminProductsToSubs({
+        data: { motherId: convertMother.id, childIds: convertPicked },
+      });
+      const convertedIds = new Set(converted.map((product) => product.id));
+      const fresh = await getAdminCatalogProducts();
+      const freshById = new Map(fresh.map((product) => [product.id, product]));
+      // Fresh rows for everything saved; the product open in the editor keeps
+      // what is being typed unless it was one of the converted ones.
+      setRows((current) =>
+        current
+          .filter((product) => !persistedIds.has(product.id) || freshById.has(product.id))
+          .map((product) =>
+            product.id === draft?.id && !convertedIds.has(product.id) ? product : (freshById.get(product.id) ?? product),
+          ),
+      );
+      if (draft && convertedIds.has(draft.id)) {
+        const freshDraft = freshById.get(draft.id);
+        if (freshDraft) setDraft(cloneProduct(freshDraft));
+      }
+      closeConvert();
+      showSaveMessage(
+        `${converted.length === 1 ? "1 producto ahora es" : `${converted.length} productos ahora son`} sub-producto de ${convertMother.name}.`,
+        "success",
+      );
+    } catch (error) {
+      setConvertNotice(getAdminErrorMessage(error, "No se pudo convertir ahora mismo."));
+    } finally {
+      setIsConverting(false);
+    }
+  };
+
+  const motherCandidates = useMemo(
+    () =>
+      rows
+        .filter(
+          (product) =>
+            !product.motherId &&
+            persistedIds.has(product.id) &&
+            matchesAdminSearch([product.name, product.id, product.slug], motherQuery),
+        )
+        .slice(0, 8),
+    [rows, persistedIds, motherQuery],
+  );
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pages - 1);
@@ -248,6 +358,16 @@ function AdminProductsPage() {
   const selected = rows.find((product) => product.id === selectedId) ?? null;
   const sizeOptions = getAllowedSizes(categories, sizeFormats, draft?.primaryCategory ?? "tops");
   const activeColorName = normalizeProductColorName(draft?.colors[0]?.name ?? "").toLowerCase();
+  // Sub-products: inherited fields are greyed out; a family can't repeat a color.
+  const isSub = Boolean(draft?.motherId);
+  const lockedClass = isSub ? "cursor-not-allowed opacity-60" : undefined;
+  const familyKey = draft ? draft.motherId || draft.id : "";
+  const takenColors = new Set(
+    rows
+      .filter((product) => draft && product.id !== draft.id && (product.id === familyKey || product.motherId === familyKey))
+      .map((product) => normalizeProductColorName(product.colors[0]?.name ?? "").toLowerCase())
+      .filter(Boolean),
+  );
 
   useEffect(() => {
     setPage(0);
@@ -303,25 +423,26 @@ function AdminProductsPage() {
     );
   };
 
-  const applyPrimaryCategory = (nextCategoryId: string) => {
+  // Asks before changing state: the confirmation is an async dialog, which
+  // can't run inside a setDraft updater (and updaters may run twice).
+  const applyPrimaryCategory = async (nextCategoryId: string) => {
+    if (!draft) return;
+    const allowedSizes = getAllowedSizes(categories, sizeFormats, nextCategoryId);
+    const droppedSizes = draft.sizes.filter((size) => !allowedSizes.includes(size));
+
+    if (droppedSizes.length > 0) {
+      const droppedHasStock = draft.variants.some((variant) => {
+        const size = variant.selectedOptions.find((option) => option.name === "Talla")?.value ?? "";
+        return droppedSizes.includes(size) && (variant.quantityAvailable ?? 0) > 0;
+      });
+      const warning = droppedHasStock
+        ? `Esta categoria usa otro formato de tallas: se van a quitar ${droppedSizes.join(", ")}, incluyendo variantes con stock. Esta accion no se puede deshacer facilmente. ¿Quieres continuar?`
+        : `Esta categoria usa otro formato de tallas: se van a quitar ${droppedSizes.join(", ")}. ¿Quieres continuar?`;
+      if (!(await confirmAdminDestructiveAction(warning))) return;
+    }
+
     setDraft((current) => {
       if (!current) return current;
-      const allowedSizes = getAllowedSizes(categories, sizeFormats, nextCategoryId);
-      const droppedSizes = current.sizes.filter((size) => !allowedSizes.includes(size));
-
-      if (droppedSizes.length > 0) {
-        const droppedHasStock = current.variants.some((variant) => {
-          const size = variant.selectedOptions.find((option) => option.name === "Talla")?.value ?? "";
-          return droppedSizes.includes(size) && (variant.quantityAvailable ?? 0) > 0;
-        });
-        const warning = droppedHasStock
-          ? `Esta categoria usa otro formato de tallas: se van a quitar ${droppedSizes.join(", ")}, incluyendo variantes con stock. Esta accion no se puede deshacer facilmente. ¿Quieres continuar?`
-          : `Esta categoria usa otro formato de tallas: se van a quitar ${droppedSizes.join(", ")}. ¿Quieres continuar?`;
-        if (!confirmAdminDestructiveAction(warning)) {
-          return current;
-        }
-      }
-
       const nextSizes = current.sizes.filter((size) => allowedSizes.includes(size));
 
       return syncDraftVariants({
@@ -452,15 +573,24 @@ function AdminProductsPage() {
         return exists ? current.map((product) => (product.id === saved.id ? saved : product)) : [saved, ...current];
       });
       setPersistedIds((current) => new Set(current).add(saved.id));
-      if (saved.id !== value.id) setSelectedId(saved.id);
+      if (saved.id !== value.id) setSelectedId((current) => (current === value.id ? saved.id : current));
       setDraft((current) => (current && current.id === value.id ? cloneProduct(saved) : current));
       if (!options.silent) showSaveMessage("Producto guardado.", "success");
+      if (rows.some((product) => product.motherId === saved.id)) void refreshSavedRows(saved.id);
     });
   };
 
   const autosave = useAdminAutosave(draft, (value) => performSave(value, { silent: true }), {
     resetKey: selectedId,
   });
+
+  // A rejected autosave (e.g. a color the family already has) used to fail
+  // silently; say why. Unsaved draft ids are expected until a real id is typed.
+  useEffect(() => {
+    if (autosave.status !== "error" || !autosave.errorMessage || draft?.id.trim().startsWith("draft-")) return;
+    showSaveMessage(autosave.errorMessage, "error");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autosave.status, autosave.errorMessage]);
 
   const handleSave = () => {
     if (!draft) return;
@@ -472,6 +602,7 @@ function AdminProductsPage() {
   };
 
   const handleCreate = () => {
+    setCreatePicker("closed");
     const blank = createBlankProduct();
     setRows((current) => [blank, ...current]);
     setSelectedId(blank.id);
@@ -479,12 +610,61 @@ function AdminProductsPage() {
     showSaveMessage("Nuevo producto draft creado.", "success");
   };
 
-  const handleDelete = () => {
+  // A sub-product starts from its mother: the inherited fields (greyed out in
+  // the editor and enforced by the server), her tags, sizes and sale. The
+  // link is only stored when it's first saved, like any new product.
+  const handleCreateSub = (mother: AdminProductRecord) => {
+    setCreatePicker("closed");
+    setMotherQuery("");
+    const blank = createBlankProduct();
+    const sub = syncDraftVariants({
+      ...blank,
+      motherId: mother.id,
+      vibe: mother.vibe,
+      secondaryVibe: mother.secondaryVibe,
+      primaryCategory: mother.primaryCategory,
+      categories: [...mother.categories],
+      description: mother.description,
+      isNsfw: mother.isNsfw,
+      tags: [...mother.tags],
+      price: mother.price,
+      compareAtPrice: mother.compareAtPrice,
+      sizes: [...mother.sizes],
+    });
+    setRows((current) => [sub, ...current]);
+    setSelectedId(sub.id);
+    setDraft(cloneProduct(sub));
+    showSaveMessage(`Sub-producto de ${mother.name} creado. Elige su color.`, "success");
+  };
+
+  // Mothers and subs are saved one by one on the server (a mother's save
+  // updates her subs), so re-read the catalog after those changes.
+  // The row open in the editor is left alone so nothing being typed is lost.
+  const refreshSavedRows = (keepId = "") =>
+    getAdminCatalogProducts()
+      .then((fresh) => {
+        const freshById = new Map(fresh.map((product) => [product.id, product]));
+        setRows((current) =>
+          current
+            .filter((product) => !persistedIds.has(product.id) || freshById.has(product.id))
+            .map((product) => (product.id === keepId ? product : (freshById.get(product.id) ?? product))),
+        );
+      })
+      .catch(() => {});
+
+  const handleDelete = async () => {
     if (!draft) return;
+    const subs = rows
+      .filter((product) => product.motherId === draft.id && persistedIds.has(product.id))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    const familyNote =
+      subs.length > 0
+        ? ` Tiene ${subs.length} ${subs.length === 1 ? "sub-producto" : "sub-productos"}: "${subs[0]!.name}" pasara a ser el producto madre${subs.length > 1 ? " y los demas quedaran ligados a el" : ""}.`
+        : "";
     if (
-      !confirmAdminDestructiveAction(
-        `Vas a eliminar el producto ${draft.name || draft.id}. Esta accion no se puede deshacer. ¿Quieres continuar?`,
-      )
+      !(await confirmAdminDestructiveAction(
+        `Vas a eliminar el producto ${draft.name || draft.id}.${familyNote} Esta accion no se puede deshacer. ¿Quieres continuar?`,
+      ))
     ) {
       return;
     }
@@ -501,6 +681,7 @@ function AdminProductsPage() {
       .then(() => {
         setRows((current) => current.filter((product) => product.id !== draft.id));
         showSaveMessage("Producto eliminado.", "success");
+        if (subs.length > 0) void refreshSavedRows();
       })
       .catch((error) => {
         showSaveMessage(getAdminErrorMessage(error, "No se pudo eliminar el producto."), "error");
@@ -518,6 +699,8 @@ function AdminProductsPage() {
     // entry, it shouldn't appear to already have the original's inventory.
     const duplicate = syncDraftVariants({
       ...cloneProduct(draft),
+      // A copy is its own product; making a sub is done from "Nuevo producto".
+      motherId: null,
       id: `draft-${Date.now()}`,
       slug: `${draft.slug || "producto"}-copy-${Date.now()}`,
       name: `${draft.name || "Producto"} Copy`,
@@ -583,9 +766,9 @@ function AdminProductsPage() {
       .finally(() => setIsUploadingImage(false));
   };
 
-  const handleDeleteImage = (url: string) => {
+  const handleDeleteImage = async (url: string) => {
     if (!draft) return;
-    if (!confirmAdminDestructiveAction("Vas a eliminar esta imagen del producto. ¿Quieres continuar?")) {
+    if (!(await confirmAdminDestructiveAction("Vas a eliminar esta imagen del producto. ¿Quieres continuar?"))) {
       return;
     }
     setSaveMessage("");
@@ -628,16 +811,19 @@ function AdminProductsPage() {
           <AdminButton tone="ghost" onClick={handleExportCsv} disabled={filtered.length === 0}>
             Exportar CSV
           </AdminButton>
-          <AdminButton tone="secondary" onClick={handleDuplicate} disabled={!draft}>
-            Duplicar
-          </AdminButton>
-          <AdminButton tone="primary" onClick={handleCreate}>
-            Nuevo producto
-          </AdminButton>
           <AdminButton tone="danger" onClick={handleDelete} disabled={!draft || isSaving || isDeleting || isUploadingImage}>
             {isDeleting ? "Eliminando..." : "Eliminar"}
           </AdminButton>
-          <AdminButton tone="primary" onClick={handleSave} disabled={!draft || isSaving || isDeleting || isUploadingImage}>
+          <AdminButton tone="secondary" onClick={() => setCreatePicker("choose")}>
+            Nuevo producto
+          </AdminButton>
+          <AdminButton tone="secondary" onClick={handleDuplicate} disabled={!draft}>
+            Duplicar
+          </AdminButton>
+          <AdminButton tone="secondary" onClick={() => setConvertStep("mother")}>
+            Convertir
+          </AdminButton>
+          <AdminButton tone="save" onClick={handleSave} disabled={!draft || isSaving || isDeleting || isUploadingImage}>
             {isSaving ? "Guardando..." : "Guardar"}
           </AdminButton>        </>
       }
@@ -660,13 +846,13 @@ function AdminProductsPage() {
             </div>
           }
         >
-          <div className="mb-4 flex flex-col gap-3 md:flex-row">
+          <div className="mb-4 flex flex-col gap-3 amd:flex-row">
             <AdminInput
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Buscar por nombre, slug, id o categoria"
             />
-            <div className="shrink-0 rounded-xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2.5 text-sm font-semibold">
+            <div className="shrink-0 px-1 py-2.5 text-sm text-[var(--admin-faint)]">
               {filtered.length} resultados
             </div>
           </div>
@@ -675,13 +861,13 @@ function AdminProductsPage() {
             <AdminEmptyState
               title="No hay productos aqui"
               body="Prueba otro filtro o crea un producto nuevo."
-              action={<AdminButton tone="primary" onClick={handleCreate}>Crear producto</AdminButton>}
+              action={<AdminButton tone="primary" onClick={() => setCreatePicker("choose")}>Crear producto</AdminButton>}
             />
           ) : (
             <>
               <div className="overflow-x-auto">
                 <table className="min-w-full text-left text-sm">
-                  <thead className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">
+                  <thead className="text-xs font-medium text-[var(--admin-faint)]">
                     <tr>
                       <th className="pb-3 pr-3">Producto</th>
                       <th className="pb-3 pr-3">Subtienda</th>
@@ -696,36 +882,33 @@ function AdminProductsPage() {
                       <tr
                         key={product.id}
                         onClick={() => setSelectedId(product.id)}
-                        className={`cursor-pointer border-t border-[#231717]/10 align-top transition-colors ${
-                          selectedId === product.id ? "bg-[#f7f2ec]" : "hover:bg-[#faf6f0]"
+                        className={`cursor-pointer border-t border-[var(--admin-line)] align-top transition-colors ${
+                          selectedId === product.id ? "border-transparent bg-[var(--admin-accent-soft)] [&+tr]:border-transparent" : "hover:bg-[var(--admin-accent-soft)]"
                         }`}
                       >
-                        <td className="py-3 pr-3">
+                        <td className={`py-3 pr-3 ${product.motherId ? "pl-6" : ""}`}>
                           <div className="font-normal">{product.name || "Sin nombre"}</div>
-                          <div className="text-xs text-[#6b5a55]">{product.id}</div>
+                          <div className="text-xs text-[var(--admin-muted)]">{product.id}</div>
+                          {product.motherId ? (
+                            <div className="mt-0.5 text-xs text-[var(--admin-faint)]">
+                              ↳ Sub de {rowsById.get(product.motherId)?.name || product.motherId}
+                            </div>
+                          ) : null}
                         </td>
                         <td className="py-3 pr-3">
                           <div className="flex flex-wrap gap-1">
                             <span
                               className={
                                 product.vibe === "moon" || product.vibe === "sunshine" || product.vibe === "men"
-                                  ? getAdminVibeButtonClassName(
-                                      product.vibe,
-                                      true,
-                                      "pointer-events-none cursor-default rounded-[10px] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.16em]",
-                                    )
-                                  : "pointer-events-none cursor-default rounded-[10px] bg-[#f3eadf] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-[#5f4941]"
+                                  ? getAdminVibeTagClassName(product.vibe)
+                                  : "pointer-events-none cursor-default rounded-full bg-[var(--admin-soft)] px-2.5 py-0.5 text-xs font-medium text-[var(--admin-muted)]"
                               }
                             >
                               {getVibeLabel(product.vibe)}
                             </span>
                             {product.secondaryVibe ? (
                               <span
-                                className={getAdminVibeButtonClassName(
-                                  product.secondaryVibe,
-                                  false,
-                                  "pointer-events-none cursor-default rounded-[10px] px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.16em]",
-                                )}
+                                className={getAdminVibeTagClassName(product.secondaryVibe)}
                               >
                                 + {getVibeLabel(product.secondaryVibe)}
                               </span>
@@ -741,12 +924,12 @@ function AdminProductsPage() {
                         </td>
                         <td className="py-3 pr-3 font-bold">{formatPrice(product.price)}</td>
                         <td className="py-3 pr-3">
-                          <div className={`inline-flex items-center ${product.hidden ? "text-[#9a3423]" : "text-emerald-700"}`}>
+                          <div className={`inline-flex items-center ${product.hidden ? "text-[var(--admin-danger)]" : "text-[var(--admin-ok)]"}`}>
                             {product.hidden ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}
                           </div>
                         </td>
                         <td className="py-3 pr-3">
-                          <span className={`inline-flex rounded-xl px-2.5 py-1 text-[11px] font-black uppercase ${getInventoryStatusTone(product)}`}>
+                          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${getInventoryStatusTone(product)}`}>
                             {getInventoryStatus(product)}
                           </span>
                         </td>
@@ -764,8 +947,8 @@ function AdminProductsPage() {
 
         {draft ? (
           <>
-            <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[minmax(0,1.1fr)_minmax(420px,0.9fr)]">
-              <AdminPanel
+            <div className="grid grid-cols-1 gap-4 a2xl:grid-cols-[minmax(0,1.1fr)_minmax(420px,0.9fr)]">
+              <AdminPanel editor
                 title={draft.name || "Producto nuevo"}
                 titleClassName="font-body text-sm font-normal"
               >
@@ -775,6 +958,15 @@ function AdminProductsPage() {
                       <AdminInput value={draft.name} onChange={(event) => updateDraft("name", event.target.value)} />
                     </AdminField>
                   </div>
+
+                  {isSub ? (
+                    <AdminField
+                      label="Madre Product-ID"
+                      hint="No se puede cambiar. Para cambiarlo, elimina este producto y crealo de nuevo como sub-producto."
+                    >
+                      <AdminInput value={draft.motherId ?? ""} disabled className="cursor-not-allowed opacity-60" />
+                    </AdminField>
+                  ) : null}
 
                   {!persistedIds.has(draft.id) ? (
                     <AdminField
@@ -786,7 +978,7 @@ function AdminProductsPage() {
                         onChange={(event) => updateDraft("id", event.target.value)}
                         className={
                           draft.id.trim().startsWith("draft-")
-                            ? "border-red-500 bg-red-50 focus:border-red-500 focus-visible:ring-red-200"
+                            ? "border-red-500 bg-[var(--admin-danger-soft)] focus:border-red-500 focus-visible:ring-red-200"
                             : undefined
                         }
                       />
@@ -818,9 +1010,11 @@ function AdminProductsPage() {
                     </div>
                   </AdminField>
 
-                  <div className="grid gap-3 md:grid-cols-2">
+                  <div className="grid gap-3 amd:grid-cols-2">
                     <AdminField label="Subtienda">
                       <AdminSelect
+                        disabled={isSub}
+                        className={lockedClass}
                         value={draft.vibe}
                         onChange={(event) => {
                           const nextVibe = event.target.value as AdminProductRecord["vibe"];
@@ -841,7 +1035,7 @@ function AdminProductsPage() {
                       </AdminSelect>
                     </AdminField>
                     <AdminField label="Categoria principal">
-                      <AdminSelect value={draft.primaryCategory} onChange={(event) => applyPrimaryCategory(event.target.value)}>
+                      <AdminSelect disabled={isSub} className={lockedClass} value={draft.primaryCategory} onChange={(event) => applyPrimaryCategory(event.target.value)}>
                         {!draft.primaryCategory ? <option value="">Selecciona una categoria</option> : null}
                         {categories.map((category) => (
                           <option key={category.id} value={category.id}>
@@ -857,6 +1051,8 @@ function AdminProductsPage() {
                     hint="El producto aparece en su subtienda principal y, si eliges una aqui, tambien en esta segunda."
                   >
                     <AdminSelect
+                      disabled={isSub}
+                      className={lockedClass}
                       value={draft.secondaryVibe ?? ""}
                       onChange={(event) =>
                         updateDraft(
@@ -928,15 +1124,15 @@ function AdminProductsPage() {
                   </AdminField>
 
                   <AdminField label="Descripcion">
-                    <AdminTextarea rows={5} value={draft.description} onChange={(event) => updateDraft("description", event.target.value)} />
+                    <AdminTextarea disabled={isSub} className={lockedClass} rows={5} value={draft.description} onChange={(event) => updateDraft("description", event.target.value)} />
                   </AdminField>
 
-                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  <div className="grid gap-3 amd:grid-cols-2 axl:grid-cols-3">
                     <AdminCheckbox label="Disponible" checked={draft.available} onCheckedChange={(checked) => updateDraft("available", checked)} />
                     <AdminCheckbox label="Ocultar de la tienda" checked={draft.hidden} onCheckedChange={(checked) => updateDraft("hidden", checked)} />
-                    <AdminCheckbox label="Destacado" checked={draft.featured} onCheckedChange={(checked) => updateDraft("featured", checked)} />
+                    <AdminCheckbox disabled={isSub} label="Destacado" checked={draft.featured} onCheckedChange={(checked) => updateDraft("featured", checked)} />
                     <AdminCheckbox label="Nuevo" checked={draft.newArrival} onCheckedChange={(checked) => updateDraft("newArrival", checked)} />
-                    <AdminCheckbox label="NSFW" checked={draft.isNsfw} onCheckedChange={(checked) => updateDraft("isNsfw", checked)} />
+                    <AdminCheckbox disabled={isSub} label="NSFW" checked={draft.isNsfw} onCheckedChange={(checked) => updateDraft("isNsfw", checked)} />
                     <AdminCheckbox
                       label="En oferta"
                       checked={draft.compareAtPrice !== null}
@@ -952,10 +1148,10 @@ function AdminProductsPage() {
                 </div>
               </AdminPanel>
 
-              <AdminPanel title="Imagenes" className="flex flex-col">
+              <AdminPanel editor title="Imagenes" className="flex flex-col">
                 <div className="flex h-full flex-col gap-4">
                   <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm text-[#5f4941]">
+                    <div className="text-sm text-[var(--admin-muted)]">
                       Sube entre 1 y 5 imagenes. La portada sale de la marcada como principal.
                     </div>
                     <AdminTag>{draft.images.length}/5</AdminTag>
@@ -965,21 +1161,21 @@ function AdminProductsPage() {
                     {draft.images.length > 0 ? (
                       <div className="grid gap-3">
                         {draft.images.map((image, index) => (
-                          <div key={image.url} className="overflow-hidden rounded-2xl bg-[#faf6f0]">
+                          <div key={image.url} className="overflow-hidden rounded-2xl border border-[var(--admin-line)] bg-[var(--admin-surface)]">
                             <div className="grid gap-3 p-3 sm:grid-cols-[72px_minmax(0,1fr)]">
-                              <div className="h-[72px] w-[72px] shrink-0 overflow-hidden rounded-2xl bg-[#f7f2ec]">
+                              <div className="h-[72px] w-[72px] shrink-0 overflow-hidden rounded-2xl bg-[var(--admin-soft)]">
                                 <img src={image.url} alt={draft.name} className="h-full w-full object-cover" />
                               </div>
                               <div className="grid gap-3">
                                 <div className="min-w-0">
-                                  <div className="text-xs font-semibold text-[#6b5a55]">
+                                  <div className="text-xs font-semibold text-[var(--admin-muted)]">
                                     Imagen {index + 1}
                                     {draft.featuredImage?.url === image.url ? " · Portada" : ""}
                                   </div>
-                                  <div className="mt-1 truncate text-xs text-[#8b756d]">
+                                  <div className="mt-1 truncate text-xs text-[var(--admin-faint)]">
                                     {image.altText || draft.name || "Sin nombre"}
                                   </div>
-                                  <div className="mt-1 truncate text-[11px] text-[#a08f87]">{image.url}</div>
+                                  <div className="mt-1 truncate text-[11px] text-[var(--admin-faint)]">{image.url}</div>
                                 </div>
                                 <div className="flex flex-wrap gap-2">
                                   <AdminButton tone="ghost" onClick={() => moveImage(image.url, -1)}>
@@ -1001,7 +1197,7 @@ function AdminProductsPage() {
                         ))}
                       </div>
                     ) : (
-                      <div className="rounded-2xl border border-dashed border-[#231717]/20 bg-[#faf6f0] px-4 py-8 text-sm text-[#6b5a55]">
+                      <div className="rounded-2xl border border-dashed border-[var(--admin-line-strong)] bg-[var(--admin-surface)] px-4 py-8 text-sm text-[var(--admin-muted)]">
                         Este producto todavia no tiene imagenes.
                       </div>
                     )}
@@ -1014,10 +1210,10 @@ function AdminProductsPage() {
                       accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
                       onChange={(event) => setSelectedImageFile(event.target.files?.[0] ?? null)}
                       disabled={draft.images.length >= 5}
-                      className="block w-full rounded-xl border border-dashed border-[#231717]/20 bg-[#faf6f0] px-4 py-3 text-sm file:mr-3 file:rounded-xl file:border-0 file:bg-[#231717] file:px-3 file:py-2 file:text-xs file:font-black file:uppercase file:tracking-[0.14em] file:text-white"
+                      className="block w-full rounded-xl border border-dashed border-[var(--admin-line-strong)] bg-[var(--admin-surface)] px-4 py-3 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--admin-soft)] file:px-3 file:py-2 file:text-xs file:font-semibold file:text-[var(--admin-ink)]"
                     />
                     {!persistedIds.has(draft.id) ? (
-                      <div className="rounded-2xl border border-dashed border-[#231717]/20 px-3 py-3 text-xs leading-5 text-[#6b5a55]">
+                      <div className="rounded-2xl border border-dashed border-[var(--admin-line-strong)] px-3 py-3 text-xs leading-5 text-[var(--admin-muted)]">
                         El producto se guardara automaticamente al subir la primera imagen.
                       </div>
                     ) : null}
@@ -1029,7 +1225,7 @@ function AdminProductsPage() {
               </AdminPanel>
             </div>
 
-            <AdminPanel title="Categorias, tallas y colores">
+            <AdminPanel editor title="Categorias, tallas y colores">
               <div className="grid gap-6">
                 <div>
                   <AdminSectionLabel>Categorias asignadas</AdminSectionLabel>
@@ -1038,8 +1234,9 @@ function AdminProductsPage() {
                       <button
                         key={category.id}
                         type="button"
+                        disabled={isSub}
                         onClick={() => toggleCategory(category.id)}
-                        className={getAdminChipClassName(draft.categories.includes(category.id))}
+                        className={getAdminChipClassName(draft.categories.includes(category.id), lockedClass)}
                       >
                         {category.label}
                       </button>
@@ -1065,20 +1262,24 @@ function AdminProductsPage() {
 
                 <div>
                   <AdminSectionLabel>Color del producto</AdminSectionLabel>
-                  <p className="mt-1 text-xs text-[#8b756d]">
+                  <p className="mt-1 text-xs text-[var(--admin-faint)]">
                     Cada producto tiene un solo color. Cambiarlo solo actualiza como se muestra - no afecta el stock.
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {PRODUCT_COLOR_PRESETS.map((preset) => {
                       const active = activeColorName === preset.label.toLowerCase();
+                      // Each family member has its own color.
+                      const taken = !active && takenColors.has(normalizeProductColorName(preset.label).toLowerCase());
                       return (
                         <button
                           key={preset.id}
                           type="button"
+                          disabled={taken}
+                          title={taken ? "Este color ya lo tiene otro producto de esta familia" : undefined}
                           onClick={() => setColor(preset.label)}
-                          className={getAdminChipClassName(active, "inline-flex items-center gap-2")}
+                          className={getAdminChipClassName(active, cn("inline-flex items-center gap-2", taken && "cursor-not-allowed opacity-35 line-through"))}
                         >
-                          <span className="h-3 w-3 rounded-full border border-black/10" style={{ backgroundColor: preset.hex }} />
+                          <span className={`h-3 w-3 rounded-full border ${active ? "border-white" : "border-black/10"}`} style={{ backgroundColor: preset.hex }} />
                           <span>{preset.label}</span>
                         </button>
                       );
@@ -1094,12 +1295,226 @@ function AdminProductsPage() {
             <AdminEmptyState
               title="Sin seleccion"
               body="Selecciona un producto de la lista o crea uno nuevo para empezar a editar."
-              action={<AdminButton tone="primary" onClick={handleCreate}>Crear producto</AdminButton>}
+              action={<AdminButton tone="primary" onClick={() => setCreatePicker("choose")}>Crear producto</AdminButton>}
             />
           </AdminPanel>
         )}
         <AdminToast message={saveMessage} tone={saveTone} />
       </div>
+
+      {/* "Nuevo producto": choose a new product or a sub-product first; the
+          editor stays on the current product until one is chosen. */}
+      <AlertDialog.Root
+        open={createPicker !== "closed"}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCreatePicker("closed");
+            setMotherQuery("");
+          }
+        }}
+      >
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay className="fixed inset-0 z-[100] bg-[#130808]/40" />
+          <AlertDialog.Content className="admin-shell fixed left-1/2 top-1/2 z-[101] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-[var(--admin-edge)] bg-[var(--admin-surface)] p-5 shadow-[0_24px_48px_-28px_rgb(19_8_8/0.45)] focus:outline-none">
+            {createPicker === "choose" ? (
+              <>
+                <AlertDialog.Title className="text-base font-semibold">¿Qué quieres crear?</AlertDialog.Title>
+                <AlertDialog.Description className="mt-1 text-sm text-[var(--admin-muted)]">
+                  Un sub-producto es el mismo producto en otro color, ligado a su producto madre.
+                </AlertDialog.Description>
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={handleCreate}
+                    className="rounded-xl border border-[var(--admin-line)] bg-[var(--admin-field)] p-4 text-left transition-colors hover:bg-[var(--admin-accent-soft)]"
+                  >
+                    <span className="block text-sm font-semibold">Producto nuevo</span>
+                    <span className="mt-1 block text-xs text-[var(--admin-muted)]">Un producto independiente, como siempre.</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCreatePicker("sub")}
+                    className="rounded-xl border border-[var(--admin-line)] bg-[var(--admin-field)] p-4 text-left transition-colors hover:bg-[var(--admin-accent-soft)]"
+                  >
+                    <span className="block text-sm font-semibold">Sub-producto</span>
+                    <span className="mt-1 block text-xs text-[var(--admin-muted)]">Otro color de un producto que ya existe.</span>
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <AlertDialog.Title className="text-base font-semibold">Sub-producto</AlertDialog.Title>
+                <AlertDialog.Description className="mt-1 text-sm text-[var(--admin-muted)]">
+                  ¿De qué producto es? Busca el producto madre por su nombre o su ID.
+                </AlertDialog.Description>
+                <AdminInput
+                  autoFocus
+                  className="mt-4"
+                  value={motherQuery}
+                  onChange={(event) => setMotherQuery(event.target.value)}
+                  placeholder="Nombre o ID del producto madre"
+                />
+                <div className="mt-2 grid max-h-72 gap-1 overflow-y-auto">
+                  {motherCandidates.length === 0 ? (
+                    <p className="px-1 py-3 text-sm text-[var(--admin-faint)]">No hay productos con ese nombre o ID.</p>
+                  ) : (
+                    motherCandidates.map((mother) => (
+                      <button
+                        key={mother.id}
+                        type="button"
+                        onClick={() => handleCreateSub(mother)}
+                        className="flex items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors hover:bg-[var(--admin-accent-soft)]"
+                      >
+                        <span
+                          className="h-4 w-4 shrink-0 rounded-full border border-black/10"
+                          style={{ backgroundColor: mother.colors[0]?.hex ?? "transparent" }}
+                        />
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium">{mother.name || "Sin nombre"}</span>
+                          <span className="block truncate text-xs text-[var(--admin-muted)]">{mother.id}</span>
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              {createPicker === "sub" ? (
+                <AdminButton tone="ghost" onClick={() => setCreatePicker("choose")}>
+                  Atrás
+                </AdminButton>
+              ) : null}
+              <AlertDialog.Cancel asChild>
+                <AdminButton tone="secondary">Cancelar</AdminButton>
+              </AlertDialog.Cancel>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
+
+      {/* "Convertir": 1) the mother, 2) the children. */}
+      <AlertDialog.Root
+        open={convertStep !== "closed"}
+        onOpenChange={(open) => {
+          if (!open && !isConverting) closeConvert();
+        }}
+      >
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay className="fixed inset-0 z-[100] bg-[#130808]/40" />
+          <AlertDialog.Content className="admin-shell fixed left-1/2 top-1/2 z-[101] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-[var(--admin-edge)] bg-[var(--admin-surface)] p-5 shadow-[0_24px_48px_-28px_rgb(19_8_8/0.45)] focus:outline-none">
+            <AlertDialog.Title className="text-base font-semibold">
+              {convertStep === "mother" ? "Convertir · 1. Producto madre" : "Convertir · 2. Productos hijos"}
+            </AlertDialog.Title>
+            <AlertDialog.Description className="mt-1 text-sm text-[var(--admin-muted)]">
+              {convertStep === "mother"
+                ? "Elige el producto madre. Sus hijos toman su subtienda, categorías y descripción; lo demás (precio, oferta, fotos, tallas, color) se queda como está."
+                : `Elige los productos que pasarán a ser sub-productos de ${convertMother?.name || "la madre"}. Uno por color.`}
+            </AlertDialog.Description>
+            <AdminInput
+              autoFocus
+              className="mt-4"
+              value={convertQuery}
+              onChange={(event) => setConvertQuery(event.target.value)}
+              placeholder="Nombre o ID del producto"
+            />
+            <div className="mt-2 grid max-h-72 gap-1 overflow-y-auto">
+              {convertMatches.length === 0 ? (
+                <p className="px-1 py-3 text-sm text-[var(--admin-faint)]">No hay productos con ese nombre o ID.</p>
+              ) : (
+                convertMatches.map((product) => {
+                  const isPicked = convertPicked.includes(product.id);
+                  const block = convertStep === "mother" ? null : childBlock(product);
+                  const isMotherChoice = convertStep === "mother" && convertMother?.id === product.id;
+                  return (
+                    <button
+                      key={product.id}
+                      type="button"
+                      disabled={Boolean(block) && !isPicked}
+                      onClick={() => {
+                        if (convertStep === "mother") {
+                          const motherBlock = convertMotherBlock(product);
+                          setConvertNotice(motherBlock ? `"${product.name || product.id}": ${motherBlock}` : "");
+                          setConvertMother(motherBlock ? null : product);
+                          return;
+                        }
+                        setConvertPicked((current) =>
+                          current.includes(product.id) ? current.filter((id) => id !== product.id) : [...current, product.id],
+                        );
+                      }}
+                      className={cn(
+                        "flex items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors hover:bg-[var(--admin-accent-soft)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent",
+                        (isPicked || isMotherChoice) && "bg-[var(--admin-accent-soft)]",
+                      )}
+                    >
+                      {convertStep === "children" ? (
+                        <span
+                          className={cn(
+                            "flex h-4 w-4 shrink-0 items-center justify-center rounded border border-[var(--admin-line)]",
+                            isPicked && "border-[var(--admin-ink)] bg-[var(--admin-ink)] text-[var(--admin-on-invert)]",
+                          )}
+                        >
+                          {isPicked ? <Check className="h-3 w-3" /> : null}
+                        </span>
+                      ) : null}
+                      <span
+                        className="h-4 w-4 shrink-0 rounded-full border border-black/10"
+                        style={{ backgroundColor: product.colors[0]?.hex ?? "transparent" }}
+                      />
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium">
+                          {product.name || "Sin nombre"}
+                          {product.motherId ? <span className="ml-1 text-xs text-[var(--admin-faint)]">(sub-producto)</span> : null}
+                        </span>
+                        <span className="block truncate text-xs text-[var(--admin-muted)]">
+                          {block && !isPicked ? block : `${product.id}${product.colors[0]?.name ? ` · ${product.colors[0].name}` : ""}`}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            {convertNotice ? <p className="mt-3 text-sm font-medium text-red-600">{convertNotice}</p> : null}
+            <div className="mt-5 flex justify-end gap-2">
+              {convertStep === "children" ? (
+                <AdminButton
+                  tone="ghost"
+                  disabled={isConverting}
+                  onClick={() => {
+                    setConvertStep("mother");
+                    setConvertPicked([]);
+                    setConvertQuery("");
+                    setConvertNotice("");
+                  }}
+                >
+                  Atrás
+                </AdminButton>
+              ) : null}
+              <AlertDialog.Cancel asChild>
+                <AdminButton tone="secondary" disabled={isConverting}>Cancelar</AdminButton>
+              </AlertDialog.Cancel>
+              {convertStep === "mother" ? (
+                <AdminButton
+                  tone="save"
+                  disabled={!convertMother}
+                  onClick={() => {
+                    setConvertStep("children");
+                    setConvertQuery("");
+                    setConvertNotice("");
+                  }}
+                >
+                  Siguiente
+                </AdminButton>
+              ) : (
+                <AdminButton tone="save" disabled={convertPicked.length === 0 || isConverting} onClick={() => void handleConvert()}>
+                  {isConverting ? "Convirtiendo..." : `Convertir (${convertPicked.length})`}
+                </AdminButton>
+              )}
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
     </AdminShell>
   );
 }

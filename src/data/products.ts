@@ -60,6 +60,8 @@ export type Product = {
   sizes?: string[];
   colors?: { name: string; hex: string }[];
   salePrice?: number | null;
+  /** Sub-products: the mother product's id; empty for a normal product. */
+  motherId?: string | null;
 };
 
 export type CategoryImages = Partial<Record<SubstoreVibe, ProductImage>>;

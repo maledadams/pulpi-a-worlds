@@ -6,26 +6,33 @@ import { useCart } from "@/context/cart";
 import type { Product } from "@/data/products";
 import { formatPrice, isOnSale } from "@/data/products";
 
+// Every NUEVO chip is Sunshine's lime one, on every page and every store.
+const FRESH_BADGE = "bg-[color:var(--t-badge-new-bg)] text-[color:var(--t-badge-new-text)]";
+const SOLD_OUT_TEXT = "text-[color:var(--t-badge-soldout-text)]";
+
+// Badge colors are theme variables (src/lib/theme-tokens.ts). Oferta and Agotado
+// differ per store today, so their variables are rootless: the fallback here is
+// each store's own color, and an active theme on a general page replaces them all.
 const PRODUCT_BADGE_THEME = {
   pulpina: {
-    sale: "bg-[#c5475f] text-white",
-    fresh: "bg-[#c5f56a] text-[#243011]",
-    soldOut: "bg-black/70 text-white",
+    sale: "bg-[color:var(--t-badge-sale-bg,#121212)] text-[color:var(--t-badge-sale-text,#ffffff)]",
+    fresh: FRESH_BADGE,
+    soldOut: `bg-[color:var(--t-badge-soldout-bg,rgba(0,0,0,0.7))] ${SOLD_OUT_TEXT}`,
   },
   moon: {
-    sale: "bg-[#7b1832] text-[#fff5f8]",
-    fresh: "bg-[#f3e7dc] text-[#3a1c28]",
-    soldOut: "bg-black/72 text-white",
+    sale: "bg-[color:var(--t-badge-sale-bg,#7b1832)] text-[color:var(--t-badge-sale-text,#fff5f8)]",
+    fresh: FRESH_BADGE,
+    soldOut: `bg-[color:var(--t-badge-soldout-bg,rgba(0,0,0,0.72))] ${SOLD_OUT_TEXT}`,
   },
   sunshine: {
-    sale: "bg-[#ff4ea3] text-white",
-    fresh: "bg-[#d9ff6f] text-[#243011]",
-    soldOut: "bg-[#3a0a14]/78 text-white",
+    sale: "bg-[color:var(--t-badge-sale-bg,#ff4ea3)] text-[color:var(--t-badge-sale-text,#ffffff)]",
+    fresh: FRESH_BADGE,
+    soldOut: `bg-[color:var(--t-badge-soldout-bg,rgba(58,10,20,0.78))] ${SOLD_OUT_TEXT}`,
   },
   men: {
-    sale: "bg-[#8f2015] text-[#fff7f2]",
-    fresh: "bg-[#f2e9e1] text-[#3a0808]",
-    soldOut: "bg-black/74 text-white",
+    sale: "bg-[color:var(--t-badge-sale-bg,#8f2015)] text-[color:var(--t-badge-sale-text,#fff7f2)]",
+    fresh: FRESH_BADGE,
+    soldOut: `bg-[color:var(--t-badge-soldout-bg,rgba(0,0,0,0.74))] ${SOLD_OUT_TEXT}`,
   },
 } as const;
 
@@ -45,12 +52,18 @@ export function ProductCard({
   showSubtitle = false,
   tone = "vibe",
   themeVibe,
+  boldOutline = false,
+  outlineVibe,
 }: {
   product: Product;
   soldOutMode?: "standard" | "vibe";
   showSubtitle?: boolean;
   tone?: "store" | "vibe";
   themeVibe?: Product["vibe"];
+  /** Base-theme redesign (tienda, inicio): a 2px black outline. */
+  boldOutline?: boolean;
+  /** The store whose header wave color outlines the card (defaults to the card's theme). */
+  outlineVibe?: Product["vibe"];
 }) {
   void soldOutMode;
   const cart = useCart();
@@ -61,26 +74,43 @@ export function ProductCard({
   const soldOut = !product.available;
   const visualVibe = themeVibe ?? product.vibe;
   const badgeTheme = PRODUCT_BADGE_THEME[product.vibe];
-  // The discounted price on a sale card uses the general announcement red
-  // everywhere except Sunshine, which keeps its own pink.
-  const saleAccentColor = visualVibe === "sunshine" ? "#ff4ea3" : "#c5475f";
+  // Prices (owner, 2026-11-18): the card's own text color at 80% opacity;
+  // a sale's new price in that same color at full opacity. The
+  // strikethrough price keeps its own style.
+  // Normal prices are not bold; a sale's new price is (owner, 2026-11-18).
+  const priceOpacityClass = onSale ? "font-black text-[color:var(--t-sale-price)]" : "font-normal opacity-80";
   const isMoonCard = tone === "vibe" && visualVibe === "moon";
-  const cardOutlineClassName =
-    tone === "store"
-      ? "border-foreground/20"
-      : visualVibe === "sunshine"
-        ? "border-[#d2a0ca]"
-        : "border-foreground/20";
+  // Outlines (owner, final 2026-11-18): each sub-store's cards use the color of
+  // its hero wave line (heroWaveColor in routes/sunshine|moon|men.tsx), both in
+  // its own catalog (outlineVibe) and on its product pages. The base theme's
+  // tienda and home rails are black (boldOutline).
+  const cardOutlineClassName = outlineVibe === "sunshine"
+    ? "border-2 border-[#ff4ea3]"
+    : outlineVibe === "moon"
+      ? "border-2 border-[#7b1832]"
+      : outlineVibe === "men"
+        ? "border-2 border-[#8f2015]"
+        : boldOutline
+          ? "border-2 border-[color:var(--t-card-border,var(--foreground))]"
+          : tone === "store"
+            ? "border-foreground/20"
+            : visualVibe === "sunshine"
+              ? "border-[#ff4ea3]"
+              : visualVibe === "moon"
+                ? "border-[#7b1832]"
+                : visualVibe === "men"
+                  ? "border-[#8f2015]"
+                  : "border-foreground";
   const noticeTextClassName =
     tone === "store"
-      ? "text-[#231717]"
+      ? "text-[#1b1b1b]"
       : product.vibe === "moon"
         ? "text-[#3a1c28]"
         : product.vibe === "sunshine"
           ? "text-[#3a0a14]"
           : product.vibe === "men"
             ? "text-[#3a0808]"
-            : "text-[#231717]";
+            : "text-[#1b1b1b]";
   const colors =
     product.colors ??
     (product.options.find((option) => option.name === "Color")?.values ?? []).map(
@@ -125,15 +155,17 @@ export function ProductCard({
   };
 
 const cartActionClassName =
-  "absolute right-2 top-2 z-[8] flex h-9 w-9 items-center justify-center rounded-full border border-black/15 bg-white text-[#231717] shadow-none transition-[transform,background-color] duration-150 hover:scale-105 hover:bg-white hover:shadow-none disabled:cursor-not-allowed disabled:opacity-45";
+  "absolute right-2 top-2 z-[8] flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--t-card-cart-bg)] text-[color:var(--t-card-cart-icon)] shadow-none transition-[transform,background-color] duration-150 hover:scale-105 hover:shadow-none disabled:cursor-not-allowed disabled:opacity-45";
 
   return (
     <>
+      {/* On a general page an active theme colors every card, whatever its store
+          (Lucia, 2026-11-19); sub-store and product pages are never themed. */}
       <div className="card-lift group relative block h-full rounded-lg">
         <Link to="/producto/$slug" params={{ slug: product.slug }} className="block h-full">
           <div
-            className={`flex aspect-[4/7] h-full flex-col overflow-hidden rounded-lg border shadow-sm ${cardOutlineClassName} ${
-              isMoonCard ? "bg-[#111111] text-[#f2e9e1]" : "bg-card"
+            className={`flex aspect-[4/7] h-full flex-col overflow-hidden rounded-lg ${boldOutline ? "" : "border"} shadow-sm ${cardOutlineClassName} ${
+              isMoonCard ? "bg-[#111111] text-[#f2e9e1]" : "bg-card text-card-foreground"
             }`}
           >
             <div
@@ -144,7 +176,7 @@ const cartActionClassName =
             >
               {soldOut ? <div className="absolute inset-0 z-[5] bg-white/30" /> : null}
               {onSale || product.newArrival || soldOut ? (
-                <div className="absolute left-2 top-2 z-[6] flex flex-wrap gap-1.5">
+                <div className="absolute left-2 right-12 top-2 z-[6] flex flex-wrap gap-1.5">
                   {onSale ? (
                     <span
                       className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${badgeTheme.sale}`}
@@ -221,8 +253,7 @@ const cartActionClassName =
                   </span>
                 ) : null}
                 <span
-                  className={`text-sm font-black sm:text-[0.95rem] ${onSale ? "hidden sm:inline" : ""}`}
-                  style={onSale ? { color: saleAccentColor } : undefined}
+                  className={`text-sm sm:text-[0.95rem] ${onSale ? "hidden sm:inline" : ""} ${priceOpacityClass}`}
                 >
                   {formatPrice(product.price, product.currencyCode)}
                 </span>
@@ -240,7 +271,7 @@ const cartActionClassName =
                   ) : (
                     <span />
                   )}
-                  <span className="text-sm font-black" style={{ color: saleAccentColor }}>
+                  <span className="text-sm font-black text-[color:var(--t-sale-price)]">
                     {formatPrice(product.price, product.currencyCode)}
                   </span>
                 </div>
@@ -253,6 +284,14 @@ const cartActionClassName =
             </div>
           </div>
         </Link>
+
+        {/* The card's outline drawn again on top, so the photo's hover zoom
+            always stays under it (owner, 2026-11-18). Same classes and box as
+            the card's own border, transparent inside, no clicks. */}
+        <span
+          aria-hidden="true"
+          className={`pointer-events-none absolute inset-0 z-[7] rounded-lg ${boldOutline ? "" : "border"} ${cardOutlineClassName}`}
+        />
 
         {onlyVariant ? (
           <button

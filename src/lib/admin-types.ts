@@ -1,3 +1,4 @@
+import type { PromoBannerDraft } from "@/lib/theme-schema";
 import type { CategoryImages, Product, ProductVariant, SubstoreVibe, Vibe } from "@/data/products";
 import type { AdminSizeFormat, AdminSizeFormatRecord } from "@/lib/product-sizing";
 
@@ -8,8 +9,10 @@ export type AdminSection =
   | "categorias"
   | "colecciones"
   | "pedidos"
+  | "encuestas"
   | "descuentos"
   | "cumpleanos"
+  | "temas"
   | "configuracion";
 
 export type AdminInquiryChannel = "formulario" | "whatsapp" | "instagram" | "email";
@@ -63,6 +66,8 @@ export type AdminProductRecord = {
   variants: ProductVariant[];
   tags: string[];
   createdAt: string;
+  /** Sub-products: set once at creation, never editable. */
+  motherId?: string | null;
 };
 
 export type AdminCategoryRecord = {
@@ -140,12 +145,26 @@ export type AdminDiscountRecord = {
   categoryIds: string[];
   maxRedemptions: number | null;
   onePerCustomer: boolean;
+  /**
+   * Solo en la web: never applies to orders made from admin (WhatsApp, Instagram,
+   * in store). Lucia, 2026-11-20: Black Friday and Cyber Monday are website-only.
+   */
+  webOnly?: boolean;
+  /** A banner shown while the promotion is on (Inicio, Tienda or both), theme or not. */
+  banner?: PromoBannerDraft | null;
 };
 
 export type AdminAnnouncementRecord = {
   id: string;
   text: string;
   active: boolean;
+  /** Optional window (UTC ISO, entered in Santo Domingo time); none = shown while active. */
+  startsAt?: string | null;
+  endsAt?: string | null;
+  /** Optional countdown target (UTC ISO): the bar shows the time left, and hides at zero. */
+  countdownTo?: string | null;
+  /** Shown only while this promotion is on (Lucia, 2026-11-20); null = no condition. */
+  discountId?: string | null;
 };
 
 export type AdminFooterColumnLink = {

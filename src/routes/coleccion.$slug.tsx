@@ -7,6 +7,7 @@ import { buildBreadcrumbJsonLd, createSeoHead } from "@/lib/seo";
 import logoMoon from "@/assets/logo-moon.png";
 import logoSunshine from "@/assets/logo-sunshine.png";
 import logoMen from "@/assets/logo-men.png";
+import { familyMembers } from "@/lib/product-families";
 
 const VIBE_LOGO: Partial<Record<string, string>> = {
   moon: logoMoon,
@@ -62,7 +63,12 @@ function CollectionPage() {
   const { collection } = Route.useLoaderData();
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const products = useCatalogProducts().filter((product) => collection.productIds.includes(product.id));
+  const catalog = useCatalogProducts();
+  // Same as the home sections: a listed mother brings her whole family (one
+  // card, chosen by the store's rules); a listed sub-product is just that sub.
+  const products = catalog
+    .filter((product) => collection.productIds.includes(product.id))
+    .flatMap((product) => (product.motherId ? [product] : familyMembers(product, catalog)));
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10">

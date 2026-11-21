@@ -1,5 +1,6 @@
+import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Info, Loader2 } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { AdminAutosaveStatus } from "@/hooks/use-admin-autosave";
 
@@ -24,54 +25,116 @@ export function downloadAdminCsv(filename: string, headers: string[], rows: Arra
   URL.revokeObjectURL(url);
 }
 
-type AdminButtonTone = "primary" | "secondary" | "ghost" | "danger" | "active" | "warning" | "custom";
+type AdminButtonTone = "primary" | "secondary" | "ghost" | "danger" | "dangerSolid" | "active" | "warning" | "add" | "addAlt" | "save" | "create" | "custom";
 
+// No outlines, no shadows, normal capitalization. One filled accent button
+// per area ("primary"); everything else is a soft fill or plain text.
 export function getAdminButtonClassName(tone: AdminButtonTone = "secondary", className?: string) {
   return cn(
-    "rounded-xl border px-4 py-2 text-xs font-black uppercase tracking-[0.18em] shadow-[0_8px_20px_-16px_rgba(35,23,23,0.35)] transition duration-150 focus-visible:outline-none focus-visible:ring-4 disabled:cursor-not-allowed disabled:opacity-50",
-    tone === "primary" &&
-      "border-[#2f7a45] bg-[#2f7a45] text-white hover:bg-[#256139] focus-visible:ring-[#b7e6c4]",
-    tone === "active" &&
-      "border-[#231717] bg-[#231717] text-white hover:bg-[#3a2924] focus-visible:ring-[#d8c8bc]",
-    tone === "secondary" &&
-      "border-[#231717] bg-white text-[#231717] hover:bg-[#f7f2ec] focus-visible:ring-[#eadccf]",
-    tone === "ghost" &&
-      "border-[#231717]/15 bg-[#f2ede7] text-[#5f4941] hover:border-[#231717]/30 hover:bg-[#ece4db] focus-visible:ring-[#e8ddd3]",
-    tone === "warning" &&
-      "border-[#b46b12] bg-[#f3b14a] text-[#4f2e05] hover:bg-[#e2a23f] focus-visible:ring-[#f8dca8]",
-    tone === "danger" &&
-      "border-[#9a3423] bg-[#9a3423] text-white hover:bg-[#7d291b] focus-visible:ring-[#efc0b8]",
-    tone === "custom" && "border-transparent bg-transparent text-current shadow-none",
+    "inline-flex items-center justify-center gap-1.5 rounded-[10px] px-3.5 py-2 text-[13px] font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-select)]/40 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50",
+    tone === "primary" && "bg-[var(--admin-accent)] text-white hover:bg-[var(--admin-accent-hover)]",
+    tone === "active" && "bg-[var(--admin-select)] text-[var(--admin-on-invert)] hover:bg-[var(--admin-select-hover)]",
+    tone === "secondary" && "bg-[var(--admin-soft)] text-[var(--admin-ink)] hover:bg-[var(--admin-soft-hover)]",
+    tone === "ghost" && "bg-transparent text-[var(--admin-muted)] hover:bg-[var(--admin-soft)] hover:text-[var(--admin-ink)]",
+    tone === "warning" && "bg-[var(--admin-warn-soft)] text-[var(--admin-warn)] hover:brightness-95",
+    tone === "danger" && "bg-transparent text-[var(--admin-danger)] hover:bg-[var(--admin-danger-soft)]",
+    tone === "dangerSolid" && "bg-[var(--admin-danger-solid)] text-white hover:brightness-90",
+    // Solid add buttons: green (Agregar FAQ) and blue (Agregar bloque legal).
+    tone === "add" && "bg-[var(--admin-ok-solid)] text-white hover:bg-[var(--admin-ok-solid-hover)]",
+    tone === "addAlt" && "bg-[#334f6d] text-white hover:bg-[#253b53]",
+    // Guardar / Abrir: solid green with white text, darker on hover.
+    tone === "save" && "bg-[var(--admin-ok-solid)] text-white hover:bg-[var(--admin-ok-solid-hover)]",
+    // Nuevo / Nueva …: the yellow status-chip colors, darker on hover.
+    tone === "create" && "bg-[var(--admin-warn-soft)] text-[var(--admin-warn)] hover:bg-[var(--admin-warn-soft-hover)]",
+    tone === "custom" && "bg-transparent text-current",
     className,
   );
 }
 
-export function getAdminVibeButtonClassName(
-  vibe: "moon" | "sunshine" | "men",
-  active: boolean,
-  className?: string,
-) {
+type AdminVibe = "moon" | "sunshine" | "men";
+
+// Sub-store buttons (filters, "Subtiendas activas"): off is dimmer/darker,
+// hover sits between, on is the store's full color. No ring.
+export function getAdminVibeButtonClassName(vibe: AdminVibe, active: boolean, className?: string) {
   return cn(
-    "rounded-xl border px-4 py-2 text-xs font-black uppercase tracking-[0.18em] transition duration-150 focus-visible:outline-none focus-visible:ring-4",
-    vibe === "moon" &&
-      (active
-        ? "border-[#7a0e1c] bg-[linear-gradient(135deg,#f6ebe8_0%,#c88d9a_38%,#7a0e1c_100%)] text-white shadow-[0_10px_24px_-18px_rgba(122,14,28,0.7)] focus-visible:ring-[#e7c7cf]"
-        : "border-[#7a0e1c]/20 bg-[linear-gradient(135deg,#faf2f0_0%,#efdee1_55%,#dcc3ca_100%)] text-[#711120] hover:border-[#7a0e1c]/35 focus-visible:ring-[#f1dde1]"),
-    vibe === "sunshine" &&
-      (active
-        ? "border-[#ff5fa2] bg-[linear-gradient(135deg,#ffd8ea_0%,#ff8dbf_42%,#ffe57d_100%)] text-[#5b1737] shadow-[0_10px_24px_-18px_rgba(255,95,162,0.75)] focus-visible:ring-[#ffe2ef]"
-        : "border-[#ff5fa2]/20 bg-[linear-gradient(135deg,#fff6fa_0%,#ffe2ee_52%,#fff2b8_100%)] text-[#ac3e71] hover:border-[#ff5fa2]/35 focus-visible:ring-[#ffe8f2]"),
-    vibe === "men" &&
-      (active
-        ? "border-[#4d4742] bg-[linear-gradient(135deg,#cfc9c4_0%,#8d8780_42%,#4d4742_100%)] text-white shadow-[0_10px_24px_-18px_rgba(77,71,66,0.7)] focus-visible:ring-[#ddd7d2]"
-        : "border-[#7b746d]/20 bg-[linear-gradient(135deg,#f4f1ef_0%,#ddd7d3_55%,#c5beb9_100%)] text-[#554d49] hover:border-[#7b746d]/35 focus-visible:ring-[#ece7e3]"),
+    "inline-flex items-center rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-select)]/40",
+    vibe === "moon" && (active ? "bg-[#4a0912] text-white" : "bg-[#b86b76] text-[#fbeef0] hover:bg-[#93303d] hover:text-white"),
+    vibe === "sunshine" && (active ? "bg-[#e0508f] text-white" : "bg-[var(--admin-sun-soft)] text-[var(--admin-sun)] hover:bg-[var(--admin-sun-soft-hover)]"),
+    vibe === "men" && (active ? "bg-[#3a3532] text-white" : "bg-[#b0a8a2] text-[#f4f1ee] hover:bg-[#8a827c] hover:text-white"),
     className,
   );
 }
 
-export function confirmAdminDestructiveAction(message: string) {
-  if (typeof window === "undefined") return true;
-  return window.confirm(message);
+// Sub-store labels in tables (not clickable).
+export function getAdminVibeTagClassName(vibe: AdminVibe, className?: string) {
+  return cn(
+    "pointer-events-none inline-flex cursor-default items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+    vibe === "moon" && "bg-[#7a0e1c] text-[#f6e7ea]",
+    vibe === "sunshine" && "bg-[var(--admin-sun-soft)] text-[var(--admin-sun)]",
+    vibe === "men" && "bg-[#6e6762] text-white",
+    className,
+  );
+}
+
+// Opens the admin's own confirmation dialog and resolves to the answer.
+// window.confirm() is not used directly: embedded browsers (e.g. in-app
+// webviews) block it and silently return false, which made "Cerrar",
+// "Eliminar", etc. do nothing. Falls back to window.confirm only if no
+// AdminConfirmHost is mounted (AdminShell mounts one on every admin page).
+let showAdminConfirm: ((message: string) => Promise<boolean>) | null = null;
+
+export function confirmAdminDestructiveAction(message: string): Promise<boolean> {
+  if (typeof window === "undefined") return Promise.resolve(true);
+  if (showAdminConfirm) return showAdminConfirm(message);
+  return Promise.resolve(window.confirm(message));
+}
+
+export function AdminConfirmHost() {
+  const [message, setMessage] = useState<string | null>(null);
+  const resolveRef = useRef<((ok: boolean) => void) | null>(null);
+
+  const settle = (ok: boolean) => {
+    resolveRef.current?.(ok);
+    resolveRef.current = null;
+    setMessage(null);
+  };
+
+  useEffect(() => {
+    showAdminConfirm = (next) =>
+      new Promise<boolean>((resolve) => {
+        // A new question cancels one that was still open.
+        resolveRef.current?.(false);
+        resolveRef.current = resolve;
+        setMessage(next);
+      });
+    return () => {
+      showAdminConfirm = null;
+      resolveRef.current?.(false);
+      resolveRef.current = null;
+    };
+  }, []);
+
+  return (
+    <AlertDialog.Root open={message !== null} onOpenChange={(open) => (open ? undefined : settle(false))}>
+      <AlertDialog.Portal>
+        <AlertDialog.Overlay className="fixed inset-0 z-[100] bg-[#130808]/40" />
+        {/* admin-shell: the dialog renders in a portal outside the admin layout,
+            so it needs the class for the admin's fonts and palette. */}
+        <AlertDialog.Content className="admin-shell fixed left-1/2 top-1/2 z-[101] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-[var(--admin-edge)] bg-[var(--admin-surface)] p-5 shadow-[0_24px_48px_-28px_rgb(19_8_8/0.45)] focus:outline-none">
+          <AlertDialog.Title className="text-base font-semibold">¿Seguro?</AlertDialog.Title>
+          <AlertDialog.Description className="mt-2 text-sm leading-6 text-[var(--admin-muted)]">{message}</AlertDialog.Description>
+          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <AlertDialog.Cancel className={getAdminButtonClassName("secondary")} onClick={() => settle(false)}>
+              Cancelar
+            </AlertDialog.Cancel>
+            <AlertDialog.Action className={getAdminButtonClassName("dangerSolid")} onClick={() => settle(true)}>
+              Sí, continuar
+            </AlertDialog.Action>
+          </div>
+        </AlertDialog.Content>
+      </AlertDialog.Portal>
+    </AlertDialog.Root>
+  );
 }
 
 export function AdminButton({
@@ -94,7 +157,7 @@ export function AdminButton({
 
 export function AdminSectionLabel({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn("text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]", className)}>
+    <div className={cn("text-xs font-semibold text-[var(--admin-faint)]", className)}>
       {children}
     </div>
   );
@@ -102,8 +165,10 @@ export function AdminSectionLabel({ children, className }: { children: ReactNode
 
 export function getAdminChipClassName(active: boolean, className?: string) {
   return cn(
-    "rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] transition",
-    active ? "border-[#231717] bg-[#231717] text-white" : "border-[#231717]/20 bg-[#faf6f0] text-[#5f4941]",
+    "inline-flex items-center rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors duration-150",
+    active
+      ? "bg-[var(--admin-select)] text-[var(--admin-on-invert)]"
+      : "bg-[var(--admin-soft)] text-[var(--admin-muted)] hover:bg-[var(--admin-soft-hover)] hover:text-[var(--admin-ink)]",
     className,
   );
 }
@@ -118,18 +183,13 @@ export function AdminTabs<T extends string>({
   onChange: (id: T) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-2 border-b border-[#231717]/10 pb-3">
+    <div className="inline-flex flex-wrap gap-1 rounded-2xl border border-[var(--admin-edge)] bg-[var(--admin-surface)] p-1.5">
       {tabs.map((tab) => (
         <button
           key={tab.id}
           type="button"
           onClick={() => onChange(tab.id)}
-          className={cn(
-            "rounded-xl border border-[#231717] px-4 py-2 text-xs font-black uppercase tracking-[0.16em] transition",
-            active === tab.id
-              ? "bg-white text-[#231717]"
-              : "bg-[#231717] text-white hover:bg-[#3a2924]",
-          )}
+          className={getAdminChipClassName(active === tab.id)}
         >
           {tab.label}
         </button>
@@ -149,47 +209,26 @@ export function AdminField({
 }) {
   return (
     <label className="grid gap-1.5 text-sm">
-      <span className="font-bold">{label}</span>
+      <span className="font-medium text-[var(--admin-muted)]">{label}</span>
       {children}
-      {hint ? <span className="text-xs text-[#6b5a55]">{hint}</span> : null}
+      {hint ? <span className="text-xs text-[var(--admin-faint)]">{hint}</span> : null}
     </label>
   );
 }
 
+const ADMIN_FIELD_CLASS =
+  "w-full rounded-[10px] border border-[var(--admin-line-strong)] bg-[var(--admin-field)] px-3.5 text-sm text-[var(--admin-ink)] outline-none transition placeholder:text-[var(--admin-faint)] focus:border-[var(--admin-select)] focus:bg-[var(--admin-surface)] focus-visible:ring-2 focus-visible:ring-[var(--admin-select)]/25 disabled:cursor-not-allowed disabled:opacity-60";
+
 export function AdminInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <input
-      {...props}
-      className={cn(
-        "w-full rounded-lg border border-[#231717]/25 bg-[#f7f2ec] px-4 py-2.5 text-sm outline-none transition placeholder:text-[#8d7970] focus:border-[#2f7a45] focus:bg-white focus-visible:ring-4 focus-visible:ring-[#d8efdf]",
-        props.className,
-      )}
-    />
-  );
+  return <input {...props} className={cn(ADMIN_FIELD_CLASS, "py-2.5", props.className)} />;
 }
 
 export function AdminTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return (
-    <textarea
-      {...props}
-      className={cn(
-        "w-full rounded-lg border border-[#231717]/25 bg-[#f7f2ec] px-4 py-3 text-sm outline-none transition placeholder:text-[#8d7970] focus:border-[#2f7a45] focus:bg-white focus-visible:ring-4 focus-visible:ring-[#d8efdf]",
-        props.className,
-      )}
-    />
-  );
+  return <textarea {...props} className={cn(ADMIN_FIELD_CLASS, "py-3", props.className)} />;
 }
 
 export function AdminSelect(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <select
-      {...props}
-      className={cn(
-        "w-full rounded-lg border border-[#231717]/25 bg-[#f7f2ec] px-4 py-2.5 text-sm outline-none transition focus:border-[#2f7a45] focus:bg-white focus-visible:ring-4 focus-visible:ring-[#d8efdf]",
-        props.className,
-      )}
-    />
-  );
+  return <select {...props} className={cn(ADMIN_FIELD_CLASS, "py-2.5", props.className)} />;
 }
 
 export function AdminCheckbox({
@@ -197,23 +236,31 @@ export function AdminCheckbox({
   checked,
   onCheckedChange,
   hint,
+  disabled = false,
 }: {
   label: string;
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
   hint?: string;
+  disabled?: boolean;
 }) {
   return (
-    <label className="flex items-start gap-3 rounded-xl border border-[#231717]/10 bg-[#faf6f0] px-3 py-3 text-sm">
+    <label
+      className={cn(
+        "flex items-start gap-3 rounded-xl bg-[var(--admin-field)] px-3 py-3 text-sm ring-1 ring-[var(--admin-line)]",
+        disabled && "cursor-not-allowed opacity-60",
+      )}
+    >
       <input
         type="checkbox"
         checked={checked}
+        disabled={disabled}
         onChange={(event) => onCheckedChange(event.target.checked)}
-        className="mt-0.5 h-4 w-4 rounded border-[#231717] accent-[#231717]"
+        className="mt-0.5 h-4 w-4 rounded accent-[var(--admin-select)]"
       />
       <span className="min-w-0">
-        <span className="block font-bold">{label}</span>
-        {hint ? <span className="mt-0.5 block text-xs leading-5 text-[#6b5a55]">{hint}</span> : null}
+        <span className="block font-medium">{label}</span>
+        {hint ? <span className="mt-0.5 block text-xs leading-5 text-[var(--admin-faint)]">{hint}</span> : null}
       </span>
     </label>
   );
@@ -229,9 +276,9 @@ export function AdminEmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-dashed border-[#231717]/25 bg-[#faf6f0] px-5 py-10 text-center">
-      <div className="text-base font-black">{title}</div>
-      <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[#6b5a55]">{body}</p>
+    <div className="rounded-2xl border border-dashed border-[var(--admin-line-strong)] bg-[var(--admin-field)] px-5 py-10 text-center">
+      <div className="text-base font-semibold">{title}</div>
+      <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[var(--admin-muted)]">{body}</p>
       {action ? <div className="mt-4 flex justify-center">{action}</div> : null}
     </div>
   );
@@ -249,26 +296,26 @@ export function AdminPagination({
   if (pages <= 1) return null;
 
   return (
-    <div className="flex items-center justify-between gap-3 border-t border-[#231717]/10 pt-3">
-      <div className="text-xs font-semibold text-[#6b5a55]">
-        Pagina {page + 1} de {pages}
+    <div className="flex items-center justify-between gap-3 border-t border-[var(--admin-line)] pt-3">
+      <div className="text-xs font-medium text-[var(--admin-faint)]">
+        Página {page + 1} de {pages}
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
         <button
           type="button"
-          aria-label="Pagina anterior"
+          aria-label="Página anterior"
           onClick={() => onChange(Math.max(0, page - 1))}
           disabled={page === 0}
-          className="text-[#5f4941] transition hover:text-[#231717] disabled:cursor-not-allowed disabled:opacity-35"
+          className="rounded-lg p-1.5 text-[var(--admin-muted)] transition-colors hover:bg-[var(--admin-soft)] hover:text-[var(--admin-ink)] disabled:cursor-not-allowed disabled:opacity-35"
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
         <button
           type="button"
-          aria-label="Pagina siguiente"
+          aria-label="Página siguiente"
           onClick={() => onChange(Math.min(pages - 1, page + 1))}
           disabled={page >= pages - 1}
-          className="text-[#5f4941] transition hover:text-[#231717] disabled:cursor-not-allowed disabled:opacity-35"
+          className="rounded-lg p-1.5 text-[var(--admin-muted)] transition-colors hover:bg-[var(--admin-soft)] hover:text-[var(--admin-ink)] disabled:cursor-not-allowed disabled:opacity-35"
         >
           <ChevronRight className="h-5 w-5" />
         </button>
@@ -288,10 +335,10 @@ export function AdminToast({ message, tone = "info" }: { message: string; tone?:
     <div className="pointer-events-none fixed bottom-4 left-4 z-50 animate-in slide-in-from-bottom-3 fade-in duration-200">
       <div
         className={cn(
-          "flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm font-semibold shadow-[0_18px_40px_-18px_rgba(35,23,23,0.45)]",
-          tone === "success" && "border-emerald-600 text-emerald-800",
-          tone === "error" && "border-[#9a3423] text-[#7d291b]",
-          tone === "info" && "border-[#231717] text-[#231717]",
+          "flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium shadow-[0_18px_40px_-22px_rgb(19_8_8/0.5)]",
+          tone === "success" && "bg-[var(--admin-ok-soft)] text-[var(--admin-ok)]",
+          tone === "error" && "bg-[var(--admin-danger-soft)] text-[var(--admin-danger)]",
+          tone === "info" && "bg-[var(--admin-ink)] text-[var(--admin-on-invert)]",
         )}
       >
         <Icon className="h-4 w-4 shrink-0" />
@@ -312,7 +359,7 @@ export function AdminAutosaveIndicator({
 
   if (status === "saving") {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#f3eadf] px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-[#6b5a55]">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--admin-soft)] px-2.5 py-1 text-xs font-medium text-[var(--admin-muted)]">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
         Guardando...
       </span>
@@ -322,7 +369,7 @@ export function AdminAutosaveIndicator({
   if (status === "error") {
     return (
       <span
-        className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#f7ddd4] px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-[#9a3423]"
+        className="inline-flex items-center gap-1.5 rounded-full bg-[var(--admin-danger-soft)] px-2.5 py-1 text-xs font-medium text-[var(--admin-danger)]"
         title={errorMessage}
       >
         <AlertCircle className="h-3.5 w-3.5 shrink-0" />
@@ -332,7 +379,7 @@ export function AdminAutosaveIndicator({
   }
 
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-[10px] bg-[#e3f0e6] px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-emerald-700">
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--admin-ok-soft)] px-2.5 py-1 text-xs font-medium text-[var(--admin-ok)]">
       <CheckCircle2 className="h-3.5 w-3.5" />
       Guardado
     </span>

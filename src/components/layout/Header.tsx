@@ -1,4 +1,7 @@
+import { formatCountdown, splitCountdownText } from "@/lib/announcement-schedule";
 import { Link, useLocation } from "@tanstack/react-router";
+import { ThemeAreaStickers } from "@/components/theme/ThemeStickers";
+import { ThemeImage } from "@/components/theme/ThemeImage";
 import { ShoppingBag, Search, Menu, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { StorePineapple } from "@/components/branding/StorePineapple";
@@ -13,6 +16,7 @@ import { useCatalogProducts } from "@/context/catalog";
 import logoMoonImg from "@/assets/logo-moon.png";
 import logoSunImg from "@/assets/logo-sunshine.png";
 import logoMenImg from "@/assets/logo-men.png";
+import { collapseFamilies } from "@/lib/product-families";
 import {
   getAvailableMenuCategories,
   getDepartmentCategoryLinkSearch,
@@ -23,7 +27,31 @@ import {
 type StoreAnnouncement = {
   id: string;
   text: string;
+  /** Countdown target (UTC ISO), set in Temas › Anuncios. */
+  countdownTo?: string | null;
 };
+
+/** "Termina en 2d 14:03:09": the clock ticks every second, in place of {cuenta} or at the end. */
+function CountdownText({ text, target }: { text: string; target: string }) {
+  const end = Date.parse(target);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const [before, after] = splitCountdownText(text);
+  return (
+    <>
+      {before}
+      {/* Server and browser render a second apart; the browser's tick takes over. */}
+      <span className="font-bold tabular-nums" suppressHydrationWarning>
+        {formatCountdown(end - now)}
+      </span>
+      {after}
+    </>
+  );
+}
 
 type AnnouncementTheme = {
   background: string;
@@ -153,11 +181,10 @@ const NAV: NavItem[] = [
   { to: "/contacto", label: "Contacto" },
 ];
 
-/* ── per-vibe mega panel styling ───────────────── */
+/* ── per-vibe mega panel ───────────────────────── */
+// Each store's preview takes its background and text from that store's own
+// theme (data-vibe on the panel); its pills and square buttons are these.
 type VibePanelStyle = {
-  panelBg: string;
-  text: string;
-  muted: string;
   linkCls: string;
   tabActiveCls: string;
   tabIdleCls: string;
@@ -167,33 +194,25 @@ type VibePanelStyle = {
 
 const VIBE_PANEL: Partial<Record<MegaKey, VibePanelStyle>> = {
   moon: {
-    panelBg: "linear-gradient(135deg,#0a0408 0%,#2a0a14 55%,#5a1420 100%)",
-    text: "text-[#f5ece8]",
-    muted: "text-[#c4a8a2]",
     linkCls: "border-white/10 bg-white/5 text-[#f5ece8] hover:bg-white/12",
-    tabActiveCls: "bg-[#f5ece8] text-[#2a0a14]",
+    tabActiveCls: "bg-foreground text-background",
     tabIdleCls: "bg-white/10 text-[#f5ece8] hover:bg-white/18",
     logo: logoMoonImg,
     logoBlend: "mix-blend-screen",
   },
   sunshine: {
-    panelBg: "linear-gradient(135deg,#ff8fc9 0%,#ffe66a 55%,#c5f56a 100%)",
-    text: "text-[#3a0a14]",
-    muted: "text-[#5a1828]",
     linkCls: "border-[#b86f8b] bg-[#5a1830]/10 text-[#3a0a14] hover:bg-[#5a1830]/18",
-    tabActiveCls: "bg-[#3a0a14] text-[#fff1b8]",
+    tabActiveCls: "bg-foreground text-background",
     tabIdleCls: "bg-[#5a1830]/10 text-[#3a0a14] hover:bg-[#5a1830]/18",
     logo: logoSunImg,
-    /* no blend — show logo naturally on the light gradient */
+    /* no blend — show logo naturally on the light background */
     logoBlend: "",
   },
   men: {
-    panelBg: "linear-gradient(135deg,#0a0a0a 0%,#1c1010 55%,#3a0808 100%)",
-    text: "text-[#f0e8e6]",
-    muted: "text-[#b09898]",
-    linkCls: "border-white/10 bg-white/5 text-[#f0e8e6] hover:bg-white/12",
-    tabActiveCls: "bg-[#f0e8e6] text-[#3a0808]",
-    tabIdleCls: "bg-white/10 text-[#f0e8e6] hover:bg-white/18",
+    // White text on Men's buttons (owner, 2026-11-18).
+    linkCls: "border-white/10 bg-white/5 text-white hover:bg-white/12",
+    tabActiveCls: "bg-foreground text-background",
+    tabIdleCls: "bg-white/10 text-white hover:bg-white/18",
     logo: logoMenImg,
     logoBlend: "mix-blend-screen",
   },
@@ -203,11 +222,9 @@ const VIBE_PANEL: Partial<Record<MegaKey, VibePanelStyle>> = {
 function CategoryCircle({
   item,
   textCls = "text-foreground",
-  isVibe = false,
 }: {
   item: MegaSection["categories"][number];
   textCls?: string;
-  isVibe?: boolean;
 }) {
   const p = item.product;
   const image = item.image ?? p?.featuredImage ?? null;
@@ -224,7 +241,7 @@ function CategoryCircle({
         style={
           p
             ? { background: `linear-gradient(135deg, ${p.swatch[0]}, ${p.swatch[1]})` }
-            : { background: isVibe ? "rgba(255,255,255,0.15)" : "#f3ece2" }
+            : { background: "var(--muted)" }
         }
       >
         {image ? (
@@ -236,7 +253,7 @@ function CategoryCircle({
             className="ui-circle h-full w-full object-cover"
           />
         ) : (
-          <span className={`font-display text-lg uppercase ${isVibe ? "text-white/80" : "text-foreground/55"}`}>
+          <span className="font-display text-lg uppercase text-foreground/55">
             {initials(p?.name ?? item.label)}
           </span>
         )}
@@ -249,43 +266,45 @@ function CategoryCircle({
 }
 
 /* ── Header ─────────────────────────────────────── */
+// Bar colors are theme variables (src/lib/theme-tokens.ts, "Anuncios"); their
+// defaults in styles.css are the colors these classes had.
 function getAnnouncementTheme(themeKey: AnnouncementThemeKey): AnnouncementTheme {
   if (themeKey === "sunshine") {
     return {
-      background: "bg-[#ff4ea3]",
+      background: "bg-[color:var(--t-ann-b-bg)]",
       border: "border-transparent",
-      text: "text-white",
-      badgeBackground: "bg-[#ff4ea3]",
-      badgeText: "text-white",
+      text: "text-[color:var(--t-ann-b-text)]",
+      badgeBackground: "bg-[color:var(--t-ann-b-badge)]",
+      badgeText: "text-[color:var(--t-ann-b-badge-text)]",
     };
   }
 
   if (themeKey === "moon") {
     return {
-      background: "bg-[#f3e7dc]",
+      background: "bg-[color:var(--t-ann-a-bg)]",
       border: "border-transparent",
-      text: "text-[#3a1c28]",
-      badgeBackground: "bg-[#7b1832]",
-      badgeText: "text-[#fff5f8]",
+      text: "text-[color:var(--t-ann-a-text)]",
+      badgeBackground: "bg-[color:var(--t-ann-a-badge)]",
+      badgeText: "text-[color:var(--t-ann-a-badge-text)]",
     };
   }
 
   if (themeKey === "men") {
     return {
-      background: "bg-[#8f2015]",
+      background: "bg-[color:var(--t-ann-c-bg)]",
       border: "border-transparent",
-      text: "text-[#fff7f2]",
-      badgeBackground: "bg-[#8f2015]",
-      badgeText: "text-[#fff7f2]",
+      text: "text-[color:var(--t-ann-c-text)]",
+      badgeBackground: "bg-[color:var(--t-ann-c-badge)]",
+      badgeText: "text-[color:var(--t-ann-c-badge-text)]",
     };
   }
 
   return {
-    background: "bg-[#c5475f]",
+    background: "bg-[color:var(--t-ann-general-bg)]",
     border: "border-transparent",
-    text: "text-white",
-    badgeBackground: "bg-[#c5475f]",
-    badgeText: "text-white",
+    text: "text-[color:var(--t-ann-general-text)]",
+    badgeBackground: "bg-[color:var(--t-ann-general-badge)]",
+    badgeText: "text-[color:var(--t-ann-general-badge-text)]",
   };
 }
 
@@ -327,7 +346,11 @@ function AnnouncementBar({ announcements, theme }: { announcements: StoreAnnounc
           bar and shoves the rest of the page down - it just crops instead. */}
       <div className="mx-auto max-h-10 max-w-7xl overflow-hidden text-center sm:max-h-none">
         <div key={active.id} className="announcement-fade font-body text-sm leading-5 sm:text-[0.95rem]">
-          {active.text}
+          {active.countdownTo && Number.isFinite(Date.parse(active.countdownTo)) ? (
+            <CountdownText text={active.text} target={active.countdownTo} />
+          ) : (
+            active.text
+          )}
         </div>
       </div>
     </div>
@@ -353,13 +376,62 @@ export function Header({
           : loc.pathname.startsWith("/men")
             ? "men"
             : "store");
-  const announcementTheme = getAnnouncementTheme(activeThemeKey);
+  // Base theme = not Moon, Sunshine or Men. Header links hover in each
+  // theme's own muted color: light gray in the base theme; the sub-stores
+  // keep their original hover.
+  const isBaseTheme = activeThemeKey === "store";
+  const hoverCls = "hover:bg-muted hover:text-foreground";
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
   const [activeMega, setActiveMega] = useState<MegaKey | null>(null);
+  // Hovering Moon, Sunshine or Men switches the whole header to that store's
+  // theme while its preview is open; hovering off returns to the page's theme.
+  // Tienda/Nuevo/Oferta never switch it. No color animation (owner,
+  // 2026-11-18): see .site-header in styles.css.
+  const hoverStore = activeMega && VIBE_PANEL[activeMega] ? (activeMega as "moon" | "sunshine" | "men") : null;
+  const headerThemeKey = hoverStore ?? activeThemeKey;
+  const announcementTheme = getAnnouncementTheme(headerThemeKey);
   const [renderedMega, setRenderedMega] = useState<MegaKey | null>(null);
   const [categoryPage, setCategoryPage] = useState(0);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const headerRef = useRef<HTMLElement>(null);
+
+  // Publishes how much of the header is still on screen, in CSS px, as
+  // --site-header-visible: its full height at the top of the page, down to 0
+  // once it has scrolled away (the header scrolls with the page). The tienda
+  // filter box uses it to sit right under it and fill the rest of the screen.
+  // Rects are in zoomed px (html has a per-breakpoint zoom); dividing by
+  // rect.height / offsetHeight brings them back to CSS px.
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+    const root = document.documentElement;
+    let frame = 0;
+    let last = "";
+    const publish = () => {
+      frame = 0;
+      const rect = header.getBoundingClientRect();
+      const scale = rect.height / header.offsetHeight || 1;
+      const visible = `${Math.round(Math.max(0, rect.bottom) / scale)}px`;
+      if (visible === last) return;
+      last = visible;
+      root.style.setProperty("--site-header-visible", visible);
+    };
+    const schedule = () => {
+      if (!frame) frame = window.requestAnimationFrame(publish);
+    };
+    publish();
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    const observer = new ResizeObserver(schedule);
+    observer.observe(header);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      observer.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     setCategoryPage(0);
@@ -425,11 +497,13 @@ export function Header({
   /* build mega sections */
   const megaSections = useMemo<Record<MegaKey, MegaSection>>(() => {
     const publicProducts = catalogProducts;
-    const moonPool = publicProducts.filter((p) => p.vibe === "moon" || p.secondaryVibe === "moon");
-    const sunPool = publicProducts.filter((p) => p.vibe === "sunshine" || p.secondaryVibe === "sunshine");
-    const menPool = publicProducts.filter((p) => p.vibe === "men" || p.secondaryVibe === "men");
-    const newPool = publicProducts.filter((p) => p.newArrival);
-    const salePool = publicProducts.filter((p) => !!p.salePrice);
+    // One card per product family (sub-products in other colors).
+    const pool = (keep: (p: Product) => boolean) => collapseFamilies(publicProducts.filter(keep), publicProducts);
+    const moonPool = pool((p) => p.vibe === "moon" || p.secondaryVibe === "moon");
+    const sunPool = pool((p) => p.vibe === "sunshine" || p.secondaryVibe === "sunshine");
+    const menPool = pool((p) => p.vibe === "men" || p.secondaryVibe === "men");
+    const newPool = pool((p) => p.newArrival);
+    const salePool = pool((p) => !!p.salePrice);
 
     const build = (
       key: MegaKey,
@@ -492,17 +566,22 @@ export function Header({
 
   return (
     <header
-      className={`sticky top-0 bg-background/95 backdrop-blur transition-colors duration-300 ${
+      ref={headerRef}
+      data-vibe={hoverStore ?? undefined}
+      className={`site-header sticky top-0 bg-[color:var(--t-header-bg,var(--background))] text-foreground ${
         renderedMega ? "z-[99999]" : "z-40"
       }`}
       onMouseLeave={handleMouseLeaveHeader}
     >
       {/* ── Top bar ── */}
-      <div className="relative z-20 mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4">
+      {/* Full-width, with the header's own background: the mega panel's extra
+          strip (below) tucks behind this row, out of sight. */}
+      <div className="relative z-20 bg-[color:var(--t-header-bg,var(--background))]">
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4">
         {/* Logo */}
         <Link to="/" className="flex shrink-0 items-center gap-2 -mr-[2.2rem]">
           <StorePineapple
-            theme={activeThemeKey}
+            theme={headerThemeKey}
             className="h-6 w-6 shrink-0 object-contain sm:h-9"
           />
           <span
@@ -531,8 +610,8 @@ export function Header({
                 }}
                 className={`ui-nav-rounded px-3 py-1.5 text-sm font-semibold transition-colors ${
                   active || megaActive
-                    ? "bg-foreground text-background"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    ? "bg-[color:var(--t-header-active-bg,var(--foreground))] text-[color:var(--t-header-active-text,var(--background))]"
+                    : `text-[color:var(--t-header-text,var(--muted-foreground))] ${hoverCls}`
                 }`}
               >
                 {n.label}
@@ -543,12 +622,12 @@ export function Header({
 
         {/* Icons */}
         <div className="flex items-center gap-1">
-          <Link to="/tienda" className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Buscar">
+          <Link to="/tienda" className="rounded-full p-2 text-[color:var(--t-header-text,var(--muted-foreground))]" aria-label="Buscar">
             <Search className="h-5 w-5" />
           </Link>
           <button
             onClick={() => cart.setOpen(true)}
-            className="relative rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="relative rounded-full p-2 text-[color:var(--t-header-text,var(--muted-foreground))]"
             aria-label="Carrito"
           >
             <ShoppingBag className="h-5 w-5" />
@@ -562,50 +641,75 @@ export function Header({
           </button>
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground md:hidden"
+            className={`rounded-full p-2 text-[color:var(--t-header-text,var(--muted-foreground))] md:hidden ${hoverCls}`}
             aria-label="Menú"
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
       </div>
+      </div>
 
       {/* ── Desktop mega menu ── */}
-      <AnnouncementBar announcements={announcements} theme={announcementTheme} />
+      {/* The announcement keeps the page's own color while a store preview is
+          hovered; it only changes when the page itself changes (owner, 2026-11-18). */}
+      <AnnouncementBar announcements={announcements} theme={getAnnouncementTheme(activeThemeKey)} />
       {/* Hangs off the bottom of the nav row (top-14 = its h-14), so it covers
           the announcement bar instead of opening below it. Pure CSS on
           purpose: html has a per-breakpoint `zoom` (styles.css), and JS
           measurements under zoom disagree between Safari and Chrome. */}
       <div
-          className={`absolute inset-x-0 top-14 hidden overflow-hidden shadow-xl transition-[max-height,opacity,transform] duration-250 md:block ${
+          // Starts 1rem above the nav row's bottom (top-10, not top-14) so a
+          // strip of its own background sits behind the header; pt-9 below
+          // keeps the content exactly where it was. While it slides, that
+          // strip covers the gap (owner, 2026-11-18). Opens coming down out of
+          // the header (mega-in), closes going back up behind it (mega-out).
+          className={`absolute inset-x-0 top-10 hidden max-h-[35rem] overflow-hidden shadow-xl md:block ${
             megaOpen
-              ? "pointer-events-auto max-h-[34rem] translate-y-0 opacity-100"
-              : "pointer-events-none max-h-0 -translate-y-1 opacity-0"
+              ? "pointer-events-auto opacity-100 [animation:mega-in_250ms_ease]"
+              : renderedMega
+                ? "pointer-events-none opacity-0 [animation:mega-out_250ms_ease]"
+                : "pointer-events-none opacity-0"
           }`}
+          // Moon, Sunshine and Men previews wear their own store's palette on
+          // every page (owner, 2026-11-18); General/Nuevo/Oferta follow the
+          // page you are on. Raw var(--...) here, not --color-*, so they
+          // resolve against this data-vibe.
+          data-vibe={currentMega && VIBE_PANEL[currentMega.key] ? currentMega.key : undefined}
           style={{
-            background: currentMega
-              ? (VIBE_PANEL[currentMega.key]?.panelBg ?? "var(--color-background)")
-              : "var(--color-background)",
-            /* thin white bottom border always visible on vibe panels */
-            borderBottom: currentMega && VIBE_PANEL[currentMega.key]
-              ? "1px solid rgba(255,255,255,0.18)"
-              : "1px solid var(--color-border)",
-            transition: "max-height 0.25s ease, opacity 0.25s ease, transform 0.25s ease",
-            zIndex: 99999,
+            background: "var(--t-dropdown-bg, var(--background))",
+            borderBottom: "1px solid var(--border)",
+            // Under the nav row (z-20) so the extra strip hides behind it,
+            // over the announcement bar.
+            zIndex: 10,
           }}
           onMouseEnter={handleMouseEnterPanel}
         >
           {currentMega && (() => {
           const vs = VIBE_PANEL[currentMega.key];
-          const textCls  = vs?.text  ?? "text-foreground";
-          const mutedCls = vs?.muted ?? "text-muted-foreground";
-          const linkCls  = vs?.linkCls ?? "border-foreground/10 bg-card text-foreground hover:bg-muted";
-          const tabActiveCls = vs?.tabActiveCls ?? "bg-foreground text-background";
-          const tabIdleCls   = vs?.tabIdleCls   ?? "bg-muted text-muted-foreground hover:bg-foreground/8 hover:text-foreground";
-          const borderDiv    = vs ? "border-white/12" : "border-foreground/8";
+          // Text colors resolve against the panel's data-vibe above.
+          const textCls  = "text-foreground";
+          const mutedCls = "text-muted-foreground";
+          // General/Nuevo/Oferta panels: light gray buttons in the base theme;
+          // on the Moon and Sunshine pages, that store's own preview pills and
+          // square buttons; on the Men page their own style with white text
+          // (owner, 2026-11-18).
+          const pageVs =
+            activeThemeKey === "moon" || activeThemeKey === "sunshine" ? VIBE_PANEL[activeThemeKey] : undefined;
+          const isMenPage = activeThemeKey === "men";
+          const linkCls  = vs?.linkCls ?? pageVs?.linkCls ?? (isBaseTheme
+            ? "border-foreground/15 bg-muted text-muted-foreground hover:bg-foreground/8 hover:text-foreground"
+            : `border-foreground/10 bg-card ${isMenPage ? "text-white" : "text-foreground"} hover:bg-muted`);
+          const tabActiveCls = vs?.tabActiveCls ?? pageVs?.tabActiveCls ?? "bg-foreground text-background";
+          const tabIdleCls   = vs?.tabIdleCls   ?? pageVs?.tabIdleCls   ?? (isMenPage
+            ? "bg-muted text-white hover:bg-foreground/8"
+            : "bg-muted text-muted-foreground hover:bg-foreground/8 hover:text-foreground");
+          const borderDiv    = "border-foreground/8";
 
           return (
-            <div className="mx-auto max-w-7xl px-4 py-5">
+            <div className="mx-auto max-w-7xl px-4 pb-5 pt-9">
+              {/* Theme stickers: only the general panel on general pages (spec §2). */}
+              {!vs && isBaseTheme ? <ThemeAreaStickers area="dropdown" /> : null}
               {/* ── Section tabs ── */}
               <div className={`mb-5 flex flex-wrap items-center gap-1.5 border-b pb-4 ${borderDiv}`}>
                 {(["tienda","moon","sunshine","men","nuevo","oferta"] as MegaKey[]).map((key) => {
@@ -642,7 +746,8 @@ export function Header({
                 {/* 1 — Vibe logo (left column, only for vibe sections) */}
                 {vs && (
                   <div className="vibe-mega-logo flex items-center justify-start pl-2">
-                    <img
+                    <ThemeImage
+                      slot={`logo.${currentMega.key as "moon" | "sunshine" | "men"}`}
                       src={vs.logo}
                       alt={currentMega.label}
                       loading="lazy"
@@ -730,7 +835,6 @@ export function Header({
                               key={`${currentMega.key}-${item.label}`}
                               item={item}
                               textCls={textCls}
-                              isVibe={!!vs}
                             />
                           ))}
                         </div>
@@ -746,7 +850,7 @@ export function Header({
 
       {/* ── Mobile menu ── */}
       {mobileOpen && (
-        <div className="border-t border-foreground/10 bg-background px-4 py-3 md:hidden">
+        <div className="border-t border-foreground/10 bg-[color:var(--t-header-bg,var(--background))] px-4 py-3 md:hidden">
           <nav className="grid gap-0.5">
             {navItems.map((n) => {
               const active = n.to === "/" ? loc.pathname === "/" : loc.pathname === n.to || loc.pathname.startsWith(`${n.to}/`);
@@ -758,7 +862,9 @@ export function Header({
                       to={n.to}
                       onClick={() => !n.children && setMobileOpen(false)}
                       className={`ui-nav-rounded flex-1 px-3 py-2.5 text-sm font-semibold transition-colors ${
-                        active ? "bg-foreground text-background" : "hover:bg-muted"
+                        active
+                          ? "bg-[color:var(--t-header-active-bg,var(--foreground))] text-[color:var(--t-header-active-text,var(--background))]"
+                          : hoverCls
                       }`}
                     >
                       {n.label}
@@ -766,7 +872,7 @@ export function Header({
                     {n.children && (
                       <button
                         onClick={() => setMobileExpanded(expanded ? null : n.to)}
-                        className="ui-nav-rounded ml-1 p-2 hover:bg-muted"
+                        className={`ui-nav-rounded ml-1 p-2 ${hoverCls}`}
                       >
                         <span className={`block h-4 w-4 text-muted-foreground transition-transform ${expanded ? "rotate-90" : ""}`}>
                           ›
@@ -782,7 +888,7 @@ export function Header({
                           to={child.to}
                           search={child.search}
                           onClick={() => setMobileOpen(false)}
-                          className="ui-nav-rounded px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                          className={`ui-nav-rounded px-3 py-2 text-sm text-muted-foreground ${hoverCls}`}
                         >
                           {child.label}
                         </Link>

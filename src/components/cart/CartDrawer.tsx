@@ -12,6 +12,10 @@ const CART_DRAWER_THEME: Record<
   CartDrawerTheme,
   {
     shell: string;
+    /** Background of the area that lists the products. */
+    listArea: string;
+    /** Text color of each product line. */
+    itemText: string;
     shellBorder: string;
     shellText: string;
     shellSoftText: string;
@@ -21,55 +25,102 @@ const CART_DRAWER_THEME: Record<
     imageFallback: string;
     qty: string;
     primaryButton: string;
+    /** Header (TU CARRITO) and footer (subtotal, Enviar solicitud) strips. */
+    barBg: string;
+    barText: string;
+    /** X, "Subtotal" and "Seguir comprando". */
+    barSoft: string;
+    /** Lines under the header and over the footer. */
+    divider: string;
   }
 > = {
   store: {
     shell: "bg-background",
+    listArea: "bg-muted",
+    itemText: "text-[color:var(--t-text-strong)]",
     shellBorder: "border-foreground/10",
     shellText: "text-foreground",
     shellSoftText: "text-muted-foreground",
     surface: "bg-card",
-    surfaceBorder: "border-foreground/8",
+    // Base theme: each product has the 2px black outline used on the tienda cards.
+    surfaceBorder: "!border-2 border-[color:var(--t-card-border,var(--foreground))]",
     imageBorder: "border-foreground/20",
     imageFallback: "bg-muted text-foreground/40",
-    qty: "border-foreground/15 bg-background text-foreground",
-    primaryButton: "bg-foreground text-background hover:opacity-90",
+    // Base theme: the quantity pill looks like the header dropdown buttons.
+    qty: "border-foreground/15 bg-muted text-muted-foreground",
+    primaryButton: "bg-[color:var(--t-btn-dark,var(--foreground))] text-[color:var(--t-btn-dark-text,var(--background))] hover:opacity-90",
+    barBg: "",
+    barText: "",
+    barSoft: "text-muted-foreground",
+    divider: "border-foreground/10",
   },
+  // Sub-stores (owner, 2026-11-18): product lines and "Enviar solicitud" use
+  // the store's product outline color, and so do the 2px lines under the
+  // header and over the footer. Moon and Men: header and footer keep the
+  // cart's own background and text; the product area is that same color 30%
+  // lighter. Sunshine: header and footer take the product lines' white, with
+  // the X, "Subtotal" and "Seguir comprando" 10% darker.
   moon: {
     shell: "bg-background",
+    listArea: "bg-[color-mix(in_oklch,var(--background)_70%,white)]",
+    itemText: "text-[#231717]",
     shellBorder: "border-foreground/10",
     shellText: "text-foreground",
     shellSoftText: "text-muted-foreground",
     surface: "bg-foreground",
-    surfaceBorder: "border-foreground/8",
+    surfaceBorder: "!border-2 border-[#7b1832]",
     imageBorder: "border-foreground/20",
     imageFallback: "bg-background text-foreground/40",
-    qty: "border-foreground/15 bg-background text-foreground",
-    primaryButton: "bg-foreground text-background hover:opacity-90",
+    // -1+ pill (owner, 2026-11-18): the product area's lightened color
+    // (L 0.405), made a bit warmer, with a darker outline of the same warm
+    // tone; text in the subtotal amount's color.
+    qty: "border-[oklch(0.3_0.035_30)] bg-[oklch(0.405_0.03_30)] text-foreground",
+    primaryButton: "bg-[#7b1832] text-[#fff5f8] hover:opacity-90",
+    barBg: "",
+    barText: "",
+    barSoft: "text-muted-foreground",
+    divider: "border-[#7b1832]",
   },
   sunshine: {
     shell: "bg-background",
+    listArea: "",
+    itemText: "text-[#231717]",
     shellBorder: "border-foreground/10",
     shellText: "text-foreground",
     shellSoftText: "text-muted-foreground",
     surface: "bg-card",
-    surfaceBorder: "border-foreground/8",
+    // Sunshine's pink 20% lighter on the product lines (owner, 2026-11-18).
+    surfaceBorder: "!border-2 border-[color-mix(in_oklch,#ff4ea3_80%,white)]",
     imageBorder: "border-foreground/20",
     imageFallback: "bg-muted text-foreground/40",
     qty: "border-foreground/15 bg-background text-foreground",
-    primaryButton: "bg-foreground text-background hover:opacity-90",
+    primaryButton: "bg-[#ff4ea3] text-white hover:opacity-90",
+    barBg: "bg-card",
+    barText: "text-[#231717]",
+    // Sunshine's muted text (oklch 0.5 0.12 350), 10% darker.
+    barSoft: "text-[oklch(0.45_0.12_350)]",
+    divider: "border-[#ff4ea3]",
   },
   men: {
     shell: "bg-[#111111]",
+    listArea: "bg-[color-mix(in_oklch,#111111_70%,white)]",
+    itemText: "text-[#231717]",
     shellBorder: "border-[#f2e9e1]/10",
     shellText: "text-[#f2e9e1]",
     shellSoftText: "text-[#f2e9e1]/66",
     surface: "bg-white",
-    surfaceBorder: "border-[#231717]/10",
+    surfaceBorder: "!border-2 border-[#8f2015]",
     imageBorder: "border-[#231717]/10",
     imageFallback: "bg-[#f3eee8] text-[#231717]/40",
-    qty: "border-transparent bg-[#111111] text-[#f2e9e1]",
+    // -1+ pill (owner, 2026-11-18): the product area's lightened color, a
+    // darker outline of it, text in the subtotal amount's color.
+    qty: "border-[oklch(0.32_0_0)] bg-[color-mix(in_oklch,#111111_70%,white)] text-[#f2e9e1]",
+    // "Enviar solicitud" already has Men's red.
     primaryButton: "bg-[#8f2015] text-[#fff7f2] hover:opacity-90",
+    barBg: "",
+    barText: "",
+    barSoft: "text-[#f2e9e1]/66",
+    divider: "border-[#8f2015]",
   },
 };
 
@@ -105,19 +156,21 @@ export function CartDrawer({ theme = "store" }: { theme?: CartDrawerTheme }) {
           cart.open ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className={`flex items-center justify-between border-b px-4 py-3.5 ${palette.shellBorder}`}>
+        <div
+          className={`flex items-center justify-between px-4 py-3.5 ${theme === "store" ? "border-b" : "border-b-2"} ${palette.divider} ${palette.barBg} ${palette.barText}`}
+        >
           <div>
             <span className="brand-wordmark font-display text-lg uppercase">TU CARRITO</span>
           </div>
           <button
             onClick={() => cart.setOpen(false)}
-            className={`rounded-full p-1.5 transition ${palette.shellSoftText} hover:bg-white/8 hover:text-current`}
+            className={`rounded-full p-1.5 transition ${palette.barSoft} hover:bg-white/8 hover:text-current`}
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-3">
+        <div className={`flex-1 overflow-y-auto px-4 py-3 ${palette.listArea}`}>
           {cart.lines.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 py-12 text-center">
               <StorePineapple theme={theme} className="h-16 w-auto object-contain" />
@@ -143,7 +196,7 @@ export function CartDrawer({ theme = "store" }: { theme?: CartDrawerTheme }) {
                 return (
                   <div
                     key={line.id}
-                    className={`flex gap-4 rounded-xl border p-2.5 ${palette.surfaceBorder} ${palette.surface} text-[#231717] ${
+                    className={`flex gap-4 rounded-xl border p-2.5 ${palette.surfaceBorder} ${palette.surface} ${palette.itemText} ${
                       availability.available ? "" : "grayscale opacity-55"
                     }`}
                   >
@@ -203,7 +256,7 @@ export function CartDrawer({ theme = "store" }: { theme?: CartDrawerTheme }) {
                         </button>
                       </div>
                       {availability.available ? (
-                        <span className="text-sm font-bold">
+                        <span className="text-sm">
                           {formatPrice(availability.currentPrice * line.quantity, line.currencyCode)}
                         </span>
                       ) : null}
@@ -224,15 +277,17 @@ export function CartDrawer({ theme = "store" }: { theme?: CartDrawerTheme }) {
         </div>
 
         {cart.lines.length > 0 && (
-          <div className={`space-y-3 border-t px-4 py-4 ${palette.shellBorder}`}>
+          <div
+            className={`space-y-3 px-4 py-4 ${theme === "store" ? "border-t" : "border-t-2"} ${palette.divider} ${palette.barBg} ${palette.barText}`}
+          >
             {cart.hasUnavailableLines ? (
-              <p className="border border-[#c5475f] bg-[#c5475f]/10 p-2 text-xs font-bold text-current">
+              <p className="border border-[color:var(--t-ink-strong)] bg-[color:var(--t-ink-strong)]/10 p-2 text-xs font-bold text-current">
                 Quita los productos fuera de stock antes de enviar la solicitud.
               </p>
             ) : null}
             <div className="flex items-center justify-between text-sm">
-              <span className={palette.shellSoftText}>Subtotal</span>
-              <span className="font-bold">{formatPrice(cart.subtotal, cart.currencyCode)}</span>
+              <span className={palette.barSoft}>Subtotal</span>
+              <span>{formatPrice(cart.subtotal, cart.currencyCode)}</span>
             </div>
             <button
               type="button"
@@ -256,7 +311,7 @@ export function CartDrawer({ theme = "store" }: { theme?: CartDrawerTheme }) {
             </button>
             <button
               onClick={() => cart.setOpen(false)}
-              className={`block w-full rounded-full py-2 text-center text-xs font-semibold transition hover:text-current ${palette.shellSoftText}`}
+              className={`block w-full rounded-full py-2 text-center text-xs font-semibold transition hover:text-current ${palette.barSoft}`}
             >
               Seguir comprando
             </button>

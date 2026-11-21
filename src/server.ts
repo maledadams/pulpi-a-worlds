@@ -3,6 +3,8 @@ import "./lib/error-capture";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { withSecurityHeaders } from "./lib/security-headers";
+import { defaultShareImageUrl } from "./lib/seo";
+import { getActiveShareImageUrl, LOCAL_THEME_MEDIA_PREFIX } from "./lib/themes";
 import { maybeHandleBirthdayConfirmRequest, processBirthdayEmailsInternal } from "./lib/public-forms";
 import { maybeHandleOrderConfirmRequest } from "./lib/manual-orders";
 import { submitSitemapToIndexNow } from "./lib/indexnow";
@@ -93,7 +95,15 @@ function withRequestSeoHeaders(request: Request, response: Response) {
 }
 
 function finalizeResponse(request: Request, response: Response) {
-  return withSecurityHeaders(withRequestSeoHeaders(request, response));
+  const finished = withSecurityHeaders(withRequestSeoHeaders(request, response), {
+    allowSameOriginFrame: isThemePreviewRequest(request),
+  });
+  // Local development only: never cache pages, so a refresh always shows the
+  // code just edited (the store's 60-second page cache kept old versions).
+  if (import.meta.env.DEV) finished.headers.set("Cache-Control", "no-store");
+  // A theme preview may carry an admin's unpublished draft: no browser or CDN copy.
+  if (isThemePreviewRequest(request)) finished.headers.set("Cache-Control", "private, no-store");
+  return finished;
 }
 
 // Old product slugs Google indexed before a rename/merge, redirected to
@@ -126,14 +136,60 @@ function getProductSlugRedirect(pathname: string): string | null {
 // excluded so nothing session-specific ever risks getting cached.
 const EDGE_CACHEABLE_PATH = /^\/(?!admin(?:\/|$)|acceso-admin$|carrito$|solicitud$|_serverFn)/;
 
+async function serveLocalThemeMedia(pathname: string, env: unknown) {
+  const key = decodeURIComponent(pathname.slice(LOCAL_THEME_MEDIA_PREFIX.length));
+  const bucket = (env as { PUBLIC_MEDIA?: R2Bucket } | undefined)?.PUBLIC_MEDIA;
+  if (!bucket || !key.startsWith("themes/") || key.includes("..")) return new Response("Not found", { status: 404 });
+  const object = await bucket.get(key);
+  if (!object) return new Response("Not found", { status: 404 });
+  return new Response(object.body, {
+    headers: { "Content-Type": object.httpMetadata?.contentType ?? "application/octet-stream" },
+  });
+}
+
+/** The admin theme editor's preview frame (?themePreview=<id>): never cached, may be framed by this site. */
+function isThemePreviewRequest(request: Request) {
+  const params = new URL(request.url).searchParams;
+  // ?themeDate ("Ver como el día…") can also show an admin a theme the public doesn't see yet.
+  return params.has("themePreview") || params.has("themeDate");
+}
+
 function isEdgeCacheable(request: Request, pathname: string) {
-  return request.method === "GET" && EDGE_CACHEABLE_PATH.test(pathname);
+  // Not in local development: the cached copy would hide fresh edits.
+  // Never a theme preview: it can hold an unpublished draft rendered for an admin.
+  return (
+    !import.meta.env.DEV &&
+    request.method === "GET" &&
+    EDGE_CACHEABLE_PATH.test(pathname) &&
+    !isThemePreviewRequest(request)
+  );
 }
 
 async function renderAndFinalize(request: Request, env: unknown, ctx: unknown) {
   const handler = await getServerEntry();
   const response = await handler.fetch(request, env, ctx);
-  return finalizeResponse(request, await normalizeCatastrophicSsrResponse(response));
+  return finalizeResponse(request, await withThemeShareImage(await normalizeCatastrophicSsrResponse(response)));
+}
+
+/**
+ * A theme's link preview image replaces the site's default og:image / twitter:image in
+ * page HTML. Pages that set their own image (products) keep it. No theme image: untouched.
+ */
+async function withThemeShareImage(response: Response) {
+  if (!response.headers.get("Content-Type")?.includes("text/html")) return response;
+  const themeImage = await getActiveShareImageUrl();
+  if (!themeImage) return response;
+  const defaultImage = defaultShareImageUrl();
+  const swap = {
+    element(element: HTMLRewriterElement) {
+      if (element.getAttribute("content") === defaultImage) element.setAttribute("content", themeImage);
+    },
+  };
+  // One rule per selector: selector lists aren't reliable in HTMLRewriter.
+  return new HTMLRewriter()
+    .on('meta[property="og:image"]', swap)
+    .on('meta[name="twitter:image"]', swap)
+    .transform(response);
 }
 
 export default {
@@ -143,6 +199,12 @@ export default {
       if (requestUrl.hostname === "www.pulpinastore.com") {
         requestUrl.hostname = "pulpinastore.com";
         return finalizeResponse(request, Response.redirect(requestUrl, 308));
+      }
+
+      // Local development only: theme images uploaded to the local R2 bucket (production
+      // serves them from the public bucket URL instead).
+      if (import.meta.env.DEV && requestUrl.pathname.startsWith(LOCAL_THEME_MEDIA_PREFIX)) {
+        return await serveLocalThemeMedia(requestUrl.pathname, env);
       }
 
       const redirectedProductPath = getProductSlugRedirect(requestUrl.pathname);

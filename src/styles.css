@@ -4,6 +4,24 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Store breakpoints, 1.25x the Tailwind defaults: the page lays out the way
+   the old site did with the browser zoomed to 125% (see the html zoom steps
+   further down). sm stays put: it only matters on phones, which keep their
+   old layout. */
+@theme {
+  --breakpoint-md: 60rem;
+  --breakpoint-lg: 80rem;
+  --breakpoint-xl: 100rem;
+  --breakpoint-2xl: 120rem;
+}
+
+/* The admin keeps Tailwind's original breakpoints: its pages use amd:, alg:,
+   axl: and a2xl: instead of md:, lg:, xl: and 2xl:. */
+@custom-variant amd (@media (width >= 48rem));
+@custom-variant alg (@media (width >= 64rem));
+@custom-variant axl (@media (width >= 80rem));
+@custom-variant a2xl (@media (width >= 96rem));
+
 @theme inline {
   --font-display: "New Rocker", system-ui, sans-serif;
   --font-gothic: "UnifrakturMaguntia", "Cinzel", serif;
@@ -49,15 +67,19 @@
 
 :root {
   --radius: 0;
-  --cream: oklch(0.97 0.02 80);
-  --ink: oklch(0.18 0.03 50);
+  /* Base theme neutrals: same lightness as the old cream and ink, saturation 0
+     (redesign, 2026-11-18: no cream undertone left). */
+  --cream: oklch(0.97 0 0);
+  --ink: oklch(0.18 0 0);
   --bubblegum: oklch(0.74 0.21 350);
   --lime: oklch(0.85 0.21 130);
   --sun: oklch(0.88 0.18 95);
   --blood: oklch(0.45 0.20 25);
   --charcoal: oklch(0.22 0.01 280);
 
-  --background: var(--cream);
+  /* Base theme (Pulpiña general pages): white background, not cream
+     (redesign, 2026-11-18). Moon, Sunshine and Men set their own below. */
+  --background: oklch(1 0 0);
   --foreground: var(--ink);
   --card: oklch(1 0 0);
   --card-foreground: var(--ink);
@@ -65,19 +87,66 @@
   --popover-foreground: var(--ink);
   --primary: var(--ink);
   --primary-foreground: var(--cream);
-  --secondary: oklch(0.93 0.03 70);
+  /* Base theme palette (redesign, 2026-11-18): white, light gray and black.
+     The old warm beige is gone from the general pages. */
+  --secondary: oklch(0.94 0 0);
   --secondary-foreground: var(--ink);
-  /* warm beige muted — no gray */
-  --muted: oklch(0.93 0.03 70);
-  --muted-foreground: oklch(0.50 0.05 55);
+  --muted: oklch(0.94 0 0);
+  --muted-foreground: oklch(0.45 0 0);
   --accent: var(--bubblegum);
   --accent-foreground: oklch(1 0 0);
   --destructive: oklch(0.55 0.22 25);
   --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.18 0.03 50 / 0.10);
-  --input: oklch(0.18 0.03 50 / 0.12);
+  --border: oklch(0.18 0 0 / 0.10);
+  --input: oklch(0.18 0 0 / 0.12);
   --ring: var(--bubblegum);
-  --scrollbar-thumb: oklch(0.40 0.05 55 / 0.30);
+  --scrollbar-thumb: oklch(0.40 0 0 / 0.30);
+
+  /* Theme engine colors (src/lib/theme-tokens.ts): today's exact values. A theme
+     overrides them only on general pages (src/lib/theme-css.ts). Keep in sync
+     with the token table; theme-css.test.ts checks it. Rootless tokens
+     (--t-outline, --t-header-*, --t-card-border, --t-badge-sale-*...) are not
+     declared here: each reader writes var(--t-x, <today's color>). */
+  --t-text-strong: #1b1b1b;
+  --t-field-bg: #ffffff;
+  --t-text-soft: #6c6c6c;
+  --t-text-soft-2: #5e5e5e;
+  --t-ink-strong: #121212;
+  --t-ink-strong-hover: #2b2b2b;
+  --t-ink-strong-text: #ffffff;
+  --t-card-cart-bg: #ffffff;
+  --t-card-cart-icon: #231717;
+  --t-badge-new-bg: #d9ff6f;
+  --t-badge-new-text: #243011;
+  --t-badge-soldout-text: #ffffff;
+  --t-sale-price: currentColor;
+  --t-hero-start: rgba(7, 7, 8, 0.99);
+  --t-hero-middle: rgba(14, 14, 15, 0.98);
+  --t-hero-end: rgba(22, 22, 24, 0.98);
+  --t-hero-glow-left: rgba(116, 36, 62, 0.26);
+  --t-hero-glow-right: rgba(146, 146, 152, 0.2);
+  --t-footer-bg: #131313;
+  --t-footer-text: #f0f0f0;
+  --t-checkout-lines: rgb(100, 74, 74);
+  --t-checkout-submit: oklch(0.18 0 0);
+  --t-checkout-error: #9a233d;
+  --t-checkout-success: #1f7a43;
+  --t-ann-general-bg: #121212;
+  --t-ann-general-text: #ffffff;
+  --t-ann-general-badge: #121212;
+  --t-ann-general-badge-text: #ffffff;
+  --t-ann-a-bg: #f3e7dc;
+  --t-ann-a-text: #3a1c28;
+  --t-ann-a-badge: #7b1832;
+  --t-ann-a-badge-text: #fff5f8;
+  --t-ann-b-bg: #ff4ea3;
+  --t-ann-b-text: #ffffff;
+  --t-ann-b-badge: #ff4ea3;
+  --t-ann-b-badge-text: #ffffff;
+  --t-ann-c-bg: #8f2015;
+  --t-ann-c-text: #fff7f2;
+  --t-ann-c-badge: #8f2015;
+  --t-ann-c-badge-text: #fff7f2;
 }
 
 /* === SUB-BRAND THEMES === */
@@ -113,14 +182,49 @@ html {
    picking its own breakpoint-driven size. Left untouched below 768px - real
    phones already get a dedicated mobile layout via the sm:/md:/etc classes,
    and shrinking further there would make touch targets too small. */
+/* --page-zoom mirrors the zoom so a viewport-tall element can divide it back
+   out (100vh renders zoom times shorter). Set on html, not :root, so the
+   media queries below can override it. */
+/* The store looks exactly like the old site with the browser zoomed to 125%
+   (the owner's chosen look), while browsers still say 100%. Browser zoom
+   does two things, and both are reproduced here:
+   1. it scales everything 1.25x: each step below is the old 0.75 / 0.76 /
+      0.9 / 1 times 1.25;
+   2. it makes the page lay out as if the screen were 1.25x narrower, so
+      fewer, bigger products fit per row. That part is the scaled
+      breakpoints in @theme below (md/lg/xl/2xl), and every step here starts
+      at the old step times 1.25 (768 -> 960, 1024 -> 1280, ...).
+   Phones (under 768px) stay untouched; the admin keeps its old scale and
+   breakpoints (see the a* variants). */
+html { --page-zoom: 1; }
+@media (min-width: 768px) and (max-width: 959px) {
+  html { zoom: 1.25; --page-zoom: 1.25; }
+}
+@media (min-width: 960px) and (max-width: 1279px) {
+  html { zoom: 0.9375; --page-zoom: 0.9375; }
+}
+@media (min-width: 1280px) and (max-width: 1799px) {
+  html { zoom: 0.95; --page-zoom: 0.95; }
+}
+@media (min-width: 1800px) and (max-width: 1919px) {
+  html { zoom: 1.125; --page-zoom: 1.125; }
+}
+@media (min-width: 1920px) {
+  html { zoom: 1.25; --page-zoom: 1.25; }
+}
+
+/* The admin keeps its original scale. */
 @media (min-width: 768px) and (max-width: 1023px) {
-  html { zoom: 0.75; }
+  html:has(.admin-shell) { zoom: 0.75; --page-zoom: 0.75; }
 }
 @media (min-width: 1024px) and (max-width: 1439px) {
-  html { zoom: 0.76; }
+  html:has(.admin-shell) { zoom: 0.76; --page-zoom: 0.76; }
 }
 @media (min-width: 1440px) and (max-width: 1535px) {
-  html { zoom: 0.9; }
+  html:has(.admin-shell) { zoom: 0.9; --page-zoom: 0.9; }
+}
+@media (min-width: 1536px) {
+  html:has(.admin-shell) { zoom: 1; --page-zoom: 1; }
 }
 
 body,
@@ -245,31 +349,159 @@ video {
   clip-path: inset(0 -100vmax);
 }
 
-@media (min-width: 1024px) {
-  .substore-product-grid,
-  .store-product-grid {
-    display: flex !important;
-    width: 100%;
-    flex-wrap: wrap;
-    justify-content: center;
-    margin-inline: auto;
-  }
+/* Redesign (2026-11-18): every full outline on the site is 2px, not 1px -
+   cards, inputs, buttons, boxes, in every store. One-sided lines (border-t,
+   border-b...) are dividers, not outlines, and stay 1px. The admin keeps 1px. */
+html:not(:has(.admin-shell)) .border {
+  border-width: 2px;
+}
 
-  .substore-product-grid {
-    max-width: 89rem;
-  }
+/* The site scales the page down on desktop (html zoom), so the admin's
+   min-h-screen ends before the viewport does; paint the page itself too. */
+html:has(.admin-shell),
+html:has(.admin-shell) body {
+  background-color: #ffffff;
+}
 
-  .store-product-grid {
-    max-width: 74rem;
-  }
+/* Admin palette: Moon in light mode. White surfaces (no cream), Moon's
+   red-black for text, Moon's crimson as the one selection/action color.
+   Every shared admin component reads these. */
+.admin-shell {
+  --admin-bg: #ffffff;
+  --admin-on-bg: #130808;
+  --admin-on-bg-muted: #6b625d;
+  --admin-surface: #ffffff;
+  /* Outer section borders, then the finer inner lines. */
+  --admin-edge: #000000;
+  --admin-line: #bbb6b2;
+  --admin-line-strong: #b3aba6;
+  --admin-ink: #130808;
+  --admin-muted: #6b625d;
+  --admin-faint: #9b928c;
+  /* Everything that is not a wine button is a warm grey, lighter or darker. */
+  --admin-soft: #f0ebe8;
+  --admin-soft-hover: #e6e0dc;
+  /* A grey toggle button that is switched on: a darker grey. */
+  --admin-soft-on: #d5ccc6;
+  --admin-field: #ffffff;
+  /* Primary actions only: Moon crimson (solid wine buttons). */
+  --admin-accent: #97000f;
+  --admin-accent-hover: #7c0006;
+  /* Selected rows / items: a light, warm grey highlight. */
+  --admin-accent-soft: #f7f4f2;
+  --admin-accent-ink: #130808;
+  /* Active filters, tabs, checkboxes, stars: dark warm grey. */
+  --admin-select: #4a423d;
+  --admin-select-hover: #3b3430;
+  /* Status: green = done, amber = needs attention, red = errors. */
+  --admin-ok: #286037;
+  --admin-ok-soft: #d9f3dd;
+  --admin-warn: #844b00;
+  --admin-warn-soft: #fde8c6;
+  --admin-danger: #be0025;
+  --admin-danger-soft: #ffe3e1;
+  --admin-ok-soft-hover: #c6e6cb;
+  --admin-warn-soft-hover: #f2d8ae;
+  /* Solid green / red buttons keep their color in both modes. */
+  --admin-ok-solid: #286037;
+  --admin-ok-solid-hover: #1c4a29;
+  --admin-danger-solid: #be0025;
+  /* The black bits: sidebar column, current page, "dark" tags, selected chips' text. */
+  --admin-invert: #000000;
+  --admin-on-invert: #ffffff;
+  /* Tag tints. */
+  --admin-info: #334f6d;
+  --admin-info-soft: #e2edf8;
+  --admin-plum: #742651;
+  --admin-plum-soft: #fce3ee;
+  --admin-plum-soft-hover: #f1d2e0;
+  --admin-violet: #4d4084;
+  --admin-violet-soft: #eae8ff;
+  --admin-violet-soft-hover: #dbd8f5;
+  --admin-cinnamon: #903a03;
+  --admin-cinnamon-soft: #ffe1d1;
+  --admin-cinnamon-soft-hover: #f5d0bd;
+  --admin-cocoa: #4f4741;
+  --admin-cocoa-soft: #ebe6e2;
+  --admin-cocoa-soft-hover: #ddd7d2;
+  --admin-sun: #a8336a;
+  --admin-sun-soft: #fdd9ea;
+  --admin-sun-soft-hover: #f9c9df;
+  color: var(--admin-ink);
+}
 
-  .substore-product-grid > *,
-  .store-product-grid > * {
-    width: 14rem;
-    flex: 0 0 14rem;
-    grid-column: auto !important;
-    translate: none !important;
-  }
+/* Dark mode: the same admin with whites, greys and blacks swapped. Colored
+   buttons keep their color; pastel tags become dark tints of the same hue.
+   Turned on by data-admin-theme on <html> (see src/lib/admin-theme.ts). */
+html[data-admin-theme="dark"]:has(.admin-shell),
+html[data-admin-theme="dark"]:has(.admin-shell) body {
+  background-color: #161211;
+  color-scheme: dark;
+}
+html[data-admin-theme="dark"] .admin-shell {
+  --admin-bg: #161211;
+  --admin-on-bg: #f4eeeb;
+  --admin-on-bg-muted: #a89f99;
+  --admin-surface: #161211;
+  --admin-edge: #e9e2de;
+  --admin-line: #4a423e;
+  --admin-line-strong: #574e49;
+  --admin-ink: #f4eeeb;
+  --admin-muted: #a89f99;
+  --admin-faint: #7d746e;
+  --admin-soft: #2a2421;
+  --admin-soft-hover: #362f2b;
+  --admin-soft-on: #423a35;
+  --admin-field: #161211;
+  --admin-accent: #a8101d;
+  --admin-accent-hover: #8c0010;
+  --admin-accent-soft: #221d1b;
+  --admin-accent-ink: #f4eeeb;
+  --admin-select: #d6cdc7;
+  --admin-select-hover: #e6dfda;
+  --admin-ok: #8fd6a0;
+  --admin-ok-soft: #1d3324;
+  --admin-ok-soft-hover: #25412e;
+  --admin-warn: #f0b860;
+  --admin-warn-soft: #3a2a12;
+  --admin-warn-soft-hover: #473419;
+  --admin-danger: #ff8f94;
+  --admin-danger-soft: #3d1a1c;
+  --admin-ok-solid: #2c6a3d;
+  --admin-ok-solid-hover: #357a48;
+  --admin-danger-solid: #c4102e;
+  --admin-invert: #f4eeeb;
+  --admin-on-invert: #161211;
+  --admin-info: #9cc0e6;
+  --admin-info-soft: #1c2a3a;
+  --admin-plum: #f0a3c8;
+  --admin-plum-soft: #3a1c2b;
+  --admin-plum-soft-hover: #472337;
+  --admin-violet: #b9b0f2;
+  --admin-violet-soft: #26223f;
+  --admin-violet-soft-hover: #302b4e;
+  --admin-cinnamon: #f5a77a;
+  --admin-cinnamon-soft: #3d2416;
+  --admin-cinnamon-soft-hover: #4a2c1b;
+  --admin-cocoa: #c9bfb8;
+  --admin-cocoa-soft: #2e2926;
+  --admin-cocoa-soft-hover: #3a332f;
+  --admin-sun: #f59ac4;
+  --admin-sun-soft: #3d1a2c;
+  --admin-sun-soft-hover: #4a2036;
+}
+/* The dark pineapple logo turns light. */
+html[data-admin-theme="dark"] .admin-shell .admin-logo {
+  filter: brightness(0) invert(0.94);
+}
+
+/* Search bars: black outline, the Ventas green while typing. */
+.admin-shell input[placeholder^="Buscar"] {
+  border-color: var(--admin-edge);
+}
+.admin-shell input[placeholder^="Buscar"]:focus {
+  border-color: var(--admin-ok);
+  --tw-ring-color: color-mix(in srgb, var(--admin-ok) 25%, transparent);
 }
 
 .admin-shell h1,
@@ -277,12 +509,12 @@ video {
 .admin-shell h3,
 .admin-shell .font-display {
   font-family: var(--font-body) !important;
-  font-weight: 700 !important;
+  font-weight: 600 !important;
   transform: none !important;
 }
 
 /* On wide screens, vibe logos sit beside the content instead of consuming a grid column. */
-@media (min-width: 1600px) {
+@media (min-width: 2000px) {
   .vibe-mega-grid {
     grid-template-columns: 13rem minmax(0, 1fr) !important;
     transform: translateX(6.75rem);
@@ -414,6 +646,15 @@ video {
     .announcement-fade { animation: none; }
   }
 
+  /* ---- Header: colors never animate (owner, 2026-11-18) ----
+     Switching store themes (hover or page change) and hover colors are
+     instant. Movement still animates: the mega panel's fade and slide
+     (opacity, transform) and the category circles' lift. */
+  .site-header,
+  .site-header * {
+    transition-property: opacity, transform, translate, scale, rotate !important;
+  }
+
   /* ---- Product card hover lift ---- */
   .card-lift {
     transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -422,4 +663,220 @@ video {
     transform: translateY(-3px);
     box-shadow: 0 12px 28px -8px rgb(0 0 0 / 0.18);
   }
+  /* Sub-stores (Moon, Sunshine, Men): lift without the shadow (owner, 2026-11-18). */
+  html[data-vibe] .card-lift:hover {
+    box-shadow: none;
+  }
+}
+
+/* Moon page catalog toolbar (search, Destacados, filter buttons, their open
+   menus and chips): outlines take the Moon footer background's hue and chroma
+   (oklch 0.15 0.02 15 -> chroma 0.02, hue 15), each keeping its own lightness
+   (0.96) and opacity (owner, 2026-11-18). Applied via .moon-tint in
+   CatalogBrowser; the outlines there are border-foreground/NN utilities. */
+.moon-tint .border-foreground\/10 { border-color: oklch(0.96 0.02 15 / 0.1); }
+.moon-tint .border-foreground\/15 { border-color: oklch(0.96 0.02 15 / 0.15); }
+.moon-tint .border-foreground\/20 { border-color: oklch(0.96 0.02 15 / 0.2); }
+.moon-tint .border-foreground\/25 { border-color: oklch(0.96 0.02 15 / 0.25); }
+.moon-tint .hover\:border-foreground\/50:hover { border-color: oklch(0.96 0.02 15 / 0.5); }
+.moon-tint .hover\:border-foreground\/60:hover { border-color: oklch(0.96 0.02 15 / 0.6); }
+.moon-tint .focus\:border-foreground:focus { border-color: oklch(0.96 0.02 15); }
+
+/* Header mega panel (owner, 2026-11-18): opens coming down out from behind
+   the header, closes going back up behind it. */
+@keyframes mega-in {
+  from { opacity: 0; translate: 0 -0.5rem; }
+  to { opacity: 1; translate: 0 0; }
+}
+@keyframes mega-out {
+  from { opacity: 1; translate: 0 0; }
+  to { opacity: 0; translate: 0 -0.5rem; }
+}
+
+/* Theme engine: an existing image a theme replaced (src/components/theme/ThemeImage.tsx).
+   Phone values first, desktop from the md breakpoint. The image keeps its own box and
+   object-fit; the theme only moves, scales and rotates it inside that box. */
+.theme-fit {
+  object-position: var(--fit-x, 50%) var(--fit-y, 50%);
+  transform: rotate(var(--fit-rot, 0deg)) scale(var(--fit-scale, 1));
+}
+@media (width >= 60rem) {
+  .theme-fit {
+    object-position: var(--fit-dx, 50%) var(--fit-dy, 50%);
+    transform: rotate(var(--fit-drot, 0deg)) scale(var(--fit-dscale, 1));
+  }
+}
+
+/* Theme engine stickers (src/components/theme/ThemeStickers.tsx). The span places the
+   sticker's center and rotates it; the image inside moves (so the two never fight over
+   transform). Phone values first, desktop from the md breakpoint. */
+.theme-sticker {
+  position: absolute;
+  left: var(--st-x);
+  top: var(--st-y);
+  width: var(--st-w);
+  transform: translate(-50%, -50%) rotate(var(--st-rot));
+  pointer-events: none;
+  user-select: none;
+}
+.theme-sticker-fixed {
+  position: fixed;
+}
+/* Admin editor preview only: stickers can be grabbed and moved. */
+.theme-sticker-draggable {
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+  outline: 1px dashed rgb(0 0 0 / 0.35);
+  outline-offset: 2px;
+}
+/* The sticker being edited: Canva-style blue box with a round handle to resize. */
+.theme-sticker-selected {
+  outline: 2px solid #2f7bff;
+  outline-offset: 2px;
+}
+.theme-sticker-handle {
+  position: absolute;
+  right: -9px;
+  bottom: -9px;
+  width: 14px;
+  height: 14px;
+  /* !important: everything else is square on purpose (see the rule above). */
+  border-radius: 9999px !important;
+  background: #ffffff;
+  border: 2px solid #2f7bff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+  cursor: nwse-resize;
+  touch-action: none;
+}
+.theme-sticker-front {
+  z-index: 30;
+}
+.theme-sticker-behind {
+  z-index: -1;
+}
+.theme-sticker-img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+@media (width < 60rem) {
+  .theme-sticker-desktop-only {
+    display: none;
+  }
+}
+@media (width >= 60rem) {
+  .theme-sticker {
+    left: var(--st-dx);
+    top: var(--st-dy);
+    width: var(--st-dw);
+    transform: translate(-50%, -50%) rotate(var(--st-drot));
+  }
+}
+.theme-motion-float {
+  animation: theme-float 6s ease-in-out infinite;
+}
+.theme-motion-sway {
+  animation: theme-sway 5s ease-in-out infinite;
+  transform-origin: 50% 0;
+}
+.theme-motion-drift {
+  animation: theme-drift 14s ease-in-out infinite alternate;
+}
+.theme-motion-fall {
+  animation: theme-fall 9s linear infinite;
+}
+.theme-motion-bounce {
+  animation: theme-bounce 1.6s cubic-bezier(0.3, 0, 0.4, 1) infinite;
+}
+.theme-motion-spin {
+  animation: theme-spin 8s linear infinite;
+}
+.theme-motion-pulse {
+  animation: theme-pulse 2.4s ease-in-out infinite;
+}
+.theme-motion-wiggle {
+  animation: theme-wiggle 2.8s ease-in-out infinite;
+}
+.theme-sticker-img[data-offscreen] {
+  animation-play-state: paused;
+}
+@keyframes theme-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8%); }
+}
+@keyframes theme-sway {
+  0%, 100% { transform: rotate(-5deg); }
+  50% { transform: rotate(5deg); }
+}
+@keyframes theme-drift {
+  from { transform: translateX(-40%); }
+  to { transform: translateX(40%); }
+}
+@keyframes theme-bounce {
+  0%, 100% { transform: translateY(0); }
+  45% { transform: translateY(-18%); }
+  60% { transform: translateY(0) scale(1.04, 0.96); }
+}
+@keyframes theme-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes theme-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+}
+@keyframes theme-wiggle {
+  0%, 70%, 100% { transform: rotate(0deg); }
+  75% { transform: rotate(-9deg); }
+  80% { transform: rotate(8deg); }
+  85% { transform: rotate(-6deg); }
+  90% { transform: rotate(4deg); }
+}
+@keyframes theme-fall {
+  0% { transform: translateY(-60%); opacity: 0; }
+  15%, 85% { opacity: 1; }
+  100% { transform: translateY(60%); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-sticker-img {
+    animation: none !important;
+  }
+}
+
+/* Admin sliders (theme editor): a real track and a thumb big enough to grab. */
+.admin-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 1.5rem;
+  background: transparent;
+  cursor: pointer;
+}
+.admin-range::-webkit-slider-runnable-track {
+  height: 6px;
+  background: var(--admin-line-strong, #8885);
+}
+.admin-range::-moz-range-track {
+  height: 6px;
+  background: var(--admin-line-strong, #8885);
+}
+.admin-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -7px;
+  border-radius: 9999px !important;
+  background: var(--admin-select, #3b82f6);
+  border: 2px solid var(--admin-surface, #fff);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+}
+.admin-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px !important;
+  background: var(--admin-select, #3b82f6);
+  border: 2px solid var(--admin-surface, #fff);
+}
+.admin-range:focus-visible {
+  outline: 2px solid var(--admin-select, #3b82f6);
+  outline-offset: 2px;
 }

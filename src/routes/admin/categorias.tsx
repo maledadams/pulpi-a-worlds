@@ -13,6 +13,7 @@ import {  AdminButton,
   type AdminToastTone,
   confirmAdminDestructiveAction,
   getAdminVibeButtonClassName,
+  getAdminVibeTagClassName,
 } from "@/components/admin/AdminControls";
 import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
@@ -158,6 +159,10 @@ function AdminCategoriesPage() {
   }, [toastMessage]);
 
   const toggleVibe = (vibe: SubstoreVibe) => {
+    if (draft && draft.vibes.length === 1 && draft.vibes[0] === vibe) {
+      showToast("Cada categoría necesita al menos una subtienda activa.", "error");
+      return;
+    }
     setDraft((current) => {
       if (!current) return current;
 
@@ -204,9 +209,9 @@ function AdminCategoriesPage() {
       .finally(() => setUploadingVibe(null));
   };
 
-  const handleDeleteCategoryImage = (vibe: SubstoreVibe) => {
+  const handleDeleteCategoryImage = async (vibe: SubstoreVibe) => {
     if (!draft?.images[vibe]) return;
-    if (!confirmAdminDestructiveAction(`Vas a quitar la imagen de ${getVibeLabel(vibe)}. ¿Quieres continuar?`)) {
+    if (!(await confirmAdminDestructiveAction(`Vas a quitar la imagen de ${getVibeLabel(vibe)}. ¿Quieres continuar?`))) {
       return;
     }
     setUploadingVibe(vibe);
@@ -246,7 +251,7 @@ function AdminCategoriesPage() {
         if (!exists) return [saved, ...current];
         return current.map((category) => (category.id === value.id || category.id === saved.id ? saved : category));
       });
-      if (saved.id !== value.id) setSelectedId(saved.id);
+      if (saved.id !== value.id) setSelectedId((current) => (current === value.id ? saved.id : current));
       setDraft((current) => (current && current.id === value.id ? cloneCategory(saved) : current));
       if (!options.silent) showToast("Categoria guardada.", "success");
     });
@@ -270,12 +275,12 @@ function AdminCategoriesPage() {
     });
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!draft) return;
     if (
-      !confirmAdminDestructiveAction(
+      !(await confirmAdminDestructiveAction(
         `Vas a eliminar la categoria ${draft.label || draft.id}. Esta accion puede afectar productos enlazados. ¿Quieres continuar?`,
-      )
+      ))
     ) {
       return;
     }
@@ -321,12 +326,12 @@ function AdminCategoriesPage() {
     setNewSize("");
   };
 
-  const handleRemoveSize = (size: string) => {
+  const handleRemoveSize = async (size: string) => {
     if (usedSizesForSelectedFormat.has(size)) {
       showToast("No puedes quitar una talla que ya esta en uso en productos guardados.", "error");
       return;
     }
-    if (!confirmAdminDestructiveAction(`Vas a quitar la talla ${size} de este formato. ¿Quieres continuar?`)) {
+    if (!(await confirmAdminDestructiveAction(`Vas a quitar la talla ${size} de este formato. ¿Quieres continuar?`))) {
       return;
     }
 
@@ -361,17 +366,17 @@ function AdminCategoriesPage() {
       section="categorias"
       title="Categorias"
       actions={
-        <AdminButton tone="primary" onClick={handleCreate}>
+        <AdminButton tone="create" onClick={handleCreate}>
           Nueva categoria
         </AdminButton>
       }
     >
-      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.1fr)_430px]">
+      <div className="grid grid-cols-1 items-start gap-4 axl:grid-cols-[minmax(0,1.1fr)_430px]">
         <div className="grid gap-4">
         <AdminPanel>
-          <div className="mb-4 flex flex-col gap-3 md:flex-row">
+          <div className="mb-4 flex flex-col gap-3 amd:flex-row">
             <AdminInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nombre o id" />
-            <div className="shrink-0 rounded-xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2.5 text-sm font-semibold">
+            <div className="shrink-0 px-1 py-2.5 text-sm text-[var(--admin-faint)]">
               {filtered.length} categorias
             </div>
           </div>
@@ -386,7 +391,7 @@ function AdminCategoriesPage() {
             <>
               <div className="overflow-x-auto">
                 <table className="min-w-full text-left text-sm">
-                  <thead className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">
+                  <thead className="text-xs font-medium text-[var(--admin-faint)]">
                     <tr>
                       <th className="pb-3 pr-3">Categoria</th>
                       <th className="pb-3 pr-3">Subtiendas</th>
@@ -401,20 +406,20 @@ function AdminCategoriesPage() {
                         <tr
                           key={category.id}
                           onClick={() => setSelectedId(category.id)}
-                          className={`cursor-pointer border-t border-[#231717]/10 transition-colors ${
-                            selectedId === category.id ? "bg-[#f7f2ec]" : "hover:bg-[#faf6f0]"
+                          className={`cursor-pointer border-t border-[var(--admin-line)] transition-colors ${
+                            selectedId === category.id ? "border-transparent bg-[var(--admin-accent-soft)] [&+tr]:border-transparent" : "hover:bg-[var(--admin-accent-soft)]"
                           }`}
                         >
                           <td className="py-3 pr-3">
                             <div className="font-bold">{category.label || "Sin nombre"}</div>
-                            <div className="text-xs text-[#6b5a55]">{category.id}</div>
+                            <div className="text-xs text-[var(--admin-muted)]">{category.id}</div>
                           </td>
                           <td className="py-3 pr-3">
                             <div className="flex flex-wrap gap-1">
                               {category.vibes.map((vibe) => (
                                 <span
                                   key={vibe}
-                                  className={getAdminVibeButtonClassName(vibe, true, "pointer-events-none px-2.5 py-1 text-[11px] shadow-none")}
+                                  className={getAdminVibeTagClassName(vibe)}
                                 >
                                   {getVibeLabel(vibe)}
                                 </span>
@@ -422,7 +427,7 @@ function AdminCategoriesPage() {
                             </div>
                           </td>
                           <td className="py-3 pr-3">
-                            <AdminTag tone={category.sizeFormat === "shoes" ? "warn" : category.sizeFormat === "onesize" ? "soft" : "dark"}>
+                            <AdminTag tone={category.sizeFormat === "shoes" ? "info" : category.sizeFormat === "onesize" ? "warn" : "dark"}>
                               {format.label}
                             </AdminTag>
                           </td>
@@ -440,11 +445,11 @@ function AdminCategoriesPage() {
           )}
         </AdminPanel>
 
-        <AdminPanel
+        <AdminPanel editor
           title="Formatos de talla"
           actions={
             <div className="flex flex-wrap items-center gap-2">
-              <AdminButton tone="primary" onClick={handleSaveFormat}>
+              <AdminButton tone="save" onClick={handleSaveFormat}>
                 Guardar formato
               </AdminButton>            </div>
           }
@@ -475,7 +480,7 @@ function AdminCategoriesPage() {
               />
             </AdminField>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 amd:grid-cols-2">
               <div>
                 <AdminSectionLabel>Tallas disponibles</AdminSectionLabel>
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -485,10 +490,10 @@ function AdminCategoriesPage() {
                       type="button"
                       onClick={() => handleRemoveSize(size)}
                       disabled={usedSizesForSelectedFormat.has(size)}
-                      className={`rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] transition ${
+                      className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
                         usedSizesForSelectedFormat.has(size)
-                          ? "cursor-not-allowed border-[#231717]/10 bg-[#efebe7] text-[#a08f87]"
-                          : "border-[#231717]/15 bg-[#faf6f0] text-[#5f4941] hover:border-[#231717] hover:bg-[#f3eadf]"
+                          ? "cursor-not-allowed border-[var(--admin-line)] bg-[var(--admin-soft)] text-[var(--admin-faint)]"
+                          : "bg-[var(--admin-soft)] text-[var(--admin-muted)] hover:bg-[var(--admin-soft-hover)]"
                       }`}
                     >
                       {size}
@@ -514,16 +519,16 @@ function AdminCategoriesPage() {
         </AdminPanel>
         </div>
 
-        <AdminPanel
+        <AdminPanel editor
           title={draft?.label || "Editor"}
             className="self-start"
             actions={
               <div className="flex flex-wrap gap-2">
+                <AdminButton tone="save" onClick={handleSave} disabled={!draft || isDeleting}>
+                  Guardar
+                </AdminButton>
                 <AdminButton tone="danger" onClick={handleDelete} disabled={!draft || isDeleting}>
                   {isDeleting ? "Eliminando..." : "Eliminar"}
-                </AdminButton>
-                <AdminButton tone="primary" onClick={handleSave} disabled={!draft || isDeleting}>
-                  Guardar
                 </AdminButton>              </div>
             }
           >
@@ -552,7 +557,7 @@ function AdminCategoriesPage() {
                           key={vibe}
                           type="button"
                           onClick={() => toggleVibe(vibe)}
-                          className={getAdminVibeButtonClassName(vibe, active, "px-3 py-3 text-sm")}
+                          className={getAdminVibeButtonClassName(vibe, active, "justify-center px-3 py-2.5 text-sm")}
                         >
                           {getVibeLabel(vibe)}
                         </button>
@@ -563,7 +568,7 @@ function AdminCategoriesPage() {
 
                 <div>
                   <AdminSectionLabel>Imagen por subtienda</AdminSectionLabel>
-                  <p className="mt-1 text-xs leading-5 text-[#6b5a55]">
+                  <p className="mt-1 text-xs leading-5 text-[var(--admin-muted)]">
                     Cada imagen se usa sobre el nombre de esta categoria en el subnav de su subtienda.
                   </p>
                   <div className="mt-3 grid gap-3">
@@ -574,9 +579,9 @@ function AdminCategoriesPage() {
                         const isUploading = uploadingVibe === vibe;
                         const canUpload = !draft.id.startsWith("draft-category-");
                         return (
-                          <div key={vibe} className="rounded-xl bg-[#faf6f0] p-3">
+                          <div key={vibe} className="rounded-xl border border-[var(--admin-line)] bg-[var(--admin-surface)] p-3">
                           <div className="grid gap-3 sm:grid-cols-[88px_minmax(0,1fr)]">
-                            <div className="flex h-[88px] w-[88px] items-center justify-center overflow-hidden bg-[#f1e7dc]">
+                            <div className="flex h-[88px] w-[88px] items-center justify-center overflow-hidden bg-[var(--admin-soft)]">
                               {image ? (
                                 <img
                                   src={image.url}
@@ -584,7 +589,7 @@ function AdminCategoriesPage() {
                                   className="h-full w-full object-cover"
                                 />
                               ) : (
-                                <span className="px-2 text-center text-[11px] font-bold text-[#8b756d]">
+                                <span className="px-2 text-center text-[11px] font-bold text-[var(--admin-faint)]">
                                   Sin imagen
                                 </span>
                               )}
@@ -592,9 +597,9 @@ function AdminCategoriesPage() {
                             <div className="min-w-0">
                               <div className="font-bold">{getVibeLabel(vibe)}</div>
                               {image ? (
-                                <div className="mt-1 truncate text-[11px] text-[#8b756d]">{image.url}</div>
+                                <div className="mt-1 truncate text-[11px] text-[var(--admin-faint)]">{image.url}</div>
                               ) : (
-                                <div className="mt-1 text-xs text-[#8b756d]">
+                                <div className="mt-1 text-xs text-[var(--admin-faint)]">
                                   Sube una imagen especifica para {getVibeLabel(vibe)}.
                                 </div>
                               )}
@@ -609,11 +614,11 @@ function AdminCategoriesPage() {
                                     [vibe]: event.target.files?.[0] ?? null,
                                   }))
                                 }
-                                className="mt-3 block w-full border border-dashed border-[#231717]/20 bg-white px-3 py-2 text-xs file:mr-3 file:border-0 file:bg-[#231717] file:px-3 file:py-2 file:text-[10px] file:font-black file:uppercase file:tracking-[0.12em] file:text-white"
+                                className="mt-3 block w-full border border-dashed border-[var(--admin-line-strong)] bg-[var(--admin-surface)] px-3 py-2 text-xs file:mr-3 file:border-0 file:rounded-lg file:bg-[var(--admin-soft)] file:px-3 file:py-2 file:text-xs file:font-semibold file:text-[var(--admin-ink)]"
                               />
                               <div className="mt-2 flex flex-wrap gap-2">
                                 <AdminButton
-                                  tone="primary"
+                                  tone="secondary"
                                   disabled={!canUpload || !selectedCategoryFiles[vibe] || isUploading}
                                   onClick={() => handleUploadCategoryImage(vibe)}
                                 >
@@ -630,7 +635,7 @@ function AdminCategoriesPage() {
                                 ) : null}
                               </div>
                               {!canUpload ? (
-                                <p className="mt-2 text-[11px] text-[#8b756d]">
+                                <p className="mt-2 text-[11px] text-[var(--admin-faint)]">
                                   Guarda la categoria primero para habilitar la subida.
                                 </p>
                               ) : null}

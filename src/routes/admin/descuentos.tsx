@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { AdminPanel, AdminShell, AdminTag } from "@/components/admin/AdminShell";
 import {  AdminButton,
+  getAdminVibeTagClassName,
   AdminCheckbox,
   AdminEmptyState,
   AdminField,
@@ -16,12 +17,28 @@ import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { getAdminErrorMessage } from "@/lib/admin-errors";
 import { matchesAdminSearch } from "@/lib/admin-search";
-import { deleteAdminDiscount, getAdminCategories, getAdminDiscounts, saveAdminDiscount } from "@/lib/admin-content";
+import {
+  deleteAdminDiscount,
+  getAdminCategories,
+  getAdminCollections,
+  getAdminDiscounts,
+  getAdminSettingsRecord,
+  saveAdminDiscount,
+} from "@/lib/admin-content";
+import { getAdminThemeDiscountLinks, listAdminThemeAssets } from "@/lib/themes";
+import { PromoBannerFields } from "@/components/admin/PromoBannerFields";
+import { PromoAnnouncements } from "@/components/admin/PromoAnnouncements";
+import type { LibraryAsset } from "@/components/admin/themes/ThemeEditorParts";
+import { useCatalogProducts } from "@/context/catalog";
 import { getVibeLabel } from "@/lib/admin-service";
 import type { AdminCategoryRecord, AdminDiscountRecord } from "@/lib/admin-types";
 
 function cloneDiscount(discount: AdminDiscountRecord): AdminDiscountRecord {
-  return { ...discount, categoryIds: [...discount.categoryIds] };
+  return {
+    ...discount,
+    categoryIds: [...discount.categoryIds],
+    banner: discount.banner ? { ...discount.banner } : null,
+  };
 }
 
 function discountTitle(discount: AdminDiscountRecord) {
@@ -57,15 +74,36 @@ function createBlankDiscount(): AdminDiscountRecord {
 export const Route = createFileRoute("/admin/descuentos")({
   beforeLoad: () => enforceAdminAccess(),
   loader: async () => {
-    const [discounts, categories] = await Promise.all([getAdminDiscounts(), getAdminCategories()]);
-    return { discounts, categories };
+    const [discounts, categories, themeLinks, library, collections, settings] = await Promise.all([
+      getAdminDiscounts(),
+      getAdminCategories(),
+      getAdminThemeDiscountLinks(),
+      // Promotion banners use the theme image library.
+      listAdminThemeAssets(),
+      getAdminCollections(),
+      getAdminSettingsRecord(),
+    ]);
+    return {
+      discounts,
+      categories,
+      themeLinks,
+      library,
+      collections,
+      announcements: settings.announcements,
+    };
   },
   head: () => ({ meta: [{ title: "Admin - Promociones" }] }),
   component: AdminDiscountsPage,
 });
 
 function AdminDiscountsPage() {
-  const { discounts, categories } = Route.useLoaderData();
+  const { discounts, categories, themeLinks, library, collections, announcements: savedAnnouncements } =
+    Route.useLoaderData();
+  const [announcements, setAnnouncements] = useState(savedAnnouncements);
+  const [assets, setAssets] = useState<LibraryAsset[]>(library);
+  const products = useCatalogProducts();
+  // Discounts a published theme owns turn on and off with it (theme engine spec §5.9).
+  const themeLink = (id: string) => themeLinks[id];
   const [rows, setRows] = useState(() => sortDiscounts(discounts.map(cloneDiscount)));
   const [selectedId, setSelectedId] = useState(discounts[0]?.id ?? "");
   const [query, setQuery] = useState("");
@@ -125,7 +163,7 @@ function AdminDiscountsPage() {
         saved,
         ...current.filter((discount) => discount.id !== value.id && discount.id !== saved.id),
       ]));
-      if (saved.id !== value.id) setSelectedId(saved.id);
+      if (saved.id !== value.id) setSelectedId((current) => (current === value.id ? saved.id : current));
       setDraft((current) => (current && current.id === value.id ? cloneDiscount(saved) : current));
       if (!options.silent) showSaveMessage("Descuento guardado.", "success");
     });
@@ -148,12 +186,12 @@ function AdminDiscountsPage() {
       });
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!draft) return;
     if (
-      !confirmAdminDestructiveAction(
+      !(await confirmAdminDestructiveAction(
         `Vas a eliminar ${discountTitle(draft)}. Esta acción no se puede deshacer. ¿Quieres continuar?`,
-      )
+      ))
     ) {
       return;
     }
@@ -190,20 +228,20 @@ function AdminDiscountsPage() {
       section="descuentos"
       title="Promociones"
       actions={
-        <AdminButton tone="primary" onClick={handleCreate}>
+        <AdminButton tone="create" onClick={handleCreate}>
           Nuevo descuento
         </AdminButton>
       }
     >
-      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
+      <div className="grid grid-cols-1 items-start gap-4 axl:grid-cols-[minmax(0,1fr)_390px]">
         <AdminPanel title="Descuentos">
-          <div className="mb-4 flex flex-col gap-3 md:flex-row">
+          <div className="mb-4 flex flex-col gap-3 amd:flex-row">
             <AdminInput
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Buscar por codigo o nombre"
             />
-            <div className="shrink-0 rounded-xl border border-[#231717]/10 bg-[#f7f2ec] px-3 py-2.5 text-sm font-semibold">
+            <div className="shrink-0 px-1 py-2.5 text-sm text-[var(--admin-faint)]">
               {filtered.length} descuentos
             </div>
           </div>
@@ -219,7 +257,7 @@ function AdminDiscountsPage() {
               }
             />
           ) : (
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 amd:grid-cols-2 axl:grid-cols-3">
               {filtered.map((discount) => (
                 <button
                   key={discount.id}
@@ -227,29 +265,42 @@ function AdminDiscountsPage() {
                   onClick={() => setSelectedId(discount.id)}
                   className={`rounded-3xl border p-4 text-left transition-colors ${
                     selectedId === discount.id
-                      ? "border-[#231717] bg-[#f7f2ec]"
-                      : "border-[#231717]/10 bg-[#faf6f0] hover:bg-[#f3eadf]"
+                      ? "border-transparent bg-[var(--admin-accent-soft)]"
+                      : "border-[var(--admin-line)] bg-[var(--admin-surface)] hover:bg-[var(--admin-accent-soft)]"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-sm font-black">{discountTitle(discount)}</div>
-                      <div className="mt-1 text-xs text-[#6b5a55]">
+                      <div className="text-sm font-semibold">{discountTitle(discount)}</div>
+                      <div className="mt-1 text-xs text-[var(--admin-muted)]">
                         {discount.kind === "code" ? discount.label || "Sin nombre" : "Promoción automática"}
                       </div>
                     </div>
-                    <AdminTag tone={discount.active ? "dark" : "soft"}>{discount.active ? "Activo" : "Pausado"}</AdminTag>
+                    {themeLink(discount.id) ? (
+                      <AdminTag tone={themeLink(discount.id)!.on ? "success" : "warn"}>
+                        {themeLink(discount.id)!.on ? "Activo" : "Pausado"} · Tema
+                      </AdminTag>
+                    ) : (
+                      <AdminTag tone={discount.active ? "success" : "warn"}>{discount.active ? "Activo" : "Pausado"}</AdminTag>
+                    )}
                   </div>
-                  <div className="mt-4 text-2xl font-black">
+                  <div className="mt-4 text-2xl font-semibold">
                     {discount.type === "percentage" ? `${discount.value}%` : `RD$${discount.value}`}
                   </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.16em] text-[#7c665f]">
-                    <AdminTag tone="info">{discount.kind === "code" ? "Código" : "Promoción"}</AdminTag>
-                    {discount.kind === "promotion" ? <span>{getVibeLabel(discount.scope)}</span> : null}
-                    {discount.kind === "promotion" && discount.categoryIds.length > 0 ? (
-                      <AdminTag tone="info">{discount.categoryIds.length} categorías</AdminTag>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-medium text-[var(--admin-faint)]">
+                    <AdminTag tone="dark">{discount.kind === "code" ? "Código" : "Promoción"}</AdminTag>
+                    {discount.kind === "promotion" ? (
+                      discount.scope === "moon" || discount.scope === "sunshine" || discount.scope === "men" ? (
+                        <span className={getAdminVibeTagClassName(discount.scope)}>{getVibeLabel(discount.scope)}</span>
+                      ) : (
+                        <AdminTag tone="plum">{getVibeLabel(discount.scope)}</AdminTag>
+                      )
                     ) : null}
-                    {discount.kind === "code" && discount.onePerCustomer ? <AdminTag tone="info">1 x cliente</AdminTag> : null}
+                    {discount.kind === "promotion" && discount.categoryIds.length > 0 ? (
+                      <AdminTag tone="dark">{discount.categoryIds.length} categorías</AdminTag>
+                    ) : null}
+                    {discount.kind === "code" && discount.onePerCustomer ? <AdminTag tone="dark">1 x cliente</AdminTag> : null}
+                    {discount.webOnly ? <AdminTag tone="info">Solo web</AdminTag> : null}
                     {discount.kind === "code" && discount.maxRedemptions !== null ? (
                       <AdminTag tone="info">Limite {discount.maxRedemptions}</AdminTag>
                     ) : null}
@@ -260,15 +311,15 @@ function AdminDiscountsPage() {
           )}
         </AdminPanel>
 
-        <AdminPanel
+        <AdminPanel editor
           title={draft ? discountTitle(draft) : "Editor"}
           actions={
             <div className="flex flex-wrap gap-2">
+              <AdminButton tone="save" onClick={handleSave} disabled={!draft || isSaving || isDeleting}>
+                {isSaving ? "Guardando..." : "Guardar"}
+              </AdminButton>
               <AdminButton tone="danger" onClick={handleDelete} disabled={!draft || isDeleting || isSaving}>
                 {isDeleting ? "Eliminando..." : "Eliminar"}
-              </AdminButton>
-              <AdminButton tone="primary" onClick={handleSave} disabled={!draft || isSaving || isDeleting}>
-                {isSaving ? "Guardando..." : "Guardar"}
               </AdminButton>            </div>
           }
         >
@@ -307,7 +358,7 @@ function AdminDiscountsPage() {
               <AdminField label={draft.kind === "code" ? "Nombre interno" : "Nombre"}>
                 <AdminInput value={draft.label} onChange={(event) => setDraft((current) => (current ? { ...current, label: event.target.value } : current))} />
               </AdminField>
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-3 amd:grid-cols-2">
                 <AdminField label="Tipo">
                   <AdminSelect value={draft.type} onChange={(event) => setDraft((current) => (current ? { ...current, type: event.target.value as AdminDiscountRecord["type"] } : current))}>
                     <option value="percentage">Porcentaje</option>
@@ -331,7 +382,7 @@ function AdminDiscountsPage() {
                   </AdminField>
                   <div>
                     <AdminSectionLabel>Categorías (opcional)</AdminSectionLabel>
-                    <p className="mt-1 text-xs text-[#8b756d]">
+                    <p className="mt-1 text-xs text-[var(--admin-faint)]">
                       Deja todas sin marcar para aplicar a todo lo de "{getVibeLabel(draft.scope)}". Marca solo las
                       categorías donde quieres que aplique el descuento.
                     </p>
@@ -343,8 +394,8 @@ function AdminDiscountsPage() {
                             key={category.id}
                             type="button"
                             onClick={() => toggleCategory(category.id)}
-                            className={`rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-[0.14em] transition ${
-                              active ? "border-[#231717] bg-[#231717] text-white" : "border-[#231717]/20 bg-[#faf6f0] text-[#5f4941]"
+                            className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
+                              active ? "border-transparent bg-[var(--admin-select)] text-[var(--admin-on-invert)]" : "bg-[var(--admin-soft)] text-[var(--admin-muted)] hover:bg-[var(--admin-soft-hover)]"
                             }`}
                           >
                             {category.label}
@@ -382,12 +433,59 @@ function AdminDiscountsPage() {
                 </>
               )}
 
-              <AdminCheckbox
-                label="Descuento activo"
-                hint={draft.kind === "code" ? "El codigo se puede usar en el checkout." : "El precio con descuento se muestra en la tienda ahora mismo."}
-                checked={draft.active}
-                onCheckedChange={(checked) => setDraft((current) => (current ? { ...current, active: checked } : current))}
+              <AdminSectionLabel>Anuncios de esta promoción</AdminSectionLabel>
+              {draft.id.startsWith("draft-discount-") ? (
+                <p className="text-xs text-[var(--admin-muted)]">
+                  Primero ponle nombre o código; cuando se guarde, puedes agregarle anuncios.
+                </p>
+              ) : (
+                <PromoAnnouncements
+                  discountId={draft.id}
+                  announcements={announcements}
+                  onSaved={(saved) => {
+                    setAnnouncements(saved);
+                    showSaveMessage("Anuncios guardados.", "success");
+                  }}
+                  onError={(message) => showSaveMessage(message, "error")}
+                />
+              )}
+
+              <AdminSectionLabel>Banner</AdminSectionLabel>
+              <PromoBannerFields
+                banner={draft.banner}
+                onChange={(banner) => setDraft((current) => (current ? { ...current, banner } : current))}
+                assets={assets}
+                onUploaded={(asset) => setAssets((current) => [asset, ...current])}
+                onError={(message) => showSaveMessage(message, "error")}
+                collections={collections}
+                products={products}
               />
+
+              {draft.kind === "promotion" ? (
+                <AdminCheckbox
+                  label="Solo en la web"
+                  hint="El precio rebajado sale solo en la tienda online. Los pedidos que creas desde el admin (WhatsApp, Instagram, en tienda) llevan el precio normal."
+                  checked={Boolean(draft.webOnly)}
+                  onCheckedChange={(checked) => setDraft((current) => (current ? { ...current, webOnly: checked } : current))}
+                />
+              ) : null}
+
+              {themeLink(draft.id) ? (
+                <AdminCheckbox
+                  label="Descuento activo"
+                  hint={`Controlado por el tema ${themeLink(draft.id)!.themes.join(", ")}: se enciende y se apaga solo con el tema. Ahora está ${themeLink(draft.id)!.on ? "activo" : "pausado"}.`}
+                  checked={themeLink(draft.id)!.on}
+                  onCheckedChange={() => undefined}
+                  disabled
+                />
+              ) : (
+                <AdminCheckbox
+                  label="Descuento activo"
+                  hint={draft.kind === "code" ? "El codigo se puede usar en el checkout." : "El precio con descuento se muestra en la tienda ahora mismo."}
+                  checked={draft.active}
+                  onCheckedChange={(checked) => setDraft((current) => (current ? { ...current, active: checked } : current))}
+                />
+              )}
             </div>
           ) : (
             <AdminEmptyState

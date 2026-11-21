@@ -1,6 +1,10 @@
 import type { Product } from "@/data/products";
+import { sanitizePromoBannerDraft } from "@/lib/theme-schema";
+import { onceReady } from "@/lib/once-ready";
 import { ADMIN_DISCOUNTS } from "@/lib/admin-service";
 import type { AdminDiscountRecord } from "@/lib/admin-types";
+import { discountIsOn } from "@/lib/theme-discounts";
+import { getThemeDiscountControl } from "@/lib/themes";
 
 type WorkerEnv = {
   DB?: D1Database;
@@ -18,9 +22,10 @@ type DiscountRow = {
   category_ids_json: string | null;
   max_redemptions: number | null;
   one_per_customer: number | null;
+  web_only?: number | null;
+  banner_json?: string | null;
 };
 
-let discountStorageReadyPromise: Promise<void> | null = null;
 
 const DISCOUNTS_CACHE_TTL_MS = 60_000;
 let discountsCache: { value: AdminDiscountRecord[]; expiresAt: number } | null = null;
@@ -44,9 +49,7 @@ async function getDatabase() {
   return workerEnv.DB ?? null;
 }
 
-async function ensureDiscountStorageReady(db: D1Database) {
-  if (!discountStorageReadyPromise) {
-    discountStorageReadyPromise = (async () => {
+const ensureDiscountStorageReady = onceReady(async (db: D1Database) => {
       await db.exec(
         `
         CREATE TABLE IF NOT EXISTS discounts (
@@ -79,6 +82,8 @@ async function ensureDiscountStorageReady(db: D1Database) {
         "ALTER TABLE discounts ADD COLUMN one_per_customer INTEGER NOT NULL DEFAULT 0;",
         "ALTER TABLE discounts ADD COLUMN kind TEXT NOT NULL DEFAULT 'code';",
         "ALTER TABLE discounts ADD COLUMN category_ids_json TEXT NOT NULL DEFAULT '[]';",
+        "ALTER TABLE discounts ADD COLUMN web_only INTEGER NOT NULL DEFAULT 0;",
+        "ALTER TABLE discounts ADD COLUMN banner_json TEXT;",
       ];
       for (const statement of discountMigrations) {
         try {
@@ -123,7 +128,7 @@ async function ensureDiscountStorageReady(db: D1Database) {
       }
 
       const insertDiscount = db.prepare(`
-        INSERT INTO discounts (id, kind, code, label, discount_type, amount, active, scope, category_ids_json, max_redemptions, one_per_customer)
+        INSERT OR IGNORE INTO discounts (id, kind, code, label, discount_type, amount, active, scope, category_ids_json, max_redemptions, one_per_customer)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
@@ -145,13 +150,16 @@ async function ensureDiscountStorageReady(db: D1Database) {
         ),
       );
       await markSeeded();
-    })().catch((error) => {
-      discountStorageReadyPromise = null;
-      throw error;
-    });
-  }
+});
 
-  return discountStorageReadyPromise;
+/** A promotion's banner from its column (lenient: a half-filled draft is kept for editing). */
+function readBannerJson(json: string | null | undefined) {
+  if (!json) return null;
+  try {
+    return sanitizePromoBannerDraft(JSON.parse(json));
+  } catch {
+    return null;
+  }
 }
 
 function parseDiscountRow(row: DiscountRow): AdminDiscountRecord {
@@ -175,6 +183,8 @@ function parseDiscountRow(row: DiscountRow): AdminDiscountRecord {
     categoryIds,
     maxRedemptions: row.max_redemptions ?? null,
     onePerCustomer: row.one_per_customer === 1,
+    webOnly: row.web_only === 1,
+    banner: readBannerJson(row.banner_json),
   };
 }
 
@@ -196,23 +206,24 @@ export async function listActiveDiscountsInternal() {
     return ADMIN_DISCOUNTS.filter((discount) => discount.active);
   }
 
-  if (discountsCache && discountsCache.expiresAt > Date.now()) {
-    return discountsCache.value.map((discount) => ({ ...discount }));
+  // Raw records are cached; whether each one is on right now is decided per call, because
+  // a theme can own a discount and turn it on or off at an exact minute (spec §5.9).
+  if (!discountsCache || discountsCache.expiresAt <= Date.now()) {
+    await ensureDiscountStorageReady(db);
+    const rows = await db
+      .prepare(`
+        SELECT id, kind, code, label, discount_type, amount, active, scope, category_ids_json, max_redemptions, one_per_customer, web_only, banner_json
+        FROM discounts
+        ORDER BY code ASC
+      `)
+      .all<DiscountRow>();
+    discountsCache = { value: (rows.results ?? []).map(parseDiscountRow), expiresAt: Date.now() + DISCOUNTS_CACHE_TTL_MS };
   }
 
-  await ensureDiscountStorageReady(db);
-  const rows = await db
-    .prepare(`
-      SELECT id, kind, code, label, discount_type, amount, active, scope, category_ids_json, max_redemptions, one_per_customer
-      FROM discounts
-      WHERE active = 1
-      ORDER BY code ASC
-    `)
-    .all<DiscountRow>();
-
-  const discounts = (rows.results ?? []).map(parseDiscountRow).filter((discount) => discount.active);
-  discountsCache = { value: discounts, expiresAt: Date.now() + DISCOUNTS_CACHE_TTL_MS };
-  return discounts.map((discount) => ({ ...discount }));
+  const control = await getThemeDiscountControl();
+  return discountsCache.value
+    .filter((discount) => discountIsOn(discount, control))
+    .map((discount) => ({ ...discount, active: true }));
 }
 
 export async function findActiveCheckoutDiscount(code: string) {

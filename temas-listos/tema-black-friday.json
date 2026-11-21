@@ -1,0 +1,116 @@
+{
+  "format": "pulpina-theme",
+  "version": 2,
+  "exportedAt": "2026-11-21T00:07:09.904Z",
+  "theme": {
+    "schemaVersion": 1,
+    "name": "Black Friday",
+    "colors": {
+      "background": "#fafafa",
+      "foreground": "#111111",
+      "muted-foreground": "#555555",
+      "muted": "#ececec",
+      "border": "rgba(17, 17, 17, 0.12)",
+      "outline": "#111111",
+      "field-background": "#ffffff",
+      "header-background": "#ffffff",
+      "header-text": "#555555",
+      "card": "#ffffff",
+      "card-foreground": "#111111",
+      "card-border": "#111111",
+      "card-cart-background": "#ffffff",
+      "card-cart-icon": "#111111",
+      "badge-sale-background": "#d60500",
+      "badge-sale-text": "#ffffff",
+      "badge-new-background": "#ffd400",
+      "badge-new-text": "#1a1600",
+      "ink-strong": "#111111",
+      "ink-strong-text": "#ffffff",
+      "hero-start": "#000000",
+      "hero-middle": "#141414",
+      "hero-end": "#000000",
+      "hero-edge": "#000000",
+      "hero-glow-left": "rgba(225, 6, 0, 0.3)",
+      "hero-glow-right": "rgba(255, 212, 0, 0.18)",
+      "footer-background": "#141414",
+      "footer-text": "#ffffff",
+      "checkout-lines": "#111111",
+      "announcement.general.background": "#111111",
+      "announcement.general.text": "#ffd400"
+    },
+    "slots": {},
+    "stickers": {},
+    "heroEffect": {
+      "preset": "confetti",
+      "particleAsset": null,
+      "density": "medium",
+      "speed": "medium",
+      "phone": true,
+      "heroes": {
+        "home": true,
+        "moon": false,
+        "sunshine": false,
+        "men": false
+      }
+    },
+    "heroWave": null,
+    "homeBanners": [],
+    "tiendaBanners": [],
+    "favicon": null,
+    "shareImage": null,
+    "discountIds": [
+      "bf-ropa-zapatos",
+      "bf-accesorios"
+    ]
+  },
+  "discounts": [
+    {
+      "ref": "bf-ropa-zapatos",
+      "kind": "promotion",
+      "code": "",
+      "label": "Black Friday: 30% en ropa y zapatos (solo en la web)",
+      "type": "percentage",
+      "value": 30,
+      "scope": "store",
+      "categories": [
+        "Tops",
+        "Bottoms",
+        "T-Shirts",
+        "Faldas",
+        "Vestidos",
+        "Chalecos",
+        "Abrigos",
+        "Lencería",
+        "Ropa kink",
+        "Cosplay",
+        "Full Body",
+        "Zapatos"
+      ],
+      "maxRedemptions": null,
+      "onePerCustomer": false,
+      "webOnly": true
+    },
+    {
+      "ref": "bf-accesorios",
+      "kind": "promotion",
+      "code": "",
+      "label": "Black Friday: 20% en accesorios (solo en la web)",
+      "type": "percentage",
+      "value": 20,
+      "scope": "store",
+      "categories": [
+        "Accesorios",
+        "Joyería",
+        "Bolsos",
+        "Chokers",
+        "Correas",
+        "Guantes",
+        "Sombreros"
+      ],
+      "maxRedemptions": null,
+      "onePerCustomer": false,
+      "webOnly": true
+    }
+  ],
+  "images": []
+}

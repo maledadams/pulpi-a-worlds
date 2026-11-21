@@ -164,7 +164,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         title: fallback.variant.title,
         productTitle: fallback.product.name,
         productHandle: fallback.product.slug,
-        image: fallback.variant.image ?? fallback.product.featuredImage,
+        image: fallback.product.featuredImage ?? fallback.variant.image,
         price: fallback.variant.price,
         currencyCode: fallback.variant.currencyCode,
         selectedOptions: fallback.variant.selectedOptions,
@@ -214,6 +214,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clear = () => applyCart(null);
 
+  // Each line shows its product's current cover from the catalog, falling back
+  // to the image saved when it was added (that one can point to a photo that
+  // was since replaced or deleted).
+  const lines = useMemo(
+    () =>
+      (cart?.lines ?? []).map((line) => {
+        const product = products.find((entry) => entry.variants.some((variant) => variant.id === line.merchandiseId));
+        const current = product?.featuredImage;
+        return current && current.url !== line.image?.url ? { ...line, image: current } : line;
+      }),
+    [cart?.lines, products],
+  );
+
   const localAvailabilityByLineId = useMemo(() => {
     const entries = (cart?.lines ?? []).map((line) => {
       const product = products.find((entry) =>
@@ -261,6 +274,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const nextLines = currentLines.filter((line) => getLineAvailability(line).available);
     applyPreviewLines(nextLines);
   };
+  // The subtotal uses each line's current price (the same one the lines show), not the
+  // price saved when it was added: a promotion that starts or ends while someone is
+  // checking out (a theme's discounts at midnight) must change the total they see before
+  // they send the order, which the server prices at that moment anyway.
+  const pricedCart = cart
+    ? {
+        ...cart,
+        subtotal: cart.lines.reduce((sum, line) => sum + getLineAvailability(line).currentPrice * line.quantity, 0),
+      }
+    : cart;
   const availableSubtotal = (cart?.lines ?? []).reduce((sum, line) => {
     const availability = getLineAvailability(line);
     return availability.available
@@ -329,8 +352,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider
       value={{
-        cart,
-        lines: cart?.lines ?? [],
+        cart: pricedCart,
+        lines,
         open,
         loading,
         configured,

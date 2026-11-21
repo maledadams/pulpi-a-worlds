@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { MessageSquareMore, PackageSearch, ShieldCheck, TriangleAlert } from "lucide-react";
 import { useMemo, useState } from "react";
-import { AdminPanel, AdminShell, AdminStatCard, AdminTag } from "@/components/admin/AdminShell";
+import { AdminPanel, AdminShell, AdminStatCard, AdminTag, inquiryStatusTone } from "@/components/admin/AdminShell";
 import { AdminButton, AdminEmptyState, getAdminButtonClassName } from "@/components/admin/AdminControls";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { formatPrice } from "@/data/products";
@@ -119,7 +119,7 @@ function AdminDashboardPage() {
     };
   }, [orders, products, salesWindow]);
 
-  const netTone = snapshot.netSales >= 0 ? "text-emerald-700" : "text-[#b42318]";
+  const netTone = snapshot.netSales >= 0 ? "text-[var(--admin-ok)]" : "text-[var(--admin-danger)]";
   const netLabel = `${snapshot.netSales >= 0 ? "+" : "-"}${formatPrice(Math.abs(snapshot.netSales))}`;
 
   return (
@@ -135,49 +135,41 @@ function AdminDashboardPage() {
         </Link>
       }
     >
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <AdminStatCard label="Productos" value={String(snapshot.productCount)} icon={PackageSearch} iconClassName="bg-[#f5dce8] text-[#7b3551]" />
-        <AdminStatCard label="Pedidos" value={String(snapshot.inquiryCount)} icon={MessageSquareMore} iconClassName="bg-[#dff3c7] text-[#45651f]" />
-        <AdminStatCard label="Abiertas" value={String(snapshot.openInquiryCount)} icon={TriangleAlert} iconClassName="bg-[#ffe1c8] text-[#9a4a1d]" />
-        <AdminStatCard label="Inventario" value={formatPrice(snapshot.inventoryBaseValue)} icon={ShieldCheck} iconClassName="bg-[#fde2bf] text-[#8a531b]" />
+      <div className="grid grid-cols-1 gap-4 amd:grid-cols-2 axl:grid-cols-4">
+        <AdminStatCard label="Productos" value={String(snapshot.productCount)} icon={PackageSearch} iconClassName="bg-[var(--admin-violet-soft)] text-[var(--admin-violet)]" />
+        <AdminStatCard label="Pedidos" value={String(snapshot.inquiryCount)} icon={MessageSquareMore} iconClassName="bg-[var(--admin-info-soft)] text-[var(--admin-info)]" />
+        <AdminStatCard label="Abiertas" value={String(snapshot.openInquiryCount)} icon={TriangleAlert} iconClassName="bg-[var(--admin-warn-soft)] text-[var(--admin-warn)]" />
+        <AdminStatCard label="Inventario" value={formatPrice(snapshot.inventoryBaseValue)} icon={ShieldCheck} iconClassName="bg-[var(--admin-ok-soft)] text-[var(--admin-ok)]" />
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_1fr]">
+      <div className="mt-5 grid grid-cols-1 gap-4 axl:grid-cols-[1.2fr_1fr]">
         <AdminPanel title="Pedidos recientes">
           {snapshot.recentInquiries.length > 0 ? (
             <div className="grid gap-2.5">
               {snapshot.recentInquiries.map((inquiry) => (
-                <div key={inquiry.id} className="rounded-2xl border border-[#231717]/10 bg-[#faf6f0] p-3.5">
+                <div key={inquiry.id} className="rounded-2xl border border-[var(--admin-line)] bg-[var(--admin-surface)] p-3.5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-black">{inquiry.requestNumber}</span>
+                        <span className="text-sm font-semibold">{inquiry.requestNumber}</span>
                         <AdminTag
-                          tone={
-                            inquiry.status === "new"
-                              ? "warn"
-                              : inquiry.status === "closed"
-                                ? "success"
-                                : inquiry.status === "cancelled"
-                                  ? "danger"
-                                  : "info"
-                          }
+                          tone={inquiryStatusTone(inquiry.status)}
                         >
                           {formatAdminInquiryStatus(inquiry.status)}
                         </AdminTag>
                       </div>
-                      <div className="mt-1 truncate text-xs text-[#6b5a55]">
+                      <div className="mt-1 truncate text-xs text-[var(--admin-muted)]">
                         {inquiry.customerName} · {formatAdminInquiryChannel(inquiry.channel)} ·{" "}
                         {inquiry.fulfillmentMethod === "delivery" ? "Delivery" : "Recoger"}
                       </div>
                     </div>
-                    <div className="shrink-0 text-sm font-black">{formatPrice(inquiry.total)}</div>
+                    <div className="shrink-0 text-sm font-semibold">{formatPrice(inquiry.total)}</div>
                   </div>
 
                   {inquiry.lines[0] ? (
-                    <div className="mt-2.5 flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-xs">
+                    <div className="mt-2.5 flex items-center justify-between gap-3 rounded-xl bg-[var(--admin-surface)] px-3 py-2 text-xs">
                       <span className="min-w-0 truncate font-semibold">{inquiry.lines[0].productName}</span>
-                      <span className="shrink-0 text-[#6b5a55]">
+                      <span className="shrink-0 text-[var(--admin-muted)]">
                         {inquiry.lines[0].variantLabel} · x{inquiry.lines[0].quantity}
                         {inquiry.lines.length > 1 ? ` · +${inquiry.lines.length - 1} mas` : ""}
                       </span>
@@ -185,19 +177,19 @@ function AdminDashboardPage() {
                   ) : null}
 
                   {inquiry.fulfillmentMethod === "delivery" && inquiry.shippingAddress.line1 ? (
-                    <div className="mt-2 truncate text-xs text-[#6b5a55]">
+                    <div className="mt-2 truncate text-xs text-[var(--admin-muted)]">
                       {inquiry.shippingAddress.line1}, {inquiry.shippingAddress.city}, {inquiry.shippingAddress.province}
                     </div>
                   ) : null}
 
                   {inquiry.notes ? (
-                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-[#5f4941]">{inquiry.notes}</p>
+                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-[var(--admin-muted)]">{inquiry.notes}</p>
                   ) : null}
                 </div>
               ))}
             </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-[#231717]/20 p-4 text-sm text-[#6b5a55]">
+            <div className="rounded-2xl border border-dashed border-[var(--admin-line-strong)] p-4 text-sm text-[var(--admin-muted)]">
               Aun no hay pedidos creados desde el checkout manual.
             </div>
           )}
@@ -212,10 +204,10 @@ function AdminDashboardPage() {
                   key={entry.id}
                   type="button"
                   onClick={() => setSalesWindow(entry.id)}
-                  className={`whitespace-nowrap rounded-lg border px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.08em] transition ${
+                  className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
                     salesWindow === entry.id
-                      ? "border-[#231717] bg-[#231717] text-white"
-                      : "border-[#231717]/15 bg-[#f2ede7] text-[#5f4941] hover:bg-[#ece4db]"
+                      ? "border-transparent bg-[var(--admin-select)] text-[var(--admin-on-invert)]"
+                      : "bg-[var(--admin-soft)] text-[var(--admin-muted)] hover:bg-[var(--admin-soft-hover)]"
                   }`}
                 >
                   {entry.label}
@@ -225,26 +217,26 @@ function AdminDashboardPage() {
           }
         >
           <div className="grid gap-4">
-            <div className="border-b border-[#231717]/10 pb-4">
-              <div className={`text-3xl font-black ${netTone}`}>{netLabel}</div>
+            <div className="border-b border-[var(--admin-line)] pb-4">
+              <div className={`text-3xl font-semibold ${netTone}`}>{netLabel}</div>
             </div>
-            <div className="grid gap-1 text-sm text-[#5f4941]">
-              <div className="flex items-center justify-between rounded-xl bg-[#faf6f0] px-3 py-2.5">
+            <div className="grid gap-1 text-sm text-[var(--admin-muted)]">
+              <div className="flex items-center justify-between border-b border-[var(--admin-line)] px-1 last:border-0 py-2.5">
                 <span>Ventas cerradas</span>
-                <span className="font-black text-emerald-700">+{formatPrice(snapshot.gains)}</span>
+                <span className="font-semibold text-[var(--admin-ok)]">+{formatPrice(snapshot.gains)}</span>
               </div>
-              <div className="flex items-center justify-between rounded-xl bg-[#faf6f0] px-3 py-2.5">
+              <div className="flex items-center justify-between border-b border-[var(--admin-line)] px-1 last:border-0 py-2.5">
                 <span>Canceladas</span>
-                <span className="font-black text-[#7d291b]">{snapshot.cancelledCount}</span>
+                <span className="font-semibold text-[var(--admin-danger)]">{snapshot.cancelledCount}</span>
               </div>
             </div>
-            <div className="border-t border-[#231717]/10 pt-4">
-              <div className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c665f]">Pedidos por estado</div>
-              <div className="mt-2 grid gap-1 text-sm text-[#5f4941]">
+            <div className="border-t border-[var(--admin-line)] pt-4">
+              <div className="text-xs font-medium text-[var(--admin-faint)]">Pedidos por estado</div>
+              <div className="mt-2 grid gap-1 text-sm text-[var(--admin-muted)]">
                 {(["new", "follow_up", "quoted", "closed", "cancelled"] as const).map((status) => (
-                  <div key={status} className="flex items-center justify-between rounded-xl bg-[#faf6f0] px-3 py-2">
+                  <div key={status} className="flex items-center justify-between border-b border-[var(--admin-line)] px-1 last:border-0 py-2">
                     <span>{formatAdminInquiryStatus(status)}</span>
-                    <span className="font-black">{snapshot.statusBreakdown[status]}</span>
+                    <span className="font-semibold">{snapshot.statusBreakdown[status]}</span>
                   </div>
                 ))}
               </div>
@@ -269,15 +261,15 @@ function AdminDashboardPage() {
             />
           ) : (
             <>
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-2 sm:grid-cols-2 axl:grid-cols-3">
                 {snapshot.stockAlerts.slice(0, 12).map((alert) => (
                   <div
                     key={`${alert.productId}-${alert.variantLabel}`}
-                    className="flex items-center justify-between gap-3 rounded-xl bg-[#faf6f0] px-3 py-2.5 text-sm"
+                    className="flex items-center justify-between gap-3 border-b border-[var(--admin-line)] px-1 last:border-0 py-2.5 text-sm"
                   >
                     <div className="min-w-0">
                       <div className="truncate font-semibold">{alert.productName}</div>
-                      <div className="text-xs text-[#6b5a55]">{alert.variantLabel}</div>
+                      <div className="text-xs text-[var(--admin-muted)]">{alert.variantLabel}</div>
                     </div>
                     <AdminTag tone={alert.quantity === 0 ? "danger" : "warn"}>
                       {alert.quantity === 0 ? "Agotado" : `${alert.quantity} und.`}
@@ -286,7 +278,7 @@ function AdminDashboardPage() {
                 ))}
               </div>
               {snapshot.stockAlerts.length > 12 ? (
-                <p className="mt-3 text-xs text-[#6b5a55]">
+                <p className="mt-3 text-xs text-[var(--admin-muted)]">
                   +{snapshot.stockAlerts.length - 12} variante(s) mas con stock bajo.
                 </p>
               ) : null}

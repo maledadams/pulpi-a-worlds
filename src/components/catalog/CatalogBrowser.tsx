@@ -1,9 +1,11 @@
+import { TiendaBanner } from "@/components/theme/HomeBanner";
 import { Link } from "@tanstack/react-router";
-import { ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Search, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ProductCard } from "@/components/product/ProductCard";
-import { useScrollFollow } from "@/hooks/use-scroll-follow";
-import { getCategoryLabel, type Product, type Vibe } from "@/data/products";
+import { useCatalogProducts } from "@/context/catalog";
+import { familyIdOf, isFamilyVisible, mothersById } from "@/lib/product-families";
+import { getCategoryLabel, type Product, type SubstoreVibe, type Vibe } from "@/data/products";
 import { trackSearch } from "@/lib/analytics";
 import {
   CATALOG_SORTS,
@@ -15,6 +17,7 @@ import {
   getColorOptions,
   getDepartmentOptions,
   getShoeSizeOptions,
+  orderForSubstore,
   parseCatalogSearch,
   sizeLabel,
   toggleSet,
@@ -166,10 +169,14 @@ type CatalogBrowserProps = {
   wideResults?: boolean;
   wideResultsTitle?: string;
   wideProductResultsOnly?: boolean;
+  // Sub-store pages only: the full public catalog. When present together with
+  // vibeScope, a category filter or search shows this store's matches first and
+  // then every other store's in-stock matches (orderForSubstore).
+  crossStoreCatalog?: Product[];
 };
 
 export function CatalogBrowser({
-  products,
+  products: productsProp,
   search,
   onSearchChange,
   mode = "sidebar",
@@ -186,9 +193,17 @@ export function CatalogBrowser({
   wideResults = false,
   wideResultsTitle,
   wideProductResultsOnly = false,
+  crossStoreCatalog,
 }: CatalogBrowserProps) {
+  // A hidden mother hides her whole family; checked against the full catalog,
+  // since a list (a collection, a sub-store) may hold a sub without its mother.
+  const catalog = useCatalogProducts();
+  const familyMothers = useMemo(() => mothersById(catalog), [catalog]);
+  const products = useMemo(
+    () => productsProp.filter((product) => isFamilyVisible(product, familyMothers)),
+    [productsProp, familyMothers],
+  );
   const [drawer, setDrawer] = useState(false);
-  const filterFollower = useScrollFollow(768);
   const [openHorizontalFilter, setOpenHorizontalFilter] = useState<string | null>(null);
   const filters = useMemo(() => parseCatalogSearch(search), [search]);
   // The URL only stores the trimmed query, so the input keeps its own text
@@ -218,11 +233,20 @@ export function CatalogBrowser({
     () => getDepartmentOptions(filterCatalogProducts(products, { ...filters, departments: new Set() })),
     [filters, products],
   );
-  const categoryOptions = useMemo(
-    () =>
-      getCategoryOptions(filterCatalogProducts(products, { ...filters, categories: new Set() })),
-    [filters, products],
-  );
+  const crossStoreVibe: SubstoreVibe | null =
+    crossStoreCatalog && vibeScope && vibeScope !== "pulpina" ? vibeScope : null;
+  const categoryOptions = useMemo(() => {
+    const options = getCategoryOptions(
+      filterCatalogProducts(products, { ...filters, categories: new Set() }),
+    );
+    if (!crossStoreVibe || !crossStoreCatalog) return options;
+    return options.map((option) => ({
+      ...option,
+      count: new Set(
+        orderForSubstore(crossStoreCatalog, { ...filters, categories: new Set([option.id]) }, crossStoreVibe).map(familyIdOf),
+      ).size,
+    }));
+  }, [filters, products, crossStoreCatalog, crossStoreVibe]);
   const sizeOptions = useMemo(
     () => getApparelSizeOptions(filterCatalogProducts(products, { ...filters, apparelSizes: new Set() })),
     [filters, products],
@@ -239,7 +263,13 @@ export function CatalogBrowser({
     () => filterCatalogProducts(products, { ...filters, priceBuckets: new Set() }),
     [filters, products],
   );
-  const filtered = useMemo(() => filterCatalogProducts(products, filters), [filters, products]);
+  const filtered = useMemo(
+    () =>
+      crossStoreVibe && crossStoreCatalog
+        ? orderForSubstore(crossStoreCatalog, filters, crossStoreVibe, { collapseWith: catalog })
+        : filterCatalogProducts(products, filters, { collapseWith: catalog }),
+    [catalog, crossStoreCatalog, crossStoreVibe, filters, products],
+  );
 
   const activeFilterCount =
     filters.departments.size +
@@ -304,23 +334,40 @@ export function CatalogBrowser({
   const moonTextClass = "text-[#f2e9e1]";
   const moonMutedTextClass = "text-[#f2e9e1]/66";
   const moonActiveClass = "border-[#8f2015] bg-[#8f2015] text-[#fff7f2]";
+  // Tienda (base theme): selectable filter chips look like the header
+  // dropdown's tabs - light gray, and black with white text when chosen.
+  const isTiendaLook = wideResults && !isMoonVibe;
+  const chipOnClass = "border-foreground bg-foreground text-background";
+  const chipOffClass = isTiendaLook
+    ? "border-transparent bg-muted text-muted-foreground hover:bg-foreground/8 hover:text-foreground"
+    : "border-foreground/20 bg-background text-foreground hover:border-foreground/50";
   const searchControlFrameClass = isMoonVibe
     ? `${moonBorderClass} ${moonSurfaceClass} ${moonTextClass} focus:border-[#f2e9e1]/22`
     : isSunshineVibe
       ? "border-[#d2a0ca] bg-white text-[#3a0a14] focus:border-[#bb82b2]"
-      : "border-foreground/20 bg-card focus:border-foreground";
-  const sortControlFrameClass = searchControlFrameClass;
+      : isTiendaLook
+        ? "!border-2 border-[color:var(--t-outline,var(--foreground))] bg-card"
+        : "border-foreground/20 bg-card focus:border-foreground";
+  // Moon page: the toolbar's outlines take the Moon footer's hue (styles.css,
+  // .moon-tint).
+  const moonTintClass = vibeScope === "moon" ? "moon-tint" : "";
+  // Sort select on each sub-store's page: the square buttons of that store's
+  // header preview, with no background (owner, 2026-11-18). Moon's outline is
+  // in the footer's hue. Options get a solid color so the open list stays
+  // readable.
+  const sortControlFrameClass =
+    vibeScope === "moon"
+      ? "border-[oklch(1_0.02_15/0.1)] bg-transparent text-[#f5ece8] [&_option]:bg-[#1a0a10]"
+      : vibeScope === "sunshine"
+        ? "border-[#b86f8b] bg-transparent text-[#3a0a14] [&_option]:bg-white"
+        : vibeScope === "men"
+          ? "border-white/10 bg-transparent text-white [&_option]:bg-[#111111]"
+          : searchControlFrameClass;
   const horizontalFilterTheme: "default" | "moon" | "sunshine" = isMoonVibe
     ? "moon"
     : isSunshineVibe
       ? "sunshine"
       : "default";
-  const substoreLastRowCount = filtered.length > 6 ? filtered.length % 6 : 0;
-  const substoreLastRowClass =
-    substoreLastRowCount > 0 ? `substore-last-row-${substoreLastRowCount}` : "";
-  const storeLastRowCount = filtered.length > 5 ? filtered.length % 5 : 0;
-  const storeLastRowClass =
-    storeLastRowCount > 0 ? `store-last-row-${storeLastRowCount}` : "";
 
   /* ── Sidebar filter panel ── */
   const filtersPanel = (
@@ -355,10 +402,10 @@ export function CatalogBrowser({
                 filters.categories.has(c.id)
                   ? isMoonVibe
                     ? moonActiveClass
-                    : "border-foreground bg-foreground text-background"
+                    : chipOnClass
                   : isMoonVibe
                     ? `${moonBorderClass} ${moonSurfaceClass} ${moonTextClass} ${moonBorderHoverClass}`
-                    : "border-foreground/20 bg-background text-foreground hover:border-foreground/50"
+                    : chipOffClass
               }`}
             >
               {c.label}
@@ -382,10 +429,10 @@ export function CatalogBrowser({
                   filters.apparelSizes.has(o.value)
                     ? isMoonVibe
                       ? moonActiveClass
-                      : "border-foreground bg-foreground text-background"
+                      : chipOnClass
                     : isMoonVibe
                       ? `${moonBorderClass} ${moonSurfaceClass} ${moonTextClass} ${moonBorderHoverClass}`
-                      : "border-foreground/20 bg-background text-foreground hover:border-foreground/50"
+                      : chipOffClass
                 }`}
                 title={`${sizeLabel(o.value)} (${o.count})`}
               >
@@ -408,10 +455,10 @@ export function CatalogBrowser({
                   filters.shoeSizes.has(o.value)
                     ? isMoonVibe
                       ? moonActiveClass
-                      : "border-foreground bg-foreground text-background"
+                      : chipOnClass
                     : isMoonVibe
                       ? `${moonBorderClass} ${moonSurfaceClass} ${moonTextClass} ${moonBorderHoverClass}`
-                      : "border-foreground/20 bg-background text-foreground hover:border-foreground/50"
+                      : chipOffClass
                 }`}
               >
                 {o.value}
@@ -499,7 +546,7 @@ export function CatalogBrowser({
   /* ── Search + sort bar ── */
   const searchBar = (
     <div
-      className={`mb-5 flex flex-col gap-2 sm:flex-row ${
+      className={`mb-5 flex flex-col gap-2 sm:flex-row ${moonTintClass} ${
         wideProductResultsOnly
           ? "md:w-[calc(100%+5rem)] md:max-w-[calc(100vw-2rem)]"
           : ""
@@ -546,7 +593,9 @@ export function CatalogBrowser({
           className={`flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-semibold md:hidden ${
             isMoonVibe
               ? `${moonBorderClass} ${moonSurfaceClass} ${moonTextClass}`
-              : "border-foreground/20 bg-card"
+              : isTiendaLook
+                ? "border-[color:var(--t-outline,var(--foreground))] bg-card"
+                : "border-foreground/20 bg-card"
           }`}
         >
           <SlidersHorizontal className="h-3.5 w-3.5" /> Filtros
@@ -562,7 +611,7 @@ export function CatalogBrowser({
 
   /* ── Horizontal filter pills ── */
   const horizontalFilters = (
-    <div className="mb-5">
+    <div className={`mb-5 ${moonTintClass}`}>
       <div className="flex flex-wrap justify-center gap-2">
         {showDepartmentFilter && departmentOptions.length > 0 && (
           <HorizontalFilter
@@ -756,12 +805,12 @@ export function CatalogBrowser({
   );
 
   /* ── Product grid ── */
-  const productGrid = (cols: string, lastRowClass = "") => (
+  const productGrid = (cols: string) => (
     <>
       <p
         className={`mb-3 text-xs text-muted-foreground ${wideProductResultsOnly ? "text-center" : ""}`}
       >
-        {filtered.length} productos
+        {filtered.length} {filtered.length === 1 ? "producto" : "productos"}
       </p>
       {filtered.length === 0 ? (
         <div className="flex min-h-64 w-full flex-col items-center justify-center text-center">
@@ -774,7 +823,7 @@ export function CatalogBrowser({
           </button>
         </div>
       ) : (
-        <div className={`grid ${wideResults ? "gap-4" : "gap-3"} ${cols} ${lastRowClass}`}>
+        <div className={`grid ${wideResults ? "gap-4" : "gap-3"} ${cols}`}>
           {filtered.map((p) => (
             <ProductCard
               key={p.id}
@@ -782,6 +831,8 @@ export function CatalogBrowser({
               soldOutMode={soldOutMode}
               showSubtitle={false}
               tone={tone}
+              boldOutline={isTiendaLook}
+              outlineVibe={vibeScope}
               themeVibe={themeVibe ?? vibeScope}
             />
           ))}
@@ -814,10 +865,8 @@ export function CatalogBrowser({
             <>
               <div className="mx-auto w-full max-w-4xl px-4">{horizontalFilters}</div>
               <div className="px-4 xl:px-[5cm]">
-                {productGrid(
-                  "substore-product-grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4",
-                  substoreLastRowClass,
-                )}
+                {/* Four big products per row on computers, edge to edge. */}
+                {productGrid("grid-cols-2 sm:grid-cols-3 lg:grid-cols-4")}
               </div>
             </>
           ) : (
@@ -828,14 +877,16 @@ export function CatalogBrowser({
           )}
         </div>
       ) : (
-        <div ref={filterFollower.containerRef} className={`grid gap-6 md:grid-cols-[240px_1fr] ${wideResults ? "px-4 xl:px-[5cm]" : ""}`}>
+        <div className={`grid gap-6 md:grid-cols-[240px_1fr] ${wideResults ? "px-4 xl:px-[5cm]" : ""}`}>
+          {/* A theme's long Tienda banner, from the filters to Destacados (nothing without one). */}
+          {wideResults ? <TiendaBanner className="md:col-span-2" /> : null}
           {/* Sidebar — scrollbar contained inside box */}
-          <aside
-            ref={filterFollower.floatingRef}
-            className="hidden self-start will-change-transform transition-transform duration-500 ease-out md:block"
-            style={{ transform: `translate3d(0, ${filterFollower.offset}px, 0)` }}
-          >
-            <div className="h-[calc(100vh-5rem)] overflow-hidden rounded-xl border border-foreground/15 bg-card">
+          {/* Sticky 1rem under whatever part of the header is still on screen
+              (--site-header-visible, set by Header) and sized to the rest of
+              the screen, so the whole box, top and bottom, stays in view while
+              scrolling (owner, 2026-11-18). */}
+          <aside className="sticky top-[calc(var(--site-header-visible,5.75rem)+1rem)] hidden self-start md:block">
+            <div className={`h-[calc(100vh/var(--page-zoom)-var(--site-header-visible,5.75rem)-2rem)] overflow-hidden rounded-xl bg-card ${isTiendaLook ? "border-2 border-[color:var(--t-outline,var(--foreground))]" : "border border-foreground/15"}`}>
               <div className="h-full overflow-y-scroll overscroll-contain p-4 [scrollbar-gutter:stable]">
                 {filtersPanel}
               </div>
@@ -843,12 +894,8 @@ export function CatalogBrowser({
           </aside>
           <div>
             {wideResults ? searchBar : null}
-            {productGrid(
-              wideResults
-                ? "store-product-grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
-                : "grid-cols-2 lg:grid-cols-3",
-              wideResults ? storeLastRowClass : "",
-            )}
+            {/* Tienda: four big products per row, spanning from Buscar to Destacados. */}
+            {productGrid(wideResults ? "grid-cols-2 md:grid-cols-3 lg:grid-cols-4" : "grid-cols-2 lg:grid-cols-3")}
           </div>
         </div>
       )}
@@ -860,7 +907,7 @@ export function CatalogBrowser({
             className="absolute inset-0 bg-foreground/40 backdrop-blur-sm"
             onClick={() => setDrawer(false)}
           />
-          <div className="absolute bottom-0 left-0 right-0 max-h-[85vh] overflow-auto rounded-t-2xl bg-background p-5 shadow-2xl">
+          <div className="absolute bottom-0 left-0 right-0 max-h-[calc(85vh/var(--page-zoom))] overflow-auto rounded-t-2xl bg-background p-5 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
               <span className="font-display text-xl">Filtros</span>
               <button
@@ -875,11 +922,44 @@ export function CatalogBrowser({
               onClick={() => setDrawer(false)}
               className="mt-6 w-full rounded-full bg-foreground py-3 text-sm font-bold uppercase tracking-widest text-background"
             >
-              Ver {filtered.length} productos
+              Ver {filtered.length} {filtered.length === 1 ? "producto" : "productos"}
             </button>
           </div>
         </div>
       )}
+      <BackToTop />
     </div>
+  );
+}
+
+// Bottom-right arrow back to the top of the page (owner, 2026-11-19), styled
+// like the home rails' arrows. It shows once the page has scrolled a bit.
+function BackToTop() {
+  const [shown, setShown] = useState(false);
+
+  useEffect(() => {
+    const update = () => setShown(window.scrollY > 400);
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    return () => window.removeEventListener("scroll", update);
+  }, []);
+
+  return (
+    <button
+      type="button"
+      aria-label="Volver arriba"
+      tabIndex={shown ? 0 : -1}
+      onClick={() =>
+        window.scrollTo({
+          top: 0,
+          behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+        })
+      }
+      className={`ui-circle fixed bottom-5 right-5 z-40 flex h-11 w-11 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-foreground hover:text-background sm:bottom-6 sm:right-6 ${
+        shown ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-3 opacity-0"
+      }`}
+    >
+      <ChevronUp className="h-5 w-5" />
+    </button>
   );
 }
