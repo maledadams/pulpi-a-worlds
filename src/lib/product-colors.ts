@@ -10,7 +10,7 @@ export const PRODUCT_COLOR_PRESETS = [
   { id: "purple", label: "Morado", hex: "#7a4cc2" },
   { id: "pink", label: "Rosado", hex: "#f08bb7" },
   { id: "beige", label: "Beige", hex: "#ddc8ad" },
-  { id: "brown", label: "Marrón", hex: "#6f4a2f" },
+  { id: "brown", label: "Marron", hex: "#6f4a2f" },
   { id: "white", label: "Blanco", hex: "#f4f1eb" },
   { id: "black", label: "Negro", hex: "#111111" },
   { id: "gray", label: "Gris", hex: "#9b9b9b" },
@@ -24,7 +24,12 @@ export type ProductColorPresetId = (typeof PRODUCT_COLOR_PRESETS)[number]["id"];
 const PRESET_BY_ID = new Map(PRODUCT_COLOR_PRESETS.map((preset) => [preset.id, preset] as const));
 
 function normalizeToken(value: string) {
+  // Accents off first: "Marrón" (the preset's own label) used to become "marr-n",
+  // match nothing and fall back to light gray, so brown showed as white and was
+  // missing from the color filter (Lucia, 2026-11-20). Same for Café and Metálico.
   return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")

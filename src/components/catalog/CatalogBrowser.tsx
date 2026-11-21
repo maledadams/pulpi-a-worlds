@@ -482,7 +482,11 @@ export function CatalogBrowser({
                 />
                 <span
                   className="h-3.5 w-3.5 rounded-[3px] border border-foreground/20"
-                  style={{ backgroundColor: o.swatch }}
+                  style={{
+                    backgroundColor: o.swatch,
+                    // Sunshine: brown gets a white outline (Lucia, 2026-11-20).
+                    boxShadow: isSunshineVibe && o.id === "brown" ? "0 0 0 1.5px #ffffff" : undefined,
+                  }}
                 />
                 <span className="font-medium">{o.label}</span>
               </span>
@@ -737,7 +741,11 @@ export function CatalogBrowser({
                 />
                 <span
                   className="h-3.5 w-3.5 rounded-[3px] border border-foreground/20"
-                  style={{ backgroundColor: o.swatch }}
+                  style={{
+                    backgroundColor: o.swatch,
+                    // Sunshine: brown gets a white outline (Lucia, 2026-11-20).
+                    boxShadow: isSunshineVibe && o.id === "brown" ? "0 0 0 1.5px #ffffff" : undefined,
+                  }}
                 />
                 <span className="flex-1 font-medium">{o.label}</span>
                 <span className="text-xs text-muted-foreground">{o.count}</span>

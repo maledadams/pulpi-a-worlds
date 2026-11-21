@@ -1,0 +1,26 @@
+import { describe, expect, it } from "vitest";
+import {
+  PRODUCT_COLOR_PRESETS,
+  getProductColorHex,
+  normalizeProductColorId,
+  normalizeProductColorName,
+} from "@/lib/product-colors";
+
+describe("product colors", () => {
+  it("reads accented names: Marrón is brown, not the light-gray fallback", () => {
+    expect(normalizeProductColorId("Marrón")).toBe("brown");
+    expect(getProductColorHex("Marrón")).toBe("#6f4a2f");
+    expect(normalizeProductColorId("Café")).toBe("brown");
+    expect(normalizeProductColorId("Metálico")).toBe("chrome");
+    expect(normalizeProductColorId("marron")).toBe("brown");
+    // Shown without an accent (Lucia), whatever was typed when it was saved.
+    expect(normalizeProductColorName("Marrón")).toBe("Marron");
+  });
+
+  it("every preset's own label maps back to itself", () => {
+    for (const preset of PRODUCT_COLOR_PRESETS) {
+      expect(normalizeProductColorId(preset.label), preset.label).toBe(preset.id);
+      expect(normalizeProductColorName(preset.label)).toBe(preset.label);
+    }
+  });
+});

@@ -13,7 +13,11 @@ import { formatPrice, type Product } from "@/data/products";
 import { useVibe } from "@/hooks/use-vibe";
 import { trackViewItem } from "@/lib/analytics";
 import { getStorefrontProductBySlug } from "@/lib/catalog";
-import { buildProductColorRecord, normalizeProductColorName } from "@/lib/product-colors";
+import {
+  buildProductColorRecord,
+  normalizeProductColorId,
+  normalizeProductColorName,
+} from "@/lib/product-colors";
 import {
   absoluteSiteUrl,
   buildBreadcrumbJsonLd,
@@ -470,7 +474,7 @@ function ProductDetails({ product }: { product: Product }) {
                               current ? "bg-foreground text-background" : "bg-card"
                             }`}
                           >
-                            <span className="ui-circle h-3 w-3 border" style={{ background: memberColor.hex }} /> {memberColor.name}
+                            <span className="ui-circle h-3 w-3 border" style={{ background: memberColor.hex, boxShadow: product.vibe === "sunshine" && normalizeProductColorId(memberColor.name) === "brown" ? "0 0 0 1.5px #ffffff" : undefined }} /> {memberColor.name}
                           </Link>
                         );
                       })
@@ -482,7 +486,7 @@ function ProductDetails({ product }: { product: Product }) {
                             color === entry.name ? "bg-foreground text-background" : "bg-card"
                           }`}
                         >
-                          <span className="ui-circle h-3 w-3 border" style={{ background: entry.hex }} /> {entry.name}
+                          <span className="ui-circle h-3 w-3 border" style={{ background: entry.hex, boxShadow: product.vibe === "sunshine" && normalizeProductColorId(entry.name) === "brown" ? "0 0 0 1.5px #ffffff" : undefined }} /> {entry.name}
                         </button>
                       ))}
                 </div>
