@@ -724,11 +724,16 @@ export async function listCatalogProductsInternal() {
   return (rows.results ?? []).map(productFromRow).filter((product) => product.vibe !== "pulpina");
 }
 
-export async function listStorefrontCatalogProductsInternal() {
-  const [products, discounts] = await Promise.all([
+export async function listStorefrontCatalogProductsInternal(
+  options: { channel?: "web" | "admin" } = {},
+) {
+  const [products, active] = await Promise.all([
     listCatalogProductsInternal(),
     listActiveDiscountsInternal(),
   ]);
+  // Orders made from admin never get a website-only promotion.
+  const discounts =
+    options.channel === "admin" ? active.filter((discount) => !discount.webOnly) : active;
 
   // A hidden mother hides her whole family. Marked here, at the one source of
   // every storefront list, product page, cart check and checkout lookup.
@@ -743,8 +748,11 @@ export async function getCatalogProductBySlugInternal(slug: string) {
   return products.find((product) => product.slug === slug) ?? null;
 }
 
-export async function getCatalogVariantByIdInternal(variantId: string) {
-  const products = await listStorefrontCatalogProductsInternal();
+export async function getCatalogVariantByIdInternal(
+  variantId: string,
+  options: { channel?: "web" | "admin" } = {},
+) {
+  const products = await listStorefrontCatalogProductsInternal(options);
   for (const product of products) {
     const variant = product.variants.find((candidate) => candidate.id === variantId);
     if (variant) {

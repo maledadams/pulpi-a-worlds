@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { cssColorToRgbTriplet } from "@/lib/theme-css";
 
 type WaveConfig = {
   amplitude: number;
@@ -13,6 +14,7 @@ type WaveConfig = {
   side: "left" | "right";
 };
 
+// Default line color; a theme can change it on general pages (--t-checkout-lines).
 const WAVE_COLOR = "100, 74, 74";
 
 const BASE_WAVES: WaveConfig[] = [
@@ -75,6 +77,11 @@ export function CheckoutSideWaves() {
     let height = 0;
 
     const increments = BASE_WAVES.map((wave) => wave.phase);
+    let waveColor = WAVE_COLOR;
+    const readWaveColor = () => {
+      waveColor =
+        cssColorToRgbTriplet(getComputedStyle(canvas).getPropertyValue("--t-checkout-lines")) ?? WAVE_COLOR;
+    };
 
     const resize = () => {
       const bounds = canvas.getBoundingClientRect();
@@ -84,6 +91,7 @@ export function CheckoutSideWaves() {
       canvas.width = Math.floor(width * dpr);
       canvas.height = Math.floor(height * dpr);
       context.setTransform(dpr, 0, 0, dpr, 0, 0);
+      readWaveColor();
     };
 
     const drawWave = (wave: WaveConfig, phase: number) => {
@@ -100,12 +108,18 @@ export function CheckoutSideWaves() {
       }
 
       context.lineWidth = wave.lineWidth;
-      context.strokeStyle = `rgba(${WAVE_COLOR}, ${wave.opacity})`;
+      context.strokeStyle = `rgba(${waveColor}, ${wave.opacity})`;
       context.stroke();
     };
 
+    let framesSinceColorRead = 0;
     const animate = () => {
       animationFrame = window.requestAnimationFrame(animate);
+      // About once a second, so a theme preview's color change shows without a resize.
+      if (++framesSinceColorRead >= 60) {
+        framesSinceColorRead = 0;
+        readWaveColor();
+      }
       context.clearRect(0, 0, width, height);
 
       BASE_WAVES.forEach((wave, index) => {

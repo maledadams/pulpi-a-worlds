@@ -274,6 +274,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const nextLines = currentLines.filter((line) => getLineAvailability(line).available);
     applyPreviewLines(nextLines);
   };
+  // The subtotal uses each line's current price (the same one the lines show), not the
+  // price saved when it was added: a promotion that starts or ends while someone is
+  // checking out (a theme's discounts at midnight) must change the total they see before
+  // they send the order, which the server prices at that moment anyway.
+  const pricedCart = cart
+    ? {
+        ...cart,
+        subtotal: cart.lines.reduce((sum, line) => sum + getLineAvailability(line).currentPrice * line.quantity, 0),
+      }
+    : cart;
   const availableSubtotal = (cart?.lines ?? []).reduce((sum, line) => {
     const availability = getLineAvailability(line);
     return availability.available
@@ -342,7 +352,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider
       value={{
-        cart,
+        cart: pricedCart,
         lines,
         open,
         loading,

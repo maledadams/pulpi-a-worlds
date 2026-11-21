@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { BarChart3, Boxes, Cake, FolderKanban, LayoutGrid, MessageSquareHeart, Package2, Percent, Settings2, ShoppingBag, Warehouse } from "lucide-react";
+import { BarChart3, Boxes, Cake, FolderKanban, LayoutGrid, MessageSquareHeart, Package2, Palette, Percent, Settings2, ShoppingBag, Warehouse } from "lucide-react";
 import type { ReactNode } from "react";
 import storePineapple from "@/assets/PULPINAGENERALPINA.svg";
 import { AdminConfirmHost } from "@/components/admin/AdminControls";
@@ -23,6 +23,7 @@ const NAV_ITEMS: Array<{
   { section: "encuestas", label: "Encuestas", to: "/admin/encuestas", icon: MessageSquareHeart },
   { section: "descuentos", label: "Promociones", to: "/admin/descuentos", icon: Percent },
   { section: "cumpleanos", label: "Cumpleaños", to: "/admin/cumpleanos", icon: Cake },
+  { section: "temas", label: "Temas", to: "/admin/temas", icon: Palette },
   { section: "configuracion", label: "Configuracion", to: "/admin/configuracion", icon: Settings2 },
 ];
 

@@ -20,6 +20,15 @@
         ],
         "createdAt": "2026-11-17T15:12:54.966Z",
         "reason": "Claude triage: pre-existing opt-in storefront hover wiggle (.wobble-hover, rotate ±3deg with plain ease), not elastic easing and not part of the admin redesign"
+      },
+      {
+        "rule": "bounce-easing",
+        "value": "theme-bounce",
+        "files": [
+          "src/styles.css"
+        ],
+        "createdAt": "2026-11-20T02:33:41.715Z",
+        "reason": "Claude triage: 'Rebota' is a sticker motion Lucia asked for (theme stickers, opt-in per sticker); a bounce is the point of that option"
       }
     ]
   }

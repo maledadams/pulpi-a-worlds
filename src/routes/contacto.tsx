@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ThemeImage } from "@/components/theme/ThemeImage";
 import { Instagram } from "lucide-react";
 import { WhatsAppIcon } from "@/components/layout/Footer";
 import { getStorefrontSettings } from "@/lib/admin-content";
@@ -46,20 +47,22 @@ function Contact() {
       <div className="relative z-10 mx-auto max-w-5xl">
       <div className="text-center">
         <div className="flex items-center justify-center gap-2 lg:gap-6">
-          <img
+          <ThemeImage
+            slot="contact.phoneLeft"
             src={phoneBlack}
             alt=""
             aria-hidden="true"
-            className="h-9 w-9 shrink-0 -rotate-[14deg] object-contain sm:hidden lg:block lg:h-24 lg:w-24"
+            className="h-12 w-12 shrink-0 -rotate-[14deg] object-contain sm:h-16 sm:w-16 lg:h-24 lg:w-24"
           />
           <h1 className="text-4xl sm:text-5xl md:text-7xl" style={{ transform: "none" }}>
             {settings.contactPageTitle}
           </h1>
-          <img
+          <ThemeImage
+            slot="contact.phoneRight"
             src={phoneBlack}
             alt=""
             aria-hidden="true"
-            className="h-9 w-9 shrink-0 -scale-x-100 rotate-[14deg] object-contain sm:hidden lg:block lg:h-24 lg:w-24"
+            className="h-12 w-12 shrink-0 -scale-x-100 rotate-[14deg] object-contain sm:h-16 sm:w-16 lg:h-24 lg:w-24"
           />
         </div>
         <p className="mt-2 w-full text-sm text-muted-foreground sm:text-base">

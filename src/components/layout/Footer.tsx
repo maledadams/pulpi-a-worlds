@@ -1,4 +1,6 @@
 import { Link, useLocation } from "@tanstack/react-router";
+import { ThemeAreaStickers, useAreaHasStickers } from "@/components/theme/ThemeStickers";
+import { ThemeImage } from "@/components/theme/ThemeImage";
 import { Instagram } from "lucide-react";
 import logoMen from "@/assets/pulpinamenwhite.svg";
 import menPineapple from "@/assets/PULPINAMENPINA.svg";
@@ -62,14 +64,15 @@ const FOOTER_THEMES: Record<
   store: {
     accent: "Solicitudes por WhatsApp",
     badge: "General",
-    bg: "bg-[#131313]",
-    border: "border-[#131313]",
-    icon: "bg-[#f0f0f0]/10 hover:bg-[#f0f0f0]/20",
+    // Theme variables (src/lib/theme-tokens.ts, "Footer"); defaults #131313 / #f0f0f0.
+    bg: "bg-[color:var(--t-footer-bg)]",
+    border: "border-[color:var(--t-footer-bg)]",
+    icon: "bg-[color:var(--t-footer-text)]/10 hover:bg-[color:var(--t-footer-text)]/20",
     // Men's pineapple (base-theme redesign), at the general footer's original 80px.
     logo: menPineapple,
     spacing: "mt-16",
-    text: "text-[#f0f0f0]",
-    textSoft: "text-[#f0f0f0]/72",
+    text: "text-[color:var(--t-footer-text)]",
+    textSoft: "text-[color:var(--t-footer-text)]/72",
   },
   moon: {
     accent: "Solicitudes por WhatsApp",
@@ -131,6 +134,9 @@ export function Footer({
   const location = useLocation();
   const themeKey = themeOverride ?? getFooterTheme(location.pathname);
   const theme = FOOTER_THEMES[themeKey];
+  // Theme stickers live only in the general footer (spec §2); the footer becomes a
+  // positioned box only when it has some, so nothing changes without them.
+  const footerStickers = useAreaHasStickers("footer") && themeKey === "store";
   const resolvedSettings: FooterSettings = {
     businessName: "Pulpiña RD",
     supportEmail: "hola@pulpinastore.com",
@@ -199,12 +205,16 @@ export function Footer({
   );
 
   return (
-    <footer className={`${theme.spacing} overflow-hidden border-t-2 ${theme.border} ${theme.bg} ${theme.text}`}>
+    <footer
+      className={`${theme.spacing} overflow-hidden border-t-2 ${theme.border} ${theme.bg} ${theme.text}${footerStickers ? " relative" : ""}`}
+    >
+      {footerStickers ? <ThemeAreaStickers area="footer" /> : null}
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 md:grid-cols-[auto_1fr_auto]">
         <div data-footer-brand className="min-w-max">
           <div className="flex h-full min-h-[7.875rem] items-center gap-4">
             <div className="flex h-[5.5rem] w-[5.5rem] shrink-0 items-center justify-center overflow-hidden" data-footer-logo-slot>
-              <img
+              <ThemeImage
+                slot={themeKey === "store" ? "pineapple.general" : `logo.footer.${themeKey}`}
                 src={theme.logo}
                 alt={theme.badge}
                 className={`${themeKey === "store" ? "h-20 w-20" : "h-full w-full"} object-contain`}

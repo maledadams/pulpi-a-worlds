@@ -1,3 +1,4 @@
+import { TiendaBanner } from "@/components/theme/HomeBanner";
 import { Link } from "@tanstack/react-router";
 import { ChevronDown, ChevronUp, Search, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -345,7 +346,7 @@ export function CatalogBrowser({
     : isSunshineVibe
       ? "border-[#d2a0ca] bg-white text-[#3a0a14] focus:border-[#bb82b2]"
       : isTiendaLook
-        ? "!border-2 border-foreground bg-card focus:border-foreground"
+        ? "!border-2 border-[color:var(--t-outline,var(--foreground))] bg-card"
         : "border-foreground/20 bg-card focus:border-foreground";
   // Moon page: the toolbar's outlines take the Moon footer's hue (styles.css,
   // .moon-tint).
@@ -593,7 +594,7 @@ export function CatalogBrowser({
             isMoonVibe
               ? `${moonBorderClass} ${moonSurfaceClass} ${moonTextClass}`
               : isTiendaLook
-                ? "border-foreground bg-card"
+                ? "border-[color:var(--t-outline,var(--foreground))] bg-card"
                 : "border-foreground/20 bg-card"
           }`}
         >
@@ -877,13 +878,15 @@ export function CatalogBrowser({
         </div>
       ) : (
         <div className={`grid gap-6 md:grid-cols-[240px_1fr] ${wideResults ? "px-4 xl:px-[5cm]" : ""}`}>
+          {/* A theme's long Tienda banner, from the filters to Destacados (nothing without one). */}
+          {wideResults ? <TiendaBanner className="md:col-span-2" /> : null}
           {/* Sidebar — scrollbar contained inside box */}
           {/* Sticky 1rem under whatever part of the header is still on screen
               (--site-header-visible, set by Header) and sized to the rest of
               the screen, so the whole box, top and bottom, stays in view while
               scrolling (owner, 2026-11-18). */}
           <aside className="sticky top-[calc(var(--site-header-visible,5.75rem)+1rem)] hidden self-start md:block">
-            <div className={`h-[calc(100vh/var(--page-zoom)-var(--site-header-visible,5.75rem)-2rem)] overflow-hidden rounded-xl bg-card ${isTiendaLook ? "border-2 border-foreground" : "border border-foreground/15"}`}>
+            <div className={`h-[calc(100vh/var(--page-zoom)-var(--site-header-visible,5.75rem)-2rem)] overflow-hidden rounded-xl bg-card ${isTiendaLook ? "border-2 border-[color:var(--t-outline,var(--foreground))]" : "border border-foreground/15"}`}>
               <div className="h-full overflow-y-scroll overscroll-contain p-4 [scrollbar-gutter:stable]">
                 {filtersPanel}
               </div>

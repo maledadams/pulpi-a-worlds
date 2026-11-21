@@ -101,6 +101,52 @@
   --input: oklch(0.18 0 0 / 0.12);
   --ring: var(--bubblegum);
   --scrollbar-thumb: oklch(0.40 0 0 / 0.30);
+
+  /* Theme engine colors (src/lib/theme-tokens.ts): today's exact values. A theme
+     overrides them only on general pages (src/lib/theme-css.ts). Keep in sync
+     with the token table; theme-css.test.ts checks it. Rootless tokens
+     (--t-outline, --t-header-*, --t-card-border, --t-badge-sale-*...) are not
+     declared here: each reader writes var(--t-x, <today's color>). */
+  --t-text-strong: #1b1b1b;
+  --t-field-bg: #ffffff;
+  --t-text-soft: #6c6c6c;
+  --t-text-soft-2: #5e5e5e;
+  --t-ink-strong: #121212;
+  --t-ink-strong-hover: #2b2b2b;
+  --t-ink-strong-text: #ffffff;
+  --t-card-cart-bg: #ffffff;
+  --t-card-cart-icon: #231717;
+  --t-badge-new-bg: #d9ff6f;
+  --t-badge-new-text: #243011;
+  --t-badge-soldout-text: #ffffff;
+  --t-sale-price: currentColor;
+  --t-hero-start: rgba(7, 7, 8, 0.99);
+  --t-hero-middle: rgba(14, 14, 15, 0.98);
+  --t-hero-end: rgba(22, 22, 24, 0.98);
+  --t-hero-glow-left: rgba(116, 36, 62, 0.26);
+  --t-hero-glow-right: rgba(146, 146, 152, 0.2);
+  --t-footer-bg: #131313;
+  --t-footer-text: #f0f0f0;
+  --t-checkout-lines: rgb(100, 74, 74);
+  --t-checkout-submit: oklch(0.18 0 0);
+  --t-checkout-error: #9a233d;
+  --t-checkout-success: #1f7a43;
+  --t-ann-general-bg: #121212;
+  --t-ann-general-text: #ffffff;
+  --t-ann-general-badge: #121212;
+  --t-ann-general-badge-text: #ffffff;
+  --t-ann-a-bg: #f3e7dc;
+  --t-ann-a-text: #3a1c28;
+  --t-ann-a-badge: #7b1832;
+  --t-ann-a-badge-text: #fff5f8;
+  --t-ann-b-bg: #ff4ea3;
+  --t-ann-b-text: #ffffff;
+  --t-ann-b-badge: #ff4ea3;
+  --t-ann-b-badge-text: #ffffff;
+  --t-ann-c-bg: #8f2015;
+  --t-ann-c-text: #fff7f2;
+  --t-ann-c-badge: #8f2015;
+  --t-ann-c-badge-text: #fff7f2;
 }
 
 /* === SUB-BRAND THEMES === */
@@ -645,4 +691,192 @@ html[data-admin-theme="dark"] .admin-shell .admin-logo {
 @keyframes mega-out {
   from { opacity: 1; translate: 0 0; }
   to { opacity: 0; translate: 0 -0.5rem; }
+}
+
+/* Theme engine: an existing image a theme replaced (src/components/theme/ThemeImage.tsx).
+   Phone values first, desktop from the md breakpoint. The image keeps its own box and
+   object-fit; the theme only moves, scales and rotates it inside that box. */
+.theme-fit {
+  object-position: var(--fit-x, 50%) var(--fit-y, 50%);
+  transform: rotate(var(--fit-rot, 0deg)) scale(var(--fit-scale, 1));
+}
+@media (width >= 60rem) {
+  .theme-fit {
+    object-position: var(--fit-dx, 50%) var(--fit-dy, 50%);
+    transform: rotate(var(--fit-drot, 0deg)) scale(var(--fit-dscale, 1));
+  }
+}
+
+/* Theme engine stickers (src/components/theme/ThemeStickers.tsx). The span places the
+   sticker's center and rotates it; the image inside moves (so the two never fight over
+   transform). Phone values first, desktop from the md breakpoint. */
+.theme-sticker {
+  position: absolute;
+  left: var(--st-x);
+  top: var(--st-y);
+  width: var(--st-w);
+  transform: translate(-50%, -50%) rotate(var(--st-rot));
+  pointer-events: none;
+  user-select: none;
+}
+.theme-sticker-fixed {
+  position: fixed;
+}
+/* Admin editor preview only: stickers can be grabbed and moved. */
+.theme-sticker-draggable {
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+  outline: 1px dashed rgb(0 0 0 / 0.35);
+  outline-offset: 2px;
+}
+/* The sticker being edited: Canva-style blue box with a round handle to resize. */
+.theme-sticker-selected {
+  outline: 2px solid #2f7bff;
+  outline-offset: 2px;
+}
+.theme-sticker-handle {
+  position: absolute;
+  right: -9px;
+  bottom: -9px;
+  width: 14px;
+  height: 14px;
+  /* !important: everything else is square on purpose (see the rule above). */
+  border-radius: 9999px !important;
+  background: #ffffff;
+  border: 2px solid #2f7bff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+  cursor: nwse-resize;
+  touch-action: none;
+}
+.theme-sticker-front {
+  z-index: 30;
+}
+.theme-sticker-behind {
+  z-index: -1;
+}
+.theme-sticker-img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+@media (width < 60rem) {
+  .theme-sticker-desktop-only {
+    display: none;
+  }
+}
+@media (width >= 60rem) {
+  .theme-sticker {
+    left: var(--st-dx);
+    top: var(--st-dy);
+    width: var(--st-dw);
+    transform: translate(-50%, -50%) rotate(var(--st-drot));
+  }
+}
+.theme-motion-float {
+  animation: theme-float 6s ease-in-out infinite;
+}
+.theme-motion-sway {
+  animation: theme-sway 5s ease-in-out infinite;
+  transform-origin: 50% 0;
+}
+.theme-motion-drift {
+  animation: theme-drift 14s ease-in-out infinite alternate;
+}
+.theme-motion-fall {
+  animation: theme-fall 9s linear infinite;
+}
+.theme-motion-bounce {
+  animation: theme-bounce 1.6s cubic-bezier(0.3, 0, 0.4, 1) infinite;
+}
+.theme-motion-spin {
+  animation: theme-spin 8s linear infinite;
+}
+.theme-motion-pulse {
+  animation: theme-pulse 2.4s ease-in-out infinite;
+}
+.theme-motion-wiggle {
+  animation: theme-wiggle 2.8s ease-in-out infinite;
+}
+.theme-sticker-img[data-offscreen] {
+  animation-play-state: paused;
+}
+@keyframes theme-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8%); }
+}
+@keyframes theme-sway {
+  0%, 100% { transform: rotate(-5deg); }
+  50% { transform: rotate(5deg); }
+}
+@keyframes theme-drift {
+  from { transform: translateX(-40%); }
+  to { transform: translateX(40%); }
+}
+@keyframes theme-bounce {
+  0%, 100% { transform: translateY(0); }
+  45% { transform: translateY(-18%); }
+  60% { transform: translateY(0) scale(1.04, 0.96); }
+}
+@keyframes theme-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes theme-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+}
+@keyframes theme-wiggle {
+  0%, 70%, 100% { transform: rotate(0deg); }
+  75% { transform: rotate(-9deg); }
+  80% { transform: rotate(8deg); }
+  85% { transform: rotate(-6deg); }
+  90% { transform: rotate(4deg); }
+}
+@keyframes theme-fall {
+  0% { transform: translateY(-60%); opacity: 0; }
+  15%, 85% { opacity: 1; }
+  100% { transform: translateY(60%); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-sticker-img {
+    animation: none !important;
+  }
+}
+
+/* Admin sliders (theme editor): a real track and a thumb big enough to grab. */
+.admin-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 1.5rem;
+  background: transparent;
+  cursor: pointer;
+}
+.admin-range::-webkit-slider-runnable-track {
+  height: 6px;
+  background: var(--admin-line-strong, #8885);
+}
+.admin-range::-moz-range-track {
+  height: 6px;
+  background: var(--admin-line-strong, #8885);
+}
+.admin-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -7px;
+  border-radius: 9999px !important;
+  background: var(--admin-select, #3b82f6);
+  border: 2px solid var(--admin-surface, #fff);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+}
+.admin-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px !important;
+  background: var(--admin-select, #3b82f6);
+  border: 2px solid var(--admin-surface, #fff);
+}
+.admin-range:focus-visible {
+  outline: 2px solid var(--admin-select, #3b82f6);
+  outline-offset: 2px;
 }

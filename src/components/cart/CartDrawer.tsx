@@ -37,18 +37,18 @@ const CART_DRAWER_THEME: Record<
   store: {
     shell: "bg-background",
     listArea: "bg-muted",
-    itemText: "text-[#1b1b1b]",
+    itemText: "text-[color:var(--t-text-strong)]",
     shellBorder: "border-foreground/10",
     shellText: "text-foreground",
     shellSoftText: "text-muted-foreground",
     surface: "bg-card",
     // Base theme: each product has the 2px black outline used on the tienda cards.
-    surfaceBorder: "!border-2 border-foreground",
+    surfaceBorder: "!border-2 border-[color:var(--t-card-border,var(--foreground))]",
     imageBorder: "border-foreground/20",
     imageFallback: "bg-muted text-foreground/40",
     // Base theme: the quantity pill looks like the header dropdown buttons.
     qty: "border-foreground/15 bg-muted text-muted-foreground",
-    primaryButton: "bg-foreground text-background hover:opacity-90",
+    primaryButton: "bg-[color:var(--t-btn-dark,var(--foreground))] text-[color:var(--t-btn-dark-text,var(--background))] hover:opacity-90",
     barBg: "",
     barText: "",
     barSoft: "text-muted-foreground",
@@ -281,7 +281,7 @@ export function CartDrawer({ theme = "store" }: { theme?: CartDrawerTheme }) {
             className={`space-y-3 px-4 py-4 ${theme === "store" ? "border-t" : "border-t-2"} ${palette.divider} ${palette.barBg} ${palette.barText}`}
           >
             {cart.hasUnavailableLines ? (
-              <p className="border border-[#121212] bg-[#121212]/10 p-2 text-xs font-bold text-current">
+              <p className="border border-[color:var(--t-ink-strong)] bg-[color:var(--t-ink-strong)]/10 p-2 text-xs font-bold text-current">
                 Quita los productos fuera de stock antes de enviar la solicitud.
               </p>
             ) : null}

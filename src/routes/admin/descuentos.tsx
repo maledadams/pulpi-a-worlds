@@ -17,12 +17,28 @@ import { useAdminAutosave } from "@/hooks/use-admin-autosave";
 import { enforceAdminAccess } from "@/lib/admin-access";
 import { getAdminErrorMessage } from "@/lib/admin-errors";
 import { matchesAdminSearch } from "@/lib/admin-search";
-import { deleteAdminDiscount, getAdminCategories, getAdminDiscounts, saveAdminDiscount } from "@/lib/admin-content";
+import {
+  deleteAdminDiscount,
+  getAdminCategories,
+  getAdminCollections,
+  getAdminDiscounts,
+  getAdminSettingsRecord,
+  saveAdminDiscount,
+} from "@/lib/admin-content";
+import { getAdminThemeDiscountLinks, listAdminThemeAssets } from "@/lib/themes";
+import { PromoBannerFields } from "@/components/admin/PromoBannerFields";
+import { PromoAnnouncements } from "@/components/admin/PromoAnnouncements";
+import type { LibraryAsset } from "@/components/admin/themes/ThemeEditorParts";
+import { useCatalogProducts } from "@/context/catalog";
 import { getVibeLabel } from "@/lib/admin-service";
 import type { AdminCategoryRecord, AdminDiscountRecord } from "@/lib/admin-types";
 
 function cloneDiscount(discount: AdminDiscountRecord): AdminDiscountRecord {
-  return { ...discount, categoryIds: [...discount.categoryIds] };
+  return {
+    ...discount,
+    categoryIds: [...discount.categoryIds],
+    banner: discount.banner ? { ...discount.banner } : null,
+  };
 }
 
 function discountTitle(discount: AdminDiscountRecord) {
@@ -58,15 +74,36 @@ function createBlankDiscount(): AdminDiscountRecord {
 export const Route = createFileRoute("/admin/descuentos")({
   beforeLoad: () => enforceAdminAccess(),
   loader: async () => {
-    const [discounts, categories] = await Promise.all([getAdminDiscounts(), getAdminCategories()]);
-    return { discounts, categories };
+    const [discounts, categories, themeLinks, library, collections, settings] = await Promise.all([
+      getAdminDiscounts(),
+      getAdminCategories(),
+      getAdminThemeDiscountLinks(),
+      // Promotion banners use the theme image library.
+      listAdminThemeAssets(),
+      getAdminCollections(),
+      getAdminSettingsRecord(),
+    ]);
+    return {
+      discounts,
+      categories,
+      themeLinks,
+      library,
+      collections,
+      announcements: settings.announcements,
+    };
   },
   head: () => ({ meta: [{ title: "Admin - Promociones" }] }),
   component: AdminDiscountsPage,
 });
 
 function AdminDiscountsPage() {
-  const { discounts, categories } = Route.useLoaderData();
+  const { discounts, categories, themeLinks, library, collections, announcements: savedAnnouncements } =
+    Route.useLoaderData();
+  const [announcements, setAnnouncements] = useState(savedAnnouncements);
+  const [assets, setAssets] = useState<LibraryAsset[]>(library);
+  const products = useCatalogProducts();
+  // Discounts a published theme owns turn on and off with it (theme engine spec §5.9).
+  const themeLink = (id: string) => themeLinks[id];
   const [rows, setRows] = useState(() => sortDiscounts(discounts.map(cloneDiscount)));
   const [selectedId, setSelectedId] = useState(discounts[0]?.id ?? "");
   const [query, setQuery] = useState("");
@@ -239,7 +276,13 @@ function AdminDiscountsPage() {
                         {discount.kind === "code" ? discount.label || "Sin nombre" : "Promoción automática"}
                       </div>
                     </div>
-                    <AdminTag tone={discount.active ? "success" : "warn"}>{discount.active ? "Activo" : "Pausado"}</AdminTag>
+                    {themeLink(discount.id) ? (
+                      <AdminTag tone={themeLink(discount.id)!.on ? "success" : "warn"}>
+                        {themeLink(discount.id)!.on ? "Activo" : "Pausado"} · Tema
+                      </AdminTag>
+                    ) : (
+                      <AdminTag tone={discount.active ? "success" : "warn"}>{discount.active ? "Activo" : "Pausado"}</AdminTag>
+                    )}
                   </div>
                   <div className="mt-4 text-2xl font-semibold">
                     {discount.type === "percentage" ? `${discount.value}%` : `RD$${discount.value}`}
@@ -257,6 +300,7 @@ function AdminDiscountsPage() {
                       <AdminTag tone="dark">{discount.categoryIds.length} categorías</AdminTag>
                     ) : null}
                     {discount.kind === "code" && discount.onePerCustomer ? <AdminTag tone="dark">1 x cliente</AdminTag> : null}
+                    {discount.webOnly ? <AdminTag tone="info">Solo web</AdminTag> : null}
                     {discount.kind === "code" && discount.maxRedemptions !== null ? (
                       <AdminTag tone="info">Limite {discount.maxRedemptions}</AdminTag>
                     ) : null}
@@ -389,12 +433,59 @@ function AdminDiscountsPage() {
                 </>
               )}
 
-              <AdminCheckbox
-                label="Descuento activo"
-                hint={draft.kind === "code" ? "El codigo se puede usar en el checkout." : "El precio con descuento se muestra en la tienda ahora mismo."}
-                checked={draft.active}
-                onCheckedChange={(checked) => setDraft((current) => (current ? { ...current, active: checked } : current))}
+              <AdminSectionLabel>Anuncios de esta promoción</AdminSectionLabel>
+              {draft.id.startsWith("draft-discount-") ? (
+                <p className="text-xs text-[var(--admin-muted)]">
+                  Primero ponle nombre o código; cuando se guarde, puedes agregarle anuncios.
+                </p>
+              ) : (
+                <PromoAnnouncements
+                  discountId={draft.id}
+                  announcements={announcements}
+                  onSaved={(saved) => {
+                    setAnnouncements(saved);
+                    showSaveMessage("Anuncios guardados.", "success");
+                  }}
+                  onError={(message) => showSaveMessage(message, "error")}
+                />
+              )}
+
+              <AdminSectionLabel>Banner</AdminSectionLabel>
+              <PromoBannerFields
+                banner={draft.banner}
+                onChange={(banner) => setDraft((current) => (current ? { ...current, banner } : current))}
+                assets={assets}
+                onUploaded={(asset) => setAssets((current) => [asset, ...current])}
+                onError={(message) => showSaveMessage(message, "error")}
+                collections={collections}
+                products={products}
               />
+
+              {draft.kind === "promotion" ? (
+                <AdminCheckbox
+                  label="Solo en la web"
+                  hint="El precio rebajado sale solo en la tienda online. Los pedidos que creas desde el admin (WhatsApp, Instagram, en tienda) llevan el precio normal."
+                  checked={Boolean(draft.webOnly)}
+                  onCheckedChange={(checked) => setDraft((current) => (current ? { ...current, webOnly: checked } : current))}
+                />
+              ) : null}
+
+              {themeLink(draft.id) ? (
+                <AdminCheckbox
+                  label="Descuento activo"
+                  hint={`Controlado por el tema ${themeLink(draft.id)!.themes.join(", ")}: se enciende y se apaga solo con el tema. Ahora está ${themeLink(draft.id)!.on ? "activo" : "pausado"}.`}
+                  checked={themeLink(draft.id)!.on}
+                  onCheckedChange={() => undefined}
+                  disabled
+                />
+              ) : (
+                <AdminCheckbox
+                  label="Descuento activo"
+                  hint={draft.kind === "code" ? "El codigo se puede usar en el checkout." : "El precio con descuento se muestra en la tienda ahora mismo."}
+                  checked={draft.active}
+                  onCheckedChange={(checked) => setDraft((current) => (current ? { ...current, active: checked } : current))}
+                />
+              )}
             </div>
           ) : (
             <AdminEmptyState

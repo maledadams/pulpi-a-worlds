@@ -7,7 +7,7 @@ import { OrderFeedbackForm } from "@/components/order/OrderFeedbackForm";
 import { useCatalogProducts } from "@/context/catalog";
 import { useCart } from "@/context/cart";
 import { formatPrice } from "@/data/products";
-import { trackPurchase } from "@/lib/analytics";
+import { analyticsCoupon, trackPurchase } from "@/lib/analytics";
 import { submitManualOrder } from "@/lib/manual-orders";
 import {
   normalizeOrderEmail,
@@ -110,6 +110,8 @@ function InquiryPage() {
   const [turnstileVersion, setTurnstileVersion] = useState(0);
   const [discountCode, setDiscountCode] = useState("");
   const [appliedDiscountCode, setAppliedDiscountCode] = useState("");
+  // Only for analytics: birthday codes are per person, so Google gets "CUMPLEANOS" instead.
+  const [appliedDiscountKind, setAppliedDiscountKind] = useState<"general" | "birthday" | "">("");
   const [appliedDiscountToken, setAppliedDiscountToken] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState(0);
   const [discountStatus, setDiscountStatus] = useState("");
@@ -267,7 +269,7 @@ function InquiryPage() {
                   const image = product?.featuredImage ?? variant?.image ?? null;
 
                   return (
-                    <div key={`${line.variantId}-${line.quantity}`} className="rounded-2xl border border-foreground bg-card p-3">
+                    <div key={`${line.variantId}-${line.quantity}`} className="min-w-0 rounded-2xl border border-foreground bg-card p-3">
                       <div className="flex items-start gap-4">
                         {image ? (
                           <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-foreground/20">
@@ -282,13 +284,17 @@ function InquiryPage() {
                             <span className="font-display">{line.productName.slice(0, 2).toUpperCase()}</span>
                           </div>
                         )}
-                        <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
+                        {/* Phones: the price goes under the name, so a long name or price never
+                            pushes the box past the page (Lucia, 2026-11-19). */}
+                        <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                           <div className="min-w-0">
                             <div className="leading-tight">{line.productName}</div>
                             <div className="mt-1 text-xs text-muted-foreground">{line.variantLabel}</div>
                             <div className="mt-2 text-xs text-muted-foreground">Cantidad: {line.quantity}</div>
                           </div>
-                          <div className="text-right">{formatPrice(line.unitPrice * line.quantity)}</div>
+                          <div className="whitespace-nowrap sm:text-right">
+                            {formatPrice(line.unitPrice * line.quantity)}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -335,7 +341,7 @@ function InquiryPage() {
 
           <Link
             to="/tienda"
-            className="mt-5 flex w-full items-center justify-center rounded-full bg-foreground px-5 py-4 text-sm font-bold uppercase tracking-wider text-white"
+            className="mt-5 flex w-full items-center justify-center rounded-full bg-[color:var(--t-btn-dark,var(--foreground))] px-5 py-4 text-sm font-bold uppercase tracking-wider text-[color:var(--t-ink-strong-text)]"
           >
             Volver a la tienda
           </Link>
@@ -347,12 +353,12 @@ function InquiryPage() {
   if (cart.lines.length > 0 && cart.hasUnavailableLines) {
     return (
       <div className="mx-auto max-w-lg px-4 py-20 text-center">
-        <ShoppingBag className="mx-auto h-10 w-10 text-[#121212]" />
+        <ShoppingBag className="mx-auto h-10 w-10 text-[color:var(--t-ink-strong)]" />
         <h1 className="mt-4 font-body text-3xl font-bold">Revisa tu carrito</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Hay productos agotados o eliminados. No se pueden incluir en la solicitud.
         </p>
-        <Link to="/carrito" className="mt-6 inline-block bg-foreground px-6 py-3 text-sm font-bold uppercase text-white">
+        <Link to="/carrito" className="mt-6 inline-block bg-[color:var(--t-btn-dark,var(--foreground))] px-6 py-3 text-sm font-bold uppercase text-[color:var(--t-ink-strong-text)]">
           Volver al carrito
         </Link>
       </div>
@@ -372,7 +378,7 @@ function InquiryPage() {
         <p className="mt-2 text-sm text-muted-foreground">Agrega productos antes de crear un pedido.</p>
         <Link
           to="/tienda"
-          className="mt-6 inline-block rounded-xl bg-foreground px-6 py-3 text-sm font-bold uppercase tracking-wider text-white"
+          className="mt-6 inline-block rounded-xl bg-[color:var(--t-btn-dark,var(--foreground))] px-6 py-3 text-sm font-bold uppercase tracking-wider text-[color:var(--t-ink-strong-text)]"
         >
           Ir a la tienda
         </Link>
@@ -490,6 +496,11 @@ function InquiryPage() {
                       price: line.unitPrice,
                       quantity: line.quantity,
                     })),
+                    coupon:
+                      result.order.discount > 0
+                        ? analyticsCoupon(appliedDiscountCode, appliedDiscountKind)
+                        : undefined,
+                    discountValue: result.order.discount,
                   });
                   setCustomerEmail("");
                   setCustomerName("");
@@ -529,8 +540,8 @@ function InquiryPage() {
                   maxLength={ORDER_FIELD_LIMITS.name}
                   autoComplete="name"
                   placeholder="Tu nombre"
-                  className={`w-full rounded-2xl border bg-white px-4 py-3 text-[#1b1b1b] caret-[#1b1b1b] placeholder:text-[#6c6c6c] ${
-                    fieldErrors.customerName ? "border-red-500" : "border-[#1b1b1b]/15"
+                  className={`w-full rounded-2xl border bg-[color:var(--t-field-bg)] px-4 py-3 text-[color:var(--t-text-strong)] caret-[color:var(--t-text-strong)] placeholder:text-[color:var(--t-text-soft)] ${
+                    fieldErrors.customerName ? "border-red-500" : "border-[color:var(--t-text-strong)]/15"
                   }`}
                   onChange={(event) => {
                     setCustomerName(event.target.value);
@@ -547,8 +558,8 @@ function InquiryPage() {
                   autoComplete="email"
                   autoCapitalize="none"
                   placeholder="Tu correo"
-                  className={`w-full rounded-2xl border bg-white px-4 py-3 text-[#1b1b1b] caret-[#1b1b1b] placeholder:text-[#6c6c6c] ${
-                    fieldErrors.customerEmail ? "border-red-500" : "border-[#1b1b1b]/15"
+                  className={`w-full rounded-2xl border bg-[color:var(--t-field-bg)] px-4 py-3 text-[color:var(--t-text-strong)] caret-[color:var(--t-text-strong)] placeholder:text-[color:var(--t-text-soft)] ${
+                    fieldErrors.customerEmail ? "border-red-500" : "border-[color:var(--t-text-strong)]/15"
                   }`}
                   onChange={(event) => {
                     setCustomerEmail(event.target.value);
@@ -566,18 +577,18 @@ function InquiryPage() {
 
             <div>
               <div
-                className={`flex w-full items-center rounded-2xl border bg-white px-4 py-3 text-[#1b1b1b] ${
-                  fieldErrors.customerPhone ? "border-red-500" : "border-[#1b1b1b]/15"
+                className={`flex w-full items-center rounded-2xl border bg-[color:var(--t-field-bg)] px-4 py-3 text-[color:var(--t-text-strong)] ${
+                  fieldErrors.customerPhone ? "border-red-500" : "border-[color:var(--t-text-strong)]/15"
                 }`}
               >
-                <span className="mr-2 shrink-0 text-[#6c6c6c]">+1</span>
+                <span className="mr-2 shrink-0 text-[color:var(--t-text-soft)]">+1</span>
                 <input
                   type="tel"
                   inputMode="numeric"
                   autoComplete="tel"
                   value={customerPhone}
                   placeholder="(809) 000-0000"
-                  className="w-full bg-transparent text-[#1b1b1b] caret-[#1b1b1b] placeholder:text-[#6c6c6c] focus:outline-none"
+                  className="w-full bg-transparent text-[color:var(--t-text-strong)] caret-[color:var(--t-text-strong)] placeholder:text-[color:var(--t-text-soft)] focus:outline-none"
                   onChange={(event) => {
                     setCustomerPhone((previous) => formatPhoneInput(event.target.value, previous));
                     if (fieldErrors.customerPhone) setFieldErrors((prev) => ({ ...prev, customerPhone: undefined }));
@@ -591,7 +602,7 @@ function InquiryPage() {
               <input
                 value={discountCode}
                 placeholder="Código de descuento"
-                className="w-full rounded-2xl border border-[#1b1b1b]/15 bg-white px-4 py-3 uppercase text-[#1b1b1b] caret-[#1b1b1b] placeholder:normal-case placeholder:text-[#6c6c6c]"
+                className="w-full rounded-2xl border border-[color:var(--t-text-strong)]/15 bg-[color:var(--t-field-bg)] px-4 py-3 uppercase text-[color:var(--t-text-strong)] caret-[color:var(--t-text-strong)] placeholder:normal-case placeholder:text-[color:var(--t-text-soft)]"
                 onChange={(event) => {
                   setDiscountCode(event.target.value.toUpperCase());
                   setAppliedDiscountCode("");
@@ -603,7 +614,7 @@ function InquiryPage() {
               <button
                 type="button"
                 disabled={applyingDiscount || !discountCode.trim() || !customerEmail.trim()}
-                className="border border-[#1b1b1b] bg-[#1b1b1b] px-5 py-3 text-sm font-bold uppercase text-[#f5f5f5] disabled:cursor-not-allowed disabled:opacity-45"
+                className="border border-[color:var(--t-btn-dark,#1b1b1b)] bg-[color:var(--t-btn-dark,#1b1b1b)] text-[color:var(--t-btn-dark-text,#f5f5f5)] px-5 py-3 text-sm font-bold uppercase disabled:cursor-not-allowed disabled:opacity-45"
                 onClick={() => {
                   const email = normalizeOrderEmail(customerEmail);
                   if (!ORDER_EMAIL_PATTERN.test(email)) {
@@ -632,6 +643,7 @@ function InquiryPage() {
                       setDiscountOk(result.ok);
                       if (result.ok) {
                         setAppliedDiscountCode(result.code);
+                        setAppliedDiscountKind(result.kind);
                         setAppliedDiscountToken(birthdayToken);
                         setAppliedDiscount(result.discount);
                       }
@@ -658,12 +670,12 @@ function InquiryPage() {
                 onClick={() => setFulfillmentMethod("pickup")}
                 className={`rounded-2xl border px-4 py-4 text-left transition ${
                   fulfillmentMethod === "pickup"
-                    ? "border-[#1b1b1b] bg-[#1b1b1b] text-[#f5f5f5]"
-                    : "border-[#1b1b1b]/15 bg-white text-[#1b1b1b]"
+                    ? "border-[color:var(--t-btn-dark,#1b1b1b)] bg-[color:var(--t-btn-dark,#1b1b1b)] text-[color:var(--t-btn-dark-text,#f5f5f5)]"
+                    : "border-[color:var(--t-text-strong)]/15 bg-[color:var(--t-field-bg)] text-[color:var(--t-text-strong)]"
                 }`}
               >
                 <div className="text-sm font-bold">Recoger</div>
-                <div className={`mt-1 text-xs ${fulfillmentMethod === "pickup" ? "text-[#f5f5f5]/75" : "text-[#5e5e5e]"}`}>
+                <div className={`mt-1 text-xs ${fulfillmentMethod === "pickup" ? "text-[color:var(--t-btn-dark-text,#f5f5f5)]/75" : "text-[color:var(--t-text-soft-2)]"}`}>
                   Sin costo adicional.
                 </div>
               </button>
@@ -672,12 +684,12 @@ function InquiryPage() {
                 onClick={() => setFulfillmentMethod("delivery")}
                 className={`rounded-2xl border px-4 py-4 text-left transition ${
                   fulfillmentMethod === "delivery"
-                    ? "border-[#1b1b1b] bg-[#1b1b1b] text-[#f5f5f5]"
-                    : "border-[#1b1b1b]/15 bg-white text-[#1b1b1b]"
+                    ? "border-[color:var(--t-btn-dark,#1b1b1b)] bg-[color:var(--t-btn-dark,#1b1b1b)] text-[color:var(--t-btn-dark-text,#f5f5f5)]"
+                    : "border-[color:var(--t-text-strong)]/15 bg-[color:var(--t-field-bg)] text-[color:var(--t-text-strong)]"
                 }`}
               >
                 <div className="text-sm font-bold">Delivery</div>
-                <div className={`mt-1 text-xs ${fulfillmentMethod === "delivery" ? "text-[#f5f5f5]/75" : "text-[#5e5e5e]"}`}>
+                <div className={`mt-1 text-xs ${fulfillmentMethod === "delivery" ? "text-[color:var(--t-btn-dark-text,#f5f5f5)]/75" : "text-[color:var(--t-text-soft-2)]"}`}>
                   Agrega direccion. El monto se confirma luego.
                 </div>
               </button>
@@ -690,8 +702,8 @@ function InquiryPage() {
                     value={addressLine1}
                     maxLength={ORDER_FIELD_LIMITS.address}
                     placeholder="Calle, numero, sector o referencia (ej: Calle Duarte #45, apto 3B)"
-                    className={`w-full rounded-2xl border bg-white px-4 py-3 text-[#1b1b1b] caret-[#1b1b1b] placeholder:text-[#6c6c6c] ${
-                      fieldErrors.addressLine1 ? "border-red-500" : "border-[#1b1b1b]/15"
+                    className={`w-full rounded-2xl border bg-[color:var(--t-field-bg)] px-4 py-3 text-[color:var(--t-text-strong)] caret-[color:var(--t-text-strong)] placeholder:text-[color:var(--t-text-soft)] ${
+                      fieldErrors.addressLine1 ? "border-red-500" : "border-[color:var(--t-text-strong)]/15"
                     }`}
                     onChange={(event) => {
                       setAddressLine1(event.target.value);
@@ -705,8 +717,8 @@ function InquiryPage() {
                     value={addressCity}
                     maxLength={ORDER_FIELD_LIMITS.city}
                     placeholder="Ciudad"
-                    className={`w-full rounded-2xl border bg-white px-4 py-3 text-[#1b1b1b] caret-[#1b1b1b] placeholder:text-[#6c6c6c] ${
-                      fieldErrors.addressCity ? "border-red-500" : "border-[#1b1b1b]/15"
+                    className={`w-full rounded-2xl border bg-[color:var(--t-field-bg)] px-4 py-3 text-[color:var(--t-text-strong)] caret-[color:var(--t-text-strong)] placeholder:text-[color:var(--t-text-soft)] ${
+                      fieldErrors.addressCity ? "border-red-500" : "border-[color:var(--t-text-strong)]/15"
                     }`}
                     onChange={(event) => {
                       setAddressCity(event.target.value);
@@ -718,9 +730,9 @@ function InquiryPage() {
                 <div>
                   <select
                     value={addressProvince}
-                    className={`w-full rounded-2xl border bg-white px-4 py-3 text-[#1b1b1b] ${
-                      addressProvince ? "" : "text-[#6c6c6c]"
-                    } ${fieldErrors.addressProvince ? "border-red-500" : "border-[#1b1b1b]/15"}`}
+                    className={`w-full rounded-2xl border bg-[color:var(--t-field-bg)] px-4 py-3 text-[color:var(--t-text-strong)] ${
+                      addressProvince ? "" : "text-[color:var(--t-text-soft)]"
+                    } ${fieldErrors.addressProvince ? "border-red-500" : "border-[color:var(--t-text-strong)]/15"}`}
                     onChange={(event) => {
                       setAddressProvince(event.target.value);
                       if (fieldErrors.addressProvince) setFieldErrors((prev) => ({ ...prev, addressProvince: undefined }));
@@ -745,7 +757,7 @@ function InquiryPage() {
               value={notes}
               maxLength={ORDER_FIELD_LIMITS.notes}
               placeholder="Notas opcionales: horario, referencia, dudas de talla, etc."
-              className="w-full rounded-2xl border border-[#1b1b1b]/15 bg-white px-4 py-3 text-[#1b1b1b] caret-[#1b1b1b] placeholder:text-[#6c6c6c]"
+              className="w-full rounded-2xl border border-[color:var(--t-text-strong)]/15 bg-[color:var(--t-field-bg)] px-4 py-3 text-[color:var(--t-text-strong)] caret-[color:var(--t-text-strong)] placeholder:text-[color:var(--t-text-soft)]"
               onChange={(event) => setNotes(event.target.value)}
             />
 
@@ -756,7 +768,7 @@ function InquiryPage() {
                 href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent("Hola, quiero hacer un pedido y la pagina no me deja completarlo.")}`}
                 target="_blank"
                 rel="noreferrer"
-                className="text-sm font-semibold text-[#1f7a43] underline underline-offset-2"
+                className="text-sm font-semibold text-[color:var(--t-checkout-success)] underline underline-offset-2"
               >
                 ¿Sigue sin funcionar? Escribenos por WhatsApp y lo completamos contigo.
               </a>
@@ -764,7 +776,7 @@ function InquiryPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="mt-auto inline-flex items-center justify-center rounded-full bg-foreground px-5 py-3 text-sm font-bold uppercase tracking-wider text-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-auto inline-flex items-center justify-center rounded-full bg-[color:var(--t-checkout-submit)] px-5 py-3 text-sm font-bold uppercase tracking-wider text-[color:var(--t-btn-dark-text,#ffffff)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting ? "Creando pedido..." : "Completar pedido"}
             </button>

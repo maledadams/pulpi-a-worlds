@@ -1,4 +1,7 @@
+import { formatCountdown, splitCountdownText } from "@/lib/announcement-schedule";
 import { Link, useLocation } from "@tanstack/react-router";
+import { ThemeAreaStickers } from "@/components/theme/ThemeStickers";
+import { ThemeImage } from "@/components/theme/ThemeImage";
 import { ShoppingBag, Search, Menu, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { StorePineapple } from "@/components/branding/StorePineapple";
@@ -24,7 +27,31 @@ import {
 type StoreAnnouncement = {
   id: string;
   text: string;
+  /** Countdown target (UTC ISO), set in Temas › Anuncios. */
+  countdownTo?: string | null;
 };
+
+/** "Termina en 2d 14:03:09": the clock ticks every second, in place of {cuenta} or at the end. */
+function CountdownText({ text, target }: { text: string; target: string }) {
+  const end = Date.parse(target);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const [before, after] = splitCountdownText(text);
+  return (
+    <>
+      {before}
+      {/* Server and browser render a second apart; the browser's tick takes over. */}
+      <span className="font-bold tabular-nums" suppressHydrationWarning>
+        {formatCountdown(end - now)}
+      </span>
+      {after}
+    </>
+  );
+}
 
 type AnnouncementTheme = {
   background: string;
@@ -239,43 +266,45 @@ function CategoryCircle({
 }
 
 /* ── Header ─────────────────────────────────────── */
+// Bar colors are theme variables (src/lib/theme-tokens.ts, "Anuncios"); their
+// defaults in styles.css are the colors these classes had.
 function getAnnouncementTheme(themeKey: AnnouncementThemeKey): AnnouncementTheme {
   if (themeKey === "sunshine") {
     return {
-      background: "bg-[#ff4ea3]",
+      background: "bg-[color:var(--t-ann-b-bg)]",
       border: "border-transparent",
-      text: "text-white",
-      badgeBackground: "bg-[#ff4ea3]",
-      badgeText: "text-white",
+      text: "text-[color:var(--t-ann-b-text)]",
+      badgeBackground: "bg-[color:var(--t-ann-b-badge)]",
+      badgeText: "text-[color:var(--t-ann-b-badge-text)]",
     };
   }
 
   if (themeKey === "moon") {
     return {
-      background: "bg-[#f3e7dc]",
+      background: "bg-[color:var(--t-ann-a-bg)]",
       border: "border-transparent",
-      text: "text-[#3a1c28]",
-      badgeBackground: "bg-[#7b1832]",
-      badgeText: "text-[#fff5f8]",
+      text: "text-[color:var(--t-ann-a-text)]",
+      badgeBackground: "bg-[color:var(--t-ann-a-badge)]",
+      badgeText: "text-[color:var(--t-ann-a-badge-text)]",
     };
   }
 
   if (themeKey === "men") {
     return {
-      background: "bg-[#8f2015]",
+      background: "bg-[color:var(--t-ann-c-bg)]",
       border: "border-transparent",
-      text: "text-[#fff7f2]",
-      badgeBackground: "bg-[#8f2015]",
-      badgeText: "text-[#fff7f2]",
+      text: "text-[color:var(--t-ann-c-text)]",
+      badgeBackground: "bg-[color:var(--t-ann-c-badge)]",
+      badgeText: "text-[color:var(--t-ann-c-badge-text)]",
     };
   }
 
   return {
-    background: "bg-[#121212]",
+    background: "bg-[color:var(--t-ann-general-bg)]",
     border: "border-transparent",
-    text: "text-white",
-    badgeBackground: "bg-[#121212]",
-    badgeText: "text-white",
+    text: "text-[color:var(--t-ann-general-text)]",
+    badgeBackground: "bg-[color:var(--t-ann-general-badge)]",
+    badgeText: "text-[color:var(--t-ann-general-badge-text)]",
   };
 }
 
@@ -317,7 +346,11 @@ function AnnouncementBar({ announcements, theme }: { announcements: StoreAnnounc
           bar and shoves the rest of the page down - it just crops instead. */}
       <div className="mx-auto max-h-10 max-w-7xl overflow-hidden text-center sm:max-h-none">
         <div key={active.id} className="announcement-fade font-body text-sm leading-5 sm:text-[0.95rem]">
-          {active.text}
+          {active.countdownTo && Number.isFinite(Date.parse(active.countdownTo)) ? (
+            <CountdownText text={active.text} target={active.countdownTo} />
+          ) : (
+            active.text
+          )}
         </div>
       </div>
     </div>
@@ -535,7 +568,7 @@ export function Header({
     <header
       ref={headerRef}
       data-vibe={hoverStore ?? undefined}
-      className={`site-header sticky top-0 bg-background text-foreground ${
+      className={`site-header sticky top-0 bg-[color:var(--t-header-bg,var(--background))] text-foreground ${
         renderedMega ? "z-[99999]" : "z-40"
       }`}
       onMouseLeave={handleMouseLeaveHeader}
@@ -543,7 +576,7 @@ export function Header({
       {/* ── Top bar ── */}
       {/* Full-width, with the header's own background: the mega panel's extra
           strip (below) tucks behind this row, out of sight. */}
-      <div className="relative z-20 bg-background">
+      <div className="relative z-20 bg-[color:var(--t-header-bg,var(--background))]">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4">
         {/* Logo */}
         <Link to="/" className="flex shrink-0 items-center gap-2 -mr-[2.2rem]">
@@ -577,8 +610,8 @@ export function Header({
                 }}
                 className={`ui-nav-rounded px-3 py-1.5 text-sm font-semibold transition-colors ${
                   active || megaActive
-                    ? "bg-foreground text-background"
-                    : `text-muted-foreground ${hoverCls}`
+                    ? "bg-[color:var(--t-header-active-bg,var(--foreground))] text-[color:var(--t-header-active-text,var(--background))]"
+                    : `text-[color:var(--t-header-text,var(--muted-foreground))] ${hoverCls}`
                 }`}
               >
                 {n.label}
@@ -589,12 +622,12 @@ export function Header({
 
         {/* Icons */}
         <div className="flex items-center gap-1">
-          <Link to="/tienda" className="rounded-full p-2 text-muted-foreground" aria-label="Buscar">
+          <Link to="/tienda" className="rounded-full p-2 text-[color:var(--t-header-text,var(--muted-foreground))]" aria-label="Buscar">
             <Search className="h-5 w-5" />
           </Link>
           <button
             onClick={() => cart.setOpen(true)}
-            className="relative rounded-full p-2 text-muted-foreground"
+            className="relative rounded-full p-2 text-[color:var(--t-header-text,var(--muted-foreground))]"
             aria-label="Carrito"
           >
             <ShoppingBag className="h-5 w-5" />
@@ -608,7 +641,7 @@ export function Header({
           </button>
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className={`rounded-full p-2 text-muted-foreground md:hidden ${hoverCls}`}
+            className={`rounded-full p-2 text-[color:var(--t-header-text,var(--muted-foreground))] md:hidden ${hoverCls}`}
             aria-label="Menú"
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -644,7 +677,7 @@ export function Header({
           // resolve against this data-vibe.
           data-vibe={currentMega && VIBE_PANEL[currentMega.key] ? currentMega.key : undefined}
           style={{
-            background: "var(--background)",
+            background: "var(--t-dropdown-bg, var(--background))",
             borderBottom: "1px solid var(--border)",
             // Under the nav row (z-20) so the extra strip hides behind it,
             // over the announcement bar.
@@ -675,6 +708,8 @@ export function Header({
 
           return (
             <div className="mx-auto max-w-7xl px-4 pb-5 pt-9">
+              {/* Theme stickers: only the general panel on general pages (spec §2). */}
+              {!vs && isBaseTheme ? <ThemeAreaStickers area="dropdown" /> : null}
               {/* ── Section tabs ── */}
               <div className={`mb-5 flex flex-wrap items-center gap-1.5 border-b pb-4 ${borderDiv}`}>
                 {(["tienda","moon","sunshine","men","nuevo","oferta"] as MegaKey[]).map((key) => {
@@ -711,7 +746,8 @@ export function Header({
                 {/* 1 — Vibe logo (left column, only for vibe sections) */}
                 {vs && (
                   <div className="vibe-mega-logo flex items-center justify-start pl-2">
-                    <img
+                    <ThemeImage
+                      slot={`logo.${currentMega.key as "moon" | "sunshine" | "men"}`}
                       src={vs.logo}
                       alt={currentMega.label}
                       loading="lazy"
@@ -814,7 +850,7 @@ export function Header({
 
       {/* ── Mobile menu ── */}
       {mobileOpen && (
-        <div className="border-t border-foreground/10 bg-background px-4 py-3 md:hidden">
+        <div className="border-t border-foreground/10 bg-[color:var(--t-header-bg,var(--background))] px-4 py-3 md:hidden">
           <nav className="grid gap-0.5">
             {navItems.map((n) => {
               const active = n.to === "/" ? loc.pathname === "/" : loc.pathname === n.to || loc.pathname.startsWith(`${n.to}/`);
@@ -826,7 +862,9 @@ export function Header({
                       to={n.to}
                       onClick={() => !n.children && setMobileOpen(false)}
                       className={`ui-nav-rounded flex-1 px-3 py-2.5 text-sm font-semibold transition-colors ${
-                        active ? "bg-foreground text-background" : hoverCls
+                        active
+                          ? "bg-[color:var(--t-header-active-bg,var(--foreground))] text-[color:var(--t-header-active-text,var(--background))]"
+                          : hoverCls
                       }`}
                     >
                       {n.label}

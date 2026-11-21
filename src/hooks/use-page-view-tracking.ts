@@ -39,6 +39,8 @@ export function usePageViewTracking() {
     // this size that traffic would drown out the actual customers.
     const url = new URL(href, window.location.origin);
     if (isAdminRoutePath(url.pathname)) return;
+    // So is the admin theme editor's preview frame (the store is never framed otherwise).
+    if (window.self !== window.top) return;
 
     trackPageView({
       page_location: url.href,

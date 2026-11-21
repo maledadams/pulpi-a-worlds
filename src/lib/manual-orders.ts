@@ -396,6 +396,8 @@ async function buildCanonicalLines(
   lines: ManualOrderInput["lines"],
   enforceStock = true,
   previousLines: CanonicalManualOrderLine[] = [],
+  /** "admin": orders made from admin (WhatsApp, Instagram, in store) skip website-only promos. */
+  channel: "web" | "admin" = "web",
 ) {
   const consolidated = new Map<string, number>();
 
@@ -407,7 +409,7 @@ async function buildCanonicalLines(
 
   const resolved = await Promise.all(
     Array.from(consolidated.entries()).map(async ([variantId, quantity]) => ({
-      canonical: await getCatalogVariantByIdInternal(variantId),
+      canonical: await getCatalogVariantByIdInternal(variantId, { channel }),
       previous: previousByVariant.get(variantId),
       quantity,
     })),
@@ -1014,7 +1016,7 @@ async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>
       throw new Error("La orden no existe.");
     }
 
-    const canonicalLines = await buildCanonicalLines(input.lines, false, current.lines);
+    const canonicalLines = await buildCanonicalLines(input.lines, false, current.lines, "admin");
     const next = cloneInquiry({
       ...buildInquiryRecord({
         channel: input.channel,
@@ -1128,7 +1130,12 @@ async function updateOrderInternal(input: z.infer<typeof adminOrderUpdateSchema>
     status: normalizeOrderStatus(existing.status),
   });
 
-  const canonicalLines = await buildCanonicalLines(input.lines, false, previousRecord.lines);
+  const canonicalLines = await buildCanonicalLines(
+    input.lines,
+    false,
+    previousRecord.lines,
+    "admin",
+  );
   const nextRecord = buildInquiryRecord({
     channel: input.channel,
     closedAt: getNextClosedAt(previousRecord, input.status),
@@ -2082,7 +2089,7 @@ export const createAdminManualOrder = createServerFn({ method: "POST" })
 
     setResponseHeader("Cache-Control", "private, no-store");
 
-    const lines = await buildCanonicalLines(data.lines);
+    const lines = await buildCanonicalLines(data.lines, true, [], "admin");
     const record =
       (await createOrderInDatabase(data, lines)) ??
       (await createOrderInMemory(data, lines));

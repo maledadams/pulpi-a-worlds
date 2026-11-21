@@ -1,0 +1,81 @@
+{
+  "format": "pulpina-theme",
+  "version": 2,
+  "exportedAt": "2026-11-21T00:07:09.904Z",
+  "theme": {
+    "schemaVersion": 1,
+    "name": "Cyber Monday",
+    "colors": {
+      "background": "#f5f9ff",
+      "foreground": "#0e1a2e",
+      "muted-foreground": "#46566f",
+      "muted": "#e3ecfa",
+      "border": "rgba(14, 26, 46, 0.12)",
+      "outline": "#0e1a2e",
+      "field-background": "#ffffff",
+      "header-background": "#ffffff",
+      "header-text": "#46566f",
+      "card": "#ffffff",
+      "card-foreground": "#0e1a2e",
+      "card-border": "#0b3d91",
+      "card-cart-background": "#ffffff",
+      "card-cart-icon": "#0e1a2e",
+      "badge-sale-background": "#0b3d91",
+      "badge-sale-text": "#ffffff",
+      "badge-new-background": "#bfeeff",
+      "badge-new-text": "#063a52",
+      "ink-strong": "#0b3d91",
+      "ink-strong-text": "#ffffff",
+      "hero-start": "#020a1c",
+      "hero-middle": "#0a2a63",
+      "hero-end": "#020a1c",
+      "hero-edge": "#020a1c",
+      "hero-glow-left": "rgba(0, 200, 255, 0.34)",
+      "hero-glow-right": "rgba(120, 90, 255, 0.24)",
+      "footer-background": "#0a2a63",
+      "footer-text": "#ffffff",
+      "checkout-lines": "#0b3d91",
+      "announcement.general.background": "#0b3d91",
+      "announcement.general.text": "#ffffff"
+    },
+    "slots": {},
+    "stickers": {},
+    "heroEffect": {
+      "preset": "sparkles",
+      "particleAsset": null,
+      "density": "medium",
+      "speed": "medium",
+      "phone": true,
+      "heroes": {
+        "home": true,
+        "moon": false,
+        "sunshine": false,
+        "men": false
+      }
+    },
+    "heroWave": null,
+    "homeBanners": [],
+    "tiendaBanners": [],
+    "favicon": null,
+    "shareImage": null,
+    "discountIds": [
+      "cm-todo"
+    ]
+  },
+  "discounts": [
+    {
+      "ref": "cm-todo",
+      "kind": "promotion",
+      "code": "",
+      "label": "Cyber Monday: 50% en toda la web (solo en la web)",
+      "type": "percentage",
+      "value": 50,
+      "scope": "store",
+      "categories": [],
+      "maxRedemptions": null,
+      "onePerCustomer": false,
+      "webOnly": true
+    }
+  ],
+  "images": []
+}

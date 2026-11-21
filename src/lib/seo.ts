@@ -41,6 +41,11 @@ type SeoOptions = {
   type?: "website" | "product";
 };
 
+/** The site's default link preview image; a theme can swap it (src/server.ts). */
+export function defaultShareImageUrl() {
+  return absoluteSiteUrl(defaultShareImage);
+}
+
 export function absoluteSiteUrl(path: string) {
   return new URL(path, SITE_URL).toString();
 }

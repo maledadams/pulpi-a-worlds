@@ -1,0 +1,68 @@
+{
+  "format": "pulpina-theme",
+  "version": 2,
+  "exportedAt": "2026-11-21T00:07:09.905Z",
+  "theme": {
+    "schemaVersion": 1,
+    "name": "Verano",
+    "colors": {
+      "background": "#fffbf2",
+      "foreground": "#22201a",
+      "muted-foreground": "#5d5545",
+      "muted": "#fff0cf",
+      "border": "rgba(34, 32, 26, 0.12)",
+      "outline": "#22201a",
+      "field-background": "#ffffff",
+      "header-background": "#ffffff",
+      "header-text": "#5d5545",
+      "card": "#ffffff",
+      "card-foreground": "#22201a",
+      "card-border": "#0b7285",
+      "card-cart-background": "#ffffff",
+      "card-cart-icon": "#22201a",
+      "badge-sale-background": "#c2410c",
+      "badge-sale-text": "#ffffff",
+      "badge-new-background": "#ffe08a",
+      "badge-new-text": "#4a3500",
+      "ink-strong": "#0b7285",
+      "ink-strong-text": "#ffffff",
+      "hero-start": "#032a33",
+      "hero-middle": "#0b5f73",
+      "hero-end": "#032a33",
+      "hero-edge": "#032a33",
+      "hero-glow-left": "rgba(255, 200, 60, 0.38)",
+      "hero-glow-right": "rgba(80, 210, 230, 0.3)",
+      "footer-background": "#0b5f73",
+      "footer-text": "#ffffff",
+      "checkout-lines": "#0b7285",
+      "announcement.general.background": "#0b5f73",
+      "announcement.general.text": "#ffffff"
+    },
+    "slots": {},
+    "stickers": {},
+    "heroEffect": {
+      "preset": "sparkles",
+      "particleAsset": null,
+      "density": "medium",
+      "speed": "slow",
+      "phone": true,
+      "heroes": {
+        "home": true,
+        "moon": false,
+        "sunshine": false,
+        "men": false
+      }
+    },
+    "heroWave": {
+      "line": "#ffc933",
+      "fill": null
+    },
+    "homeBanners": [],
+    "tiendaBanners": [],
+    "favicon": null,
+    "shareImage": null,
+    "discountIds": []
+  },
+  "discounts": [],
+  "images": []
+}

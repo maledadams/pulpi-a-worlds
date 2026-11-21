@@ -2,6 +2,7 @@ import generalPineapple from "@/assets/PULPINAGENERALPINA.svg";
 import menPineapple from "@/assets/PULPINAMENPINA.svg";
 import moonPineapple from "@/assets/PULPINAMOONPINA.svg";
 import sunshinePineapple from "@/assets/PULPINASUNSHINEPINA.svg";
+import { ThemeImage } from "@/components/theme/ThemeImage";
 
 export type StorePineappleTheme = "store" | "moon" | "sunshine" | "men";
 
@@ -20,7 +21,8 @@ export function StorePineapple({
   className?: string;
 }) {
   return (
-    <img
+    <ThemeImage
+      slot={theme === "store" ? "pineapple.general" : `pineapple.${theme}`}
       src={PINEAPPLE_BY_THEME[theme]}
       alt=""
       aria-hidden="true"

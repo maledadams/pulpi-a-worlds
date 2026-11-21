@@ -33,7 +33,7 @@ function CartPage() {
           </p>
           <Link
             to="/tienda"
-            className="mt-5 inline-block rounded-full bg-[#121212] px-6 py-3 font-bold uppercase text-white shadow-none transition-colors hover:bg-[#2b2b2b]"
+            className="mt-5 inline-block rounded-full bg-[color:var(--t-ink-strong)] px-6 py-3 font-bold uppercase text-[color:var(--t-ink-strong-text)] shadow-none transition-colors hover:bg-[color:var(--t-ink-strong-hover)]"
           >
             Ir a la tienda
           </Link>
@@ -41,7 +41,7 @@ function CartPage() {
       ) : (
         <div className="mt-8">
           {cart.hasUnavailableLines ? (
-            <div id="productos-no-disponibles" className="mb-4 border border-[#121212] bg-[#121212]/10 p-4 text-sm">
+            <div id="productos-no-disponibles" className="mb-4 border border-[color:var(--t-ink-strong)] bg-[color:var(--t-ink-strong)]/10 p-4 text-sm">
               <div className="font-bold">Hay productos agotados o eliminados en tu carrito.</div>
               <div className="mt-1 text-muted-foreground">
                 No se incluiran en el total. Quitalos antes de completar el pedido.
@@ -111,7 +111,7 @@ function CartPage() {
                     ) : null}
                   </div>
                   {!availability.available ? (
-                    <div className="mt-2 text-sm font-bold text-[#9a233d]">Fuera de stock · {availabilityMessage}</div>
+                    <div className="mt-2 text-sm font-bold text-[color:var(--t-checkout-error)]">Fuera de stock · {availabilityMessage}</div>
                   ) : null}
                   <div className="mt-3 flex flex-wrap items-center gap-3">
                     <div className="ui-quantity-pill flex items-center overflow-hidden border border-foreground/20 bg-background">
@@ -196,8 +196,8 @@ function CartPage() {
               disabled={cart.loading}
               className={`mt-5 block w-full rounded-full border border-foreground/20 px-6 py-3 text-center font-bold uppercase shadow-none transition-transform hover:-translate-y-0.5 hover:shadow-none disabled:cursor-wait ${
                 cart.hasUnavailableLines
-                  ? "bg-[#121212] text-white"
-                  : "bg-foreground text-white"
+                  ? "bg-[color:var(--t-ink-strong)] text-[color:var(--t-ink-strong-text)]"
+                  : "bg-[color:var(--t-btn-dark,var(--foreground))] text-[color:var(--t-ink-strong-text)]"
               }`}
             >
               {cart.loading
