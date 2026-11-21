@@ -84,10 +84,14 @@ function startDrag(
     picked.sticker.anchor === "viewport"
       ? { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight }
       : isScreenMeasured(picked)
-        ? // Page stickers: across = % of the page width, down = % of one screen from the
-          // page's top (Lucia, 2026-11-21). The screen is measured in the frame's own units,
-          // so the page zoom can't throw it off.
-          { left: frame.left, top: frame.top, width: frame.width, height: screenHeightIn(element) }
+        ? // Page stickers: across = % of the page width; down = % of 1280 page pixels (780 on
+          // phones) from the page's top, like .theme-sticker-page in styles.css.
+          {
+            left: frame.left,
+            top: frame.top,
+            width: frame.width,
+            height: pagePixelsIn(element, desktop ? 1280 : 780),
+          }
         : frame;
   const percent = (value: number) => Math.round(value * 10) / 10;
   const position = (clientX: number, clientY: number) => ({
@@ -199,18 +203,17 @@ function useSelectedSticker(key: string, enabled: boolean) {
   return selected;
 }
 
-/** Page-anchored stickers of the page itself (not the footer's or dropdown's): height in screens. */
+/** Page-anchored stickers of the page itself (not the footer's or dropdown's): height in page pixels. */
 function isScreenMeasured(picked: PickedSticker) {
   return picked.sticker.anchor === "page" && !CONTAINED_AREAS.includes(picked.area);
 }
 
-/** One screen's height, in the same units as the element's container. */
-function screenHeightIn(element: HTMLElement) {
+/** How tall `px` of the page's own pixels are on screen (the page zoom included). */
+function pagePixelsIn(element: HTMLElement, px: number) {
   const probe = document.createElement("div");
-  probe.style.cssText =
-    "position:absolute;top:0;left:0;width:1px;height:calc(100vh / var(--page-zoom, 1));visibility:hidden;pointer-events:none";
+  probe.style.cssText = `position:absolute;top:0;left:0;width:1px;height:${px}px;visibility:hidden;pointer-events:none`;
   (element.offsetParent ?? document.body).appendChild(probe);
-  const height = probe.getBoundingClientRect().height || window.innerHeight;
+  const height = probe.getBoundingClientRect().height || px;
   probe.remove();
   return height;
 }

@@ -85,7 +85,7 @@ describe("stickerStyle", () => {
       "--st-y": "2%",
       "--st-w": "16%",
       "--st-rot": "-5deg",
-      // Page stickers read the height as a number of screens (Lucia, 2026-11-21).
+      // Page stickers read the height as a plain number (measured in page pixels).
       "--st-yn": "2",
       "--st-dx": "92%",
       "--st-dy": "4%",
