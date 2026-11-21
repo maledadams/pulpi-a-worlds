@@ -1,8 +1,11 @@
 import { Link } from "@tanstack/react-router";
 import { ShoppingBasket } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useCart } from "@/context/cart";
+import { useCatalogProducts } from "@/context/catalog";
+import { familyColorsOf } from "@/lib/product-families";
+import { normalizeProductColorId } from "@/lib/product-colors";
 import type { Product } from "@/data/products";
 import { formatPrice, isOnSale } from "@/data/products";
 
@@ -111,23 +114,39 @@ export function ProductCard({
           : product.vibe === "men"
             ? "text-[#3a0808]"
             : "text-[#1b1b1b]";
-  const colors =
-    product.colors ??
-    (product.options.find((option) => option.name === "Color")?.values ?? []).map(
-      (name, index) => ({
-        name,
-        hex: product.swatch[index % product.swatch.length],
-      }),
-    );
+  // Every color the product comes in, its sub-products' too (Lucia, 2026-11-20): up to
+  // 4 dots, then "+N" so shoppers know there are more before opening it.
+  const catalog = useCatalogProducts();
+  const colors = useMemo(() => familyColorsOf(product, catalog), [product, catalog]);
   const onlyVariant = product.variants.length === 1 ? product.variants[0] : null;
-  const colorSwatches = colors.slice(0, 5).map((color, index) => (
-    <span
-      key={`${color.name}-${index}`}
-      className={`ui-circle h-3 w-3 ${isMoonCard ? "border border-[#f2e9e1]/12" : "border border-foreground/15"}`}
-      style={{ backgroundColor: color.hex }}
-      title={color.name}
-    />
-  ));
+  const onSunshine = outlineVibe === "sunshine" || (!outlineVibe && visualVibe === "sunshine");
+  const colorSwatches = (
+    <>
+      {colors.slice(0, 4).map((color, index) => (
+        <span
+          key={`${color.name}-${index}`}
+          className={`ui-circle h-3 w-3 ${isMoonCard ? "border border-[#f2e9e1]/12" : "border border-foreground/15"}`}
+          style={{
+            backgroundColor: color.hex,
+            // Sunshine: brown gets a white outline so it never melts into the dark page.
+            boxShadow:
+              onSunshine && normalizeProductColorId(color.name) === "brown"
+                ? "0 0 0 1.5px #ffffff"
+                : undefined,
+          }}
+          title={color.name}
+        />
+      ))}
+      {colors.length > 4 ? (
+        <span
+          className="text-[11px] font-bold leading-none opacity-70"
+          title={colors.slice(4).map((color) => color.name).join(", ")}
+        >
+          +{colors.length - 4}
+        </span>
+      ) : null}
+    </>
+  );
 
   useEffect(() => () => noticeTimers.current.forEach((timer) => window.clearTimeout(timer)), []);
 

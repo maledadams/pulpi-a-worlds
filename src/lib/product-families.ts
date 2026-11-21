@@ -142,3 +142,46 @@ export function convertChildBlock(
   if (pickedColors.has(color)) return "Ya elegiste otro producto con ese color.";
   return null;
 }
+
+type SwatchColor = { name: string; hex: string };
+
+/** A product's own colors: its color list, else its Color option with its swatch colors. */
+export function ownColorsOf(product: Product): SwatchColor[] {
+  return (
+    product.colors ??
+    (product.options.find((option) => option.name === "Color")?.values ?? []).map(
+      (name, index) => ({ name, hex: product.swatch[index % product.swatch.length]! }),
+    )
+  );
+}
+
+const familyColorIndex = new WeakMap<Product[], Map<string, SwatchColor[]>>();
+
+/**
+ * Every color a product comes in, for its card (Lucia, 2026-11-20): with sub-products each
+ * color is its own product and the store shows one per family, so the card used to show
+ * only that one color. Its own colors come first, then the rest of its visible family's,
+ * once each. Indexed once per catalog list.
+ */
+export function familyColorsOf(product: Product, catalog: Product[]): SwatchColor[] {
+  let index = familyColorIndex.get(catalog);
+  if (!index) {
+    index = new Map();
+    const mothers = mothersById(catalog);
+    for (const member of catalog) {
+      if (!isFamilyVisible(member, mothers)) continue;
+      const id = familyIdOf(member);
+      index.set(id, [...(index.get(id) ?? []), ...ownColorsOf(member)]);
+    }
+    familyColorIndex.set(catalog, index);
+  }
+  const seen = new Set<string>();
+  const result: SwatchColor[] = [];
+  for (const color of [...ownColorsOf(product), ...(index.get(familyIdOf(product)) ?? [])]) {
+    const key = normalizeProductColorName(color.name).toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(color);
+  }
+  return result;
+}
