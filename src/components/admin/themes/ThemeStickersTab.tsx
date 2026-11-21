@@ -153,7 +153,14 @@ export function ThemeStickersTab(shared: Shared) {
                   ))}
                 </AdminSelect>
               </AdminField>
-              <AdminField label="Capa">
+              <AdminField
+                label="Capa"
+                hint={
+                  sticker.layer === "behind"
+                    ? "Detrás, la tienda lo tapa donde hay fondo (el hero, las tarjetas). En la vista previa sale transparente y marcado para que lo muevas."
+                    : undefined
+                }
+              >
                 <AdminSelect
                   value={sticker.layer}
                   onChange={(event) =>
@@ -161,7 +168,7 @@ export function ThemeStickersTab(shared: Shared) {
                   }
                 >
                   <option value="front">Delante del contenido</option>
-                  <option value="behind">Detrás del contenido</option>
+                  <option value="behind">Detrás del contenido (solo donde no hay fondo)</option>
                 </AdminSelect>
               </AdminField>
               <div className="flex items-end">

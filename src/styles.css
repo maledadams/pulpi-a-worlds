@@ -752,6 +752,25 @@ html[data-admin-theme="dark"] .admin-shell .admin-logo {
 .theme-sticker-front {
   z-index: 30;
 }
+/* Editor preview only: a "behind" sticker comes forward, see-through, so it can be found
+   and moved; on the store it stays behind the content. */
+.theme-sticker-behind.theme-sticker-preview-behind {
+  z-index: 30;
+  opacity: 0.55;
+  outline: 2px dashed #2f7bff;
+  outline-offset: 2px;
+}
+.theme-sticker-preview-behind::after {
+  content: "Detrás";
+  position: absolute;
+  left: 0;
+  top: -1.4em;
+  padding: 0 0.35em;
+  font: 600 11px/1.4 system-ui, sans-serif;
+  color: #ffffff;
+  background: #2f7bff;
+  white-space: nowrap;
+}
 .theme-sticker-behind {
   z-index: -1;
 }

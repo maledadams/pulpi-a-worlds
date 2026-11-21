@@ -184,7 +184,12 @@ function StickerItem({ picked, asset }: { picked: PickedSticker; asset: ThemeAss
       aria-hidden="true"
       className={
         previewing
-          ? `${classes} theme-sticker-draggable${selected ? " theme-sticker-selected" : ""}`
+          ? `${classes} theme-sticker-draggable${selected ? " theme-sticker-selected" : ""}${
+              // Behind the content it is covered wherever the page has a background of its
+              // own, so the editor could neither show nor grab it (Lucia, 2026-11-21). In the
+              // preview it comes forward, see-through and marked; the store keeps it behind.
+              sticker.layer === "behind" ? " theme-sticker-preview-behind" : ""
+            }`
           : classes
       }
       style={stickerStyle(sticker)}
