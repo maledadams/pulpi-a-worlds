@@ -391,22 +391,7 @@ function Home() {
       ))}
 
       <section className="relative overflow-hidden border-y-2 border-foreground/15 bg-muted px-4 py-14 text-center">
-        {/* Phones (Lucia, 2026-11-20): the party hats too, in their own row above the title;
-            four pictures beside it don't fit at phone width. */}
-        <div className="relative z-10 mb-1 flex justify-center gap-24 sm:hidden" aria-hidden="true">
-          <ThemeImage
-            slot="home.birthday.partyHatLeft"
-            src={partyHat}
-            alt=""
-            className="h-14 w-14 shrink-0 -rotate-[16deg] object-contain"
-          />
-          <ThemeImage
-            slot="home.birthday.partyHatRight"
-            src={partyHatTwo}
-            alt=""
-            className="h-14 w-14 shrink-0 rotate-[16deg] object-contain"
-          />
-        </div>
+        {/* No party hats on phones (Lucia, 2026-11-21): only the cakes there. */}
         <div className="relative z-10 flex items-center justify-center gap-3 lg:gap-6">
           <ThemeImage
             slot="home.birthday.cakeLeft"
