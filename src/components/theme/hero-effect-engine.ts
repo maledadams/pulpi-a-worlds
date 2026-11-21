@@ -213,7 +213,8 @@ export function startHeroEffect(canvas: HTMLCanvasElement, options: HeroEffectOp
   const pick = () => sprites[Math.floor(Math.random() * sprites.length)]!;
 
   function spawn(initial: boolean): Particle {
-    const size = random(10, 22) * (device.isPhone ? 0.8 : 1);
+    // ~1.5x bigger than before (Lucia, 2026-11-21: "muy chiquitos").
+    const size = random(16, 32) * (device.isPhone ? 0.8 : 1);
     const preset = effect.preset;
     const rising = preset === "hearts";
     const twinkle = preset === "sparkles";
@@ -244,20 +245,21 @@ export function startHeroEffect(canvas: HTMLCanvasElement, options: HeroEffectOp
     const reach = random(0.6, 1.25);
     for (let index = 0; index < sparks; index++) {
       const angle = (Math.PI * 2 * index) / sparks + random(-0.15, 0.15);
-      const velocity = random(110, 230) * reach * speed;
+      // The whole burst is ~1.5x wider than before (Lucia, 2026-11-21).
+      const velocity = random(170, 340) * reach * speed;
       particles.push({
         x,
         y,
         vx: Math.cos(angle) * velocity,
         vy: Math.sin(angle) * velocity,
-        size: random(8, 15),
+        size: random(12, 22),
         rotation: 0,
         spin: 0,
         phase: 0,
         sprite: color,
         alpha: 1,
         life: 0,
-        maxLife: random(1.1, 2.1),
+        maxLife: random(1.3, 2.4),
       });
     }
   }
