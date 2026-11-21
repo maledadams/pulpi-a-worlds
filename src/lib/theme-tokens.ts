@@ -18,6 +18,7 @@ export type ThemeTokenGroup =
   | "Tarjetas de producto"
   | "Botones"
   | "Hero de inicio"
+  | "Botones de tiendas (teléfono)"
   | "Footer"
   | "Anuncios"
   | "Checkout";
@@ -383,6 +384,40 @@ export const THEME_TOKENS: ThemeToken[] = [
     cssVar: "--t-hero-glow-right",
     default: "rgba(146, 146, 152, 0.2)",
   }),
+
+  // The three store buttons of "Elige tu Tienda" on phones (Lucia, 2026-11-21), each on its
+  // own. Rootless: the button carries today's color as its fallback. Vars use a/b/c, like
+  // the announcement bars, so no general token is named after a sub-brand.
+  ...([
+    ["moon", "Moon", "a", "#7b1832", "#fff5f8"],
+    ["sunshine", "Sunshine", "b", "#ff4ea3", "#ffffff"],
+    ["men", "Men", "c", "#615b5b", "#ffffff"],
+  ] as const).flatMap(([id, name, letter, fill, text]) => [
+    general({
+      id: `store-button.${id}.background`,
+      label: `Botón ${name}: fondo`,
+      group: "Botones de tiendas (teléfono)",
+      cssVar: `--t-store-${letter}-bg`,
+      default: fill,
+      rootless: true,
+    }),
+    general({
+      id: `store-button.${id}.text`,
+      label: `Botón ${name}: texto`,
+      group: "Botones de tiendas (teléfono)",
+      cssVar: `--t-store-${letter}-text`,
+      default: text,
+      rootless: true,
+    }),
+    general({
+      id: `store-button.${id}.outline`,
+      label: `Botón ${name}: borde`,
+      group: "Botones de tiendas (teléfono)",
+      cssVar: `--t-store-${letter}-outline`,
+      default: "#ffffff",
+      rootless: true,
+    }),
+  ]),
 
   // Footer on general pages (Footer.tsx, base palette).
   general({
