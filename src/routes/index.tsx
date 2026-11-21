@@ -99,21 +99,25 @@ const VIBES_EDITORIAL = [
     to: "/moon" as const,
     name: "Moon",
     images: [moon1, moon2, moon3],
-    // Each store's own color, for the phone buttons.
-    button: "bg-[#7b1832] text-[#fff5f8]",
+    // Each store's own colors for the phone buttons; a theme can change each one (Colores ›
+    // Botones de tiendas).
+    button:
+      "bg-[color:var(--t-store-a-bg,#7b1832)] text-[color:var(--t-store-a-text,#fff5f8)] outline-[color:var(--t-store-a-outline,#ffffff)]",
   },
   {
     to: "/sunshine" as const,
     name: "Sunshine",
     images: [sunshine1, sunshine2, sunshine3],
-    button: "bg-[#ff4ea3] text-white",
+    button:
+      "bg-[color:var(--t-store-b-bg,#ff4ea3)] text-[color:var(--t-store-b-text,#ffffff)] outline-[color:var(--t-store-b-outline,#ffffff)]",
   },
   {
     to: "/men" as const,
     name: "Men",
     images: [men1, men2, men3],
     // Lucia (2026-11-20): Men's button is the gray of its logo's ring, not its red.
-    button: "bg-[#615b5b] text-white",
+    button:
+      "bg-[color:var(--t-store-c-bg,#615b5b)] text-[color:var(--t-store-c-text,#ffffff)] outline-[color:var(--t-store-c-outline,#ffffff)]",
   },
 ] as const;
 
@@ -336,7 +340,9 @@ function Home() {
               <Link
                 key={vibe.to}
                 to={vibe.to}
-                className={`flex w-full max-w-[19rem] items-center justify-center gap-2 py-4 text-lg font-black uppercase tracking-[0.22em] shadow-[0_10px_24px_-12px_rgb(0_0_0/0.6)] transition-transform active:scale-[0.98] ${vibe.button}`}
+                // 2 px outline around the outside, white unless a theme changes it (Lucia,
+                // 2026-11-21); outside, so the buttons keep their size.
+                className={`flex w-full max-w-[19rem] items-center justify-center gap-2 py-4 text-lg font-black uppercase tracking-[0.22em] shadow-[0_10px_24px_-12px_rgb(0_0_0/0.6)] outline outline-2 outline-offset-0 transition-transform active:scale-[0.98] ${vibe.button}`}
               >
                 {vibe.name}
                 <ArrowRight className="h-5 w-5" />
