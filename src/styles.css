@@ -644,6 +644,8 @@ html[data-admin-theme="dark"] .admin-shell .admin-logo {
   }
   @media (prefers-reduced-motion: reduce) {
     .announcement-fade { animation: none; }
+    /* No sliding for them: a long line wraps instead of being cut off. */
+    .announcement-line { white-space: normal; flex-shrink: 1; text-align: center; }
   }
 
   /* ---- Header: colors never animate (owner, 2026-11-18) ----

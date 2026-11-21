@@ -308,44 +308,76 @@ function getAnnouncementTheme(themeKey: AnnouncementThemeKey): AnnouncementTheme
   };
 }
 
+// How a line too long for the bar is shown (Lucia, 2026-11-21): it pops in like the others,
+// waits a moment to be read, slides to its end at a steady pace, holds 0.5s, then the next
+// one comes in. The bar stays one line tall, so nothing below it ever shifts.
+const ANNOUNCEMENT_HOLD_MS = 4200;
+const ANNOUNCEMENT_READ_MS = 1200;
+const ANNOUNCEMENT_END_MS = 500;
+const ANNOUNCEMENT_PX_PER_S = 55;
+
 function AnnouncementBar({ announcements, theme }: { announcements: StoreAnnouncement[]; theme: AnnouncementTheme }) {
   const [activeIndex, setActiveIndex] = useState(0);
+  // Counts every turn, so a lone long announcement pops in and scrolls again.
+  const [turn, setTurn] = useState(0);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const lineRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setActiveIndex(0);
   }, [announcements]);
 
   useEffect(() => {
-    if (announcements.length <= 1) {
-      return;
-    }
-
-    const interval = window.setInterval(() => {
+    const frame = frameRef.current;
+    const line = lineRef.current;
+    if (!frame || !line) return;
+    const next = () => {
       setActiveIndex((current) => (current + 1) % announcements.length);
-    }, 4200);
-
-    return () => window.clearInterval(interval);
-  }, [announcements]);
+      setTurn((current) => current + 1);
+    };
+    const overflow = line.scrollWidth - frame.clientWidth;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (overflow <= 1 || reduced || typeof line.animate !== "function") {
+      if (announcements.length <= 1) return;
+      const timer = window.setTimeout(next, ANNOUNCEMENT_HOLD_MS);
+      return () => window.clearTimeout(timer);
+    }
+    const animation = line.animate(
+      [{ transform: "translateX(0)" }, { transform: `translateX(${-overflow}px)` }],
+      {
+        duration: (overflow / ANNOUNCEMENT_PX_PER_S) * 1000,
+        delay: ANNOUNCEMENT_READ_MS,
+        easing: "linear",
+        fill: "forwards",
+      },
+    );
+    let timer = 0;
+    animation.onfinish = () => {
+      timer = window.setTimeout(next, ANNOUNCEMENT_END_MS);
+    };
+    return () => {
+      animation.cancel();
+      window.clearTimeout(timer);
+    };
+  }, [announcements, activeIndex, turn]);
 
   if (announcements.length === 0) {
     return null;
   }
 
-  // Only the active announcement is ever in the DOM - stacking every
-  // announcement in the same grid cell (even hidden ones) made the bar's
-  // height match whichever announcement was tallest, so a one-line message
-  // still reserved two lines of space whenever any other rotating message
-  // wrapped to two lines. Rendering just the active one lets the bar's
-  // height follow its own line count instead.
+  // Only the active announcement is ever in the DOM, one line tall.
   const active = announcements[activeIndex] ?? announcements[0]!;
 
   return (
     <div className={`px-4 py-2 ${theme.background} ${theme.border} ${theme.text}`}>
-      {/* Fixed to exactly two lines' height on mobile (overflow-hidden clips
-          anything past that) so a longer rotating message never grows the
-          bar and shoves the rest of the page down - it just crops instead. */}
-      <div className="mx-auto max-h-10 max-w-7xl overflow-hidden text-center sm:max-h-none">
-        <div key={active.id} className="announcement-fade font-body text-sm leading-5 sm:text-[0.95rem]">
+      {/* The line's auto margins center it when it fits; when it doesn't they collapse to 0
+          and it starts at the left edge, ready to slide. */}
+      <div ref={frameRef} className="mx-auto flex max-w-7xl overflow-hidden">
+        <div
+          ref={lineRef}
+          key={`${active.id}-${turn}`}
+          className="announcement-fade announcement-line mx-auto shrink-0 whitespace-nowrap font-body text-sm leading-5 sm:text-[0.95rem]"
+        >
           {active.countdownTo && Number.isFinite(Date.parse(active.countdownTo)) ? (
             <CountdownText text={active.text} target={active.countdownTo} />
           ) : (
