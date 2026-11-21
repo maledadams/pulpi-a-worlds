@@ -14,7 +14,7 @@ import type { ThemeAssetRef } from "@/lib/themes";
  */
 export function useThemeBanners(page: "home" | "tienda") {
   const theme = useActiveTheme();
-  // The loader sends only this page's promotion banners (the root reloads per page).
+  // Every promotion's banner comes in once; this page shows the ones placed on it.
   const promos = usePromoBanners();
   return useMemo(() => {
     const list = (page === "home" ? theme?.homeBanners : theme?.tiendaBanners) ?? [];
@@ -24,7 +24,10 @@ export function useThemeBanners(page: "home" | "tienda") {
       return desktop && phone ? [{ alt: banner.alt, href: banner.href, desktop, phone }] : [];
     });
     // Theme banners first, then every promotion's, all in the same rotation.
-    return [...fromTheme, ...promos];
+    return [
+      ...fromTheme,
+      ...promos.filter((promo) => promo.placement === page || promo.placement === "both"),
+    ];
   }, [theme, page, promos]);
 }
 

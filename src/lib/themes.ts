@@ -18,12 +18,13 @@ import {
   type ThemeBundle,
 } from "@/lib/theme-bundle";
 import { NO_THEME_DISCOUNTS, type ThemeDiscountControl } from "@/lib/theme-discounts";
-import { buildThemeCss, stickerAreasForPath } from "@/lib/theme-css";
+import { buildThemeCss } from "@/lib/theme-css";
 import { readImageInfo } from "@/lib/theme-image-info";
 import { fromSantoDomingoInput, toSantoDomingoInput } from "@/lib/theme-schedule";
 import {
   parseTheme,
   promoBannerSchema,
+  type PromoBanner,
   sanitizePromoBannerDraft,
   type StickerArea,
   type Theme,
@@ -249,28 +250,11 @@ export const getActiveThemeSlice = createServerFn({ method: "GET" })
       if (!active) return null;
 
       const { theme } = active;
-      // The root loader can't know a collection's store yet: send both possibilities and let
-      // the sticker layer pick by the page's real scope.
-      const areas =
-        data.path.startsWith("/coleccion/") && !data.collectionVibe
-          ? [
-              ...new Set([
-                ...stickerAreasForPath(data.path, "store"),
-                ...stickerAreasForPath(data.path, "x"),
-              ]),
-            ]
-          : stickerAreasForPath(data.path, data.collectionVibe);
-      const stickers = Object.fromEntries(
-        areas
-          .filter((area) => theme.stickers[area]?.length)
-          .map((area) => [area, theme.stickers[area]!]),
-      ) as ThemeSlice["stickers"];
-      const pageTheme: Theme = {
-        ...theme,
-        stickers,
-        homeBanners: data.path === "/" ? theme.homeBanners : [],
-        tiendaBanners: data.path === "/tienda" ? theme.tiendaBanners : [],
-      };
+      // Every page's stickers and banners, not just this page's: the root loader doesn't run
+      // again on in-store navigation, so whatever the first page got had to serve every page
+      // after it (Lucia, 2026-11-21: stickers missing until you left and came back). Each
+      // page picks its own on screen (usePageStickers, useThemeBanners).
+      const pageTheme: Theme = theme;
       const baseUrl = env.R2_PUBLIC_BASE_URL?.trim() ?? "";
       const ids = themeAssetIds(pageTheme);
       const rows =
@@ -302,7 +286,7 @@ export const getActiveThemeSlice = createServerFn({ method: "GET" })
         source: active.source,
         css: buildThemeCss(theme),
         slots: theme.slots,
-        stickers,
+        stickers: theme.stickers,
         heroEffect: theme.heroEffect,
         heroWave: theme.heroWave,
         homeBanners,
@@ -324,6 +308,8 @@ export type PromoBannerSlide = {
   href: string | null;
   desktop: ThemeAssetRef;
   phone: ThemeAssetRef;
+  /** Which page shows it: Inicio, Tienda or both. */
+  placement: PromoBanner["placement"];
 };
 
 /**
@@ -334,18 +320,16 @@ export type PromoBannerSlide = {
 export const getPromoBanners = createServerFn({ method: "GET" })
   .inputValidator((data: { path: string }) => z.object({ path: z.string().max(300) }).parse(data))
   .handler(async ({ data }): Promise<PromoBannerSlide[]> => {
-    const page = data.path === "/" ? "home" : data.path === "/tienda" ? "tienda" : null;
-    if (!page) return [];
+    // Not this page's only: the root loader doesn't run again on in-store navigation, so the
+    // first page's answer serves every page after it. useThemeBanners picks by placement.
+    if (data.path.startsWith("/admin")) return [];
     try {
       const env = await getWorkerEnv();
       if (!env.DB) return [];
       const { listActiveDiscountsInternal } = await import("@/lib/store-discounts");
       const banners = (await listActiveDiscountsInternal()).flatMap((discount) => {
         const parsed = promoBannerSchema.safeParse(discount.banner);
-        return parsed.success &&
-          (parsed.data.placement === page || parsed.data.placement === "both")
-          ? [parsed.data]
-          : [];
+        return parsed.success ? [parsed.data] : [];
       });
       if (!banners.length) return [];
       const baseUrl = env.R2_PUBLIC_BASE_URL?.trim() ?? "";
@@ -368,7 +352,13 @@ export const getPromoBanners = createServerFn({ method: "GET" })
                 (await getStore()).linkTargetExists(banner.link),
               )
             : true;
-        slides.push({ alt: banner.alt, href: bannerPath(banner.link, exists), desktop, phone });
+        slides.push({
+          alt: banner.alt,
+          href: bannerPath(banner.link, exists),
+          desktop,
+          phone,
+          placement: banner.placement,
+        });
       }
       return slides;
     } catch (error) {

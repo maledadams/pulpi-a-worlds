@@ -41,7 +41,7 @@ function fitVars(fit: ThemeFit, prefix: "" | "d") {
     [`--st${p}y`]: `${fit.y}%`,
     [`--st${p}w`]: `${fit.w}%`,
     [`--st${p}rot`]: `${fit.rot}deg`,
-    // The same height as a plain number, for page stickers (measured in screens).
+    // The same height as a plain number, for page stickers (measured in page pixels).
     [`--st${p}yn`]: String(fit.y),
   };
 }

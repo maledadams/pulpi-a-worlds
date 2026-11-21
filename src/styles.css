@@ -902,15 +902,18 @@ html[data-admin-theme="dark"] .admin-shell .admin-logo {
   outline-offset: 2px;
 }
 
-/* "En la página" stickers on the page itself: the height is in screens from the top of
-   the page, not a % of the whole page (on a long page like Tienda, 42% of the page was far
-   below anything visible, so only sticky stickers seemed to work; Lucia, 2026-11-21). */
+/* "En la página" stickers on the page itself: the height is measured from the top of the page
+   in the page's own pixels, which grow with the page zoom exactly like the content does, so
+   a sticker stays by the same thing on every screen and in the editor preview (Lucia,
+   2026-11-21: measured against the screen's height, the tall preview put them lower than a
+   real computer screen did). Computer: % of 1280px, the preview's width. Phone: % of 780px,
+   about a phone screen's height. Keep in step with startDrag in ThemeStickers.tsx. */
 .theme-sticker.theme-sticker-page {
-  top: calc(var(--st-yn) * 1vh / var(--page-zoom, 1));
+  top: calc(var(--st-yn) * 7.8px);
 }
 @media (width >= 60rem) {
   .theme-sticker.theme-sticker-page {
-    top: calc(var(--st-dyn) * 1vh / var(--page-zoom, 1));
+    top: calc(var(--st-dyn) * 12.8px);
   }
 }
 
