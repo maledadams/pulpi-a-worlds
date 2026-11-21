@@ -180,6 +180,13 @@ export function ThemeStickersTab(shared: Shared) {
                   onCheckedChange={(hideOnPhone) => patch(index, { hideOnPhone })}
                 />
               </div>
+              <div className="flex items-end">
+                <AdminCheckbox
+                  label="Voltear (espejo)"
+                  checked={sticker.flip}
+                  onCheckedChange={(flip) => patch(index, { flip })}
+                />
+              </div>
             </div>
             <div className="grid gap-2">
               <FitControls
@@ -217,6 +224,7 @@ export function ThemeStickersTab(shared: Shared) {
                     motion: "none",
                     layer: "front",
                     hideOnPhone,
+                    flip: false,
                     desktop: { x: 50, y: 20, w: 8, rot: 0 },
                     mobile: { x: 50, y: 15, w: 20, rot: 0 },
                   },

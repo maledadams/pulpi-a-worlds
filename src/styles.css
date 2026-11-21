@@ -715,7 +715,7 @@ html[data-admin-theme="dark"] .admin-shell .admin-logo {
   left: var(--st-x);
   top: var(--st-y);
   width: var(--st-w);
-  transform: translate(-50%, -50%) rotate(var(--st-rot));
+  transform: translate(-50%, -50%) rotate(var(--st-rot)) scaleX(var(--st-flip, 1));
   pointer-events: none;
   user-select: none;
 }
@@ -789,7 +789,7 @@ html[data-admin-theme="dark"] .admin-shell .admin-logo {
     left: var(--st-dx);
     top: var(--st-dy);
     width: var(--st-dw);
-    transform: translate(-50%, -50%) rotate(var(--st-drot));
+    transform: translate(-50%, -50%) rotate(var(--st-drot)) scaleX(var(--st-flip, 1));
   }
 }
 .theme-motion-float {
@@ -898,4 +898,58 @@ html[data-admin-theme="dark"] .admin-shell .admin-logo {
 .admin-range:focus-visible {
   outline: 2px solid var(--admin-select, #3b82f6);
   outline-offset: 2px;
+}
+
+/* "En la página" stickers on the page itself: the height is in screens from the top of
+   the page, not a % of the whole page (on a long page like Tienda, 42% of the page was far
+   below anything visible, so only sticky stickers seemed to work; Lucia, 2026-11-21). */
+.theme-sticker.theme-sticker-page {
+  top: calc(var(--st-yn) * 1vh / var(--page-zoom, 1));
+}
+@media (width >= 60rem) {
+  .theme-sticker.theme-sticker-page {
+    top: calc(var(--st-dyn) * 1vh / var(--page-zoom, 1));
+  }
+}
+
+/* Editor preview, selected sticker: a rotate handle on a short stalk below its box (drag it
+   to turn the sticker freely) and a flip button next to it (Lucia, 2026-11-21). They turn
+   with the sticker, like the box. */
+.theme-sticker-rotate {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 22px);
+  width: 16px;
+  height: 16px;
+  margin-left: -8px;
+  border-radius: 9999px !important;
+  background: #ffffff;
+  border: 2px solid #2f7bff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+  cursor: grab;
+  touch-action: none;
+}
+.theme-sticker-rotate::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  width: 2px;
+  height: 18px;
+  margin-left: -1px;
+  background: #2f7bff;
+}
+.theme-sticker-flip {
+  position: absolute;
+  left: calc(50% + 16px);
+  top: calc(100% + 19px);
+  padding: 1px 7px;
+  font: 600 11px/1.6 system-ui, sans-serif;
+  color: #ffffff;
+  background: #2f7bff;
+  border: 0;
+  cursor: pointer;
+  white-space: nowrap;
+  /* The sticker's mirror would mirror the label too; this undoes it. */
+  transform: scaleX(var(--st-flip, 1));
 }

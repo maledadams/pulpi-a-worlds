@@ -9,6 +9,7 @@ const sticker = (asset: string, extra: Partial<ThemeSticker> = {}): ThemeSticker
   motion: "none",
   layer: "front",
   hideOnPhone: false,
+  flip: false,
   desktop: fit,
   mobile: fit,
   ...extra,
@@ -84,10 +85,13 @@ describe("stickerStyle", () => {
       "--st-y": "2%",
       "--st-w": "16%",
       "--st-rot": "-5deg",
+      // Page stickers read the height as a number of screens (Lucia, 2026-11-21).
+      "--st-yn": "2",
       "--st-dx": "92%",
       "--st-dy": "4%",
       "--st-dw": "8%",
       "--st-drot": "10deg",
+      "--st-dyn": "4",
     });
   });
 });
