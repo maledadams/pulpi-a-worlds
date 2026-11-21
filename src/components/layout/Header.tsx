@@ -371,12 +371,14 @@ function AnnouncementBar({ announcements, theme }: { announcements: StoreAnnounc
   return (
     <div className={`px-4 py-2 ${theme.background} ${theme.border} ${theme.text}`}>
       {/* The line's auto margins center it when it fits; when it doesn't they collapse to 0
-          and it starts at the left edge, ready to slide. */}
+          and it starts at the left edge, ready to slide. Outfit draws its letters low in the
+          line, so the line sits 0.08em higher to look centered in the bar (Lucia, 2026-11-21);
+          top, not transform, which the slide uses. */}
       <div ref={frameRef} className="mx-auto flex max-w-7xl overflow-hidden">
         <div
           ref={lineRef}
           key={`${active.id}-${turn}`}
-          className="announcement-fade announcement-line mx-auto shrink-0 whitespace-nowrap font-body text-sm leading-5 sm:text-[0.95rem]"
+          className="announcement-fade announcement-line relative top-[-0.08em] mx-auto shrink-0 whitespace-nowrap font-body text-sm leading-5 sm:text-[0.95rem]"
         >
           {active.countdownTo && Number.isFinite(Date.parse(active.countdownTo)) ? (
             <CountdownText text={active.text} target={active.countdownTo} />

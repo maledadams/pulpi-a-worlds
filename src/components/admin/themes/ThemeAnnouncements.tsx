@@ -25,29 +25,86 @@ type Row = {
   active: boolean;
   startsAtLocal: string;
   endsAtLocal: string;
-  countdownLocal: string;
+  /** Counts down to "Hasta" (Lucia, 2026-11-21: a checkbox, not a date of its own). */
+  countdown: boolean;
   discountId: string;
 };
 
-const toRow = (announcement: AdminAnnouncementRecord): Row => ({
-  id: announcement.id,
-  text: announcement.text,
-  active: announcement.active,
-  startsAtLocal: announcement.startsAt ? toSantoDomingoInput(announcement.startsAt) : "",
-  endsAtLocal: announcement.endsAt ? toSantoDomingoInput(announcement.endsAt) : "",
-  countdownLocal: announcement.countdownTo ? toSantoDomingoInput(announcement.countdownTo) : "",
-  discountId: announcement.discountId ?? "",
-});
+export const toRow = (announcement: AdminAnnouncementRecord): Row => {
+  const ends = countdownEnd(announcement);
+  return {
+    id: announcement.id,
+    text: announcement.text,
+    active: announcement.active,
+    startsAtLocal: announcement.startsAt ? toSantoDomingoInput(announcement.startsAt) : "",
+    endsAtLocal: ends ? toSantoDomingoInput(ends) : "",
+    countdown: Boolean(announcement.countdownTo),
+    discountId: announcement.discountId ?? "",
+  };
+};
 
-const toRecord = (row: Row): AdminAnnouncementRecord => ({
-  id: row.id,
-  text: row.text.trim(),
-  active: row.active,
-  startsAt: row.startsAtLocal ? fromSantoDomingoInput(row.startsAtLocal) : null,
-  endsAt: row.endsAtLocal ? fromSantoDomingoInput(row.endsAtLocal) : null,
-  countdownTo: row.countdownLocal ? fromSantoDomingoInput(row.countdownLocal) : null,
-  discountId: row.discountId || null,
-});
+export const toRecord = (row: Row): AdminAnnouncementRecord => {
+  const endsAt = row.endsAtLocal ? fromSantoDomingoInput(row.endsAtLocal) : null;
+  return {
+    id: row.id,
+    text: row.text.trim(),
+    active: row.active,
+    startsAt: row.startsAtLocal ? fromSantoDomingoInput(row.startsAtLocal) : null,
+    endsAt,
+    countdownTo: row.countdown ? endsAt : null,
+    discountId: row.discountId || null,
+  };
+};
+
+/**
+ * An announcement saved with its own countdown date: the end becomes whichever comes first,
+ * the end or the countdown (it already hid at the earlier one), and the countdown runs to it.
+ */
+function countdownEnd(announcement: AdminAnnouncementRecord) {
+  const { endsAt, countdownTo } = announcement;
+  if (!countdownTo) return endsAt ?? null;
+  if (!endsAt) return countdownTo;
+  return Date.parse(countdownTo) < Date.parse(endsAt) ? countdownTo : endsAt;
+}
+
+/** "Cuenta regresiva hasta el final": a checkbox that counts to "Hasta", and how it reads. */
+export function AnnouncementCountdown({
+  row,
+  now,
+  onChange,
+}: {
+  row: Pick<Row, "text" | "endsAtLocal" | "countdown">;
+  now: number;
+  onChange: (patch: Pick<Row, "countdown">) => void;
+}) {
+  const target = row.endsAtLocal ? fromSantoDomingoInput(row.endsAtLocal) : null;
+  const [before, after] = splitCountdownText(row.text || "Termina en");
+  return (
+    <div className="grid gap-1.5">
+      <AdminCheckbox
+        label="Cuenta regresiva hasta el final"
+        checked={row.countdown && Boolean(row.endsAtLocal)}
+        disabled={!row.endsAtLocal}
+        onCheckedChange={(countdown) => onChange({ countdown })}
+      />
+      <p className="text-xs text-[var(--admin-muted)]">
+        {!row.endsAtLocal
+          ? "Ponle una fecha de final (Hasta) para poder contar hasta ella."
+          : row.countdown
+            ? `Muestra el tiempo que falta para el final. Escribe ${COUNTDOWN_TOKEN} en el texto donde lo quieras; si no, va al final.`
+            : "Sin cuenta regresiva."}
+      </p>
+      {row.countdown && target ? (
+        <p className="text-xs text-[var(--admin-muted)]">
+          Se ve así:{" "}
+          <span className="font-medium text-[var(--admin-ink)]">
+            {`${before}${formatCountdown(Date.parse(target) - now)}${after}`}
+          </span>
+        </p>
+      ) : null}
+    </div>
+  );
+}
 
 /**
  * The announcement bar texts (spec §5.6b; Lucia 2026-11-19: they live here, in Temas).
@@ -105,7 +162,7 @@ export function ThemeAnnouncements({
                   active: true,
                   startsAtLocal: "",
                   endsAtLocal: "",
-                  countdownLocal: "",
+                  countdown: false,
                   discountId: "",
                 },
               ]);
@@ -198,43 +255,17 @@ export function ThemeAnnouncements({
                       {promoName(discount)}
                     </option>
                   ))}
-                  {row.discountId && !discounts.some((discount) => discount.id === row.discountId) ? (
+                  {row.discountId &&
+                  !discounts.some((discount) => discount.id === row.discountId) ? (
                     <option value={row.discountId}>Promoción borrada</option>
                   ) : null}
                 </AdminSelect>
               </AdminField>
-              <div className="grid gap-3 amd:grid-cols-[minmax(0,1fr)_auto] amd:items-end">
-                <AdminField
-                  label="Cuenta regresiva hasta (opcional)"
-                  hint={`Muestra el tiempo que falta (2d 14:03:09). Escribe ${COUNTDOWN_TOKEN} en el texto donde lo quieras; si no, va al final. Al llegar a cero el anuncio se esconde solo.`}
-                >
-                  <AdminInput
-                    type="datetime-local"
-                    value={row.countdownLocal}
-                    onChange={(event) => update(row.id, { countdownLocal: event.target.value })}
-                  />
-                </AdminField>
-                <AdminButton
-                  tone="ghost"
-                  disabled={!row.endsAtLocal}
-                  title={row.endsAtLocal ? undefined : "Ponle un final primero"}
-                  onClick={() => update(row.id, { countdownLocal: row.endsAtLocal })}
-                >
-                  Contar hasta el final
-                </AdminButton>
-              </div>
-              {row.countdownLocal ? (
-                <p className="text-xs text-[var(--admin-muted)]">
-                  Se ve así:{" "}
-                  <span className="font-medium text-[var(--admin-ink)]">
-                    {(() => {
-                      const target = fromSantoDomingoInput(row.countdownLocal);
-                      const [before, after] = splitCountdownText(row.text || "Termina en");
-                      return `${before}${target ? formatCountdown(Date.parse(target) - now) : "--:--:--"}${after}`;
-                    })()}
-                  </span>
-                </p>
-              ) : null}
+              <AnnouncementCountdown
+                row={row}
+                now={now}
+                onChange={(patch) => update(row.id, patch)}
+              />
             </div>
           );
         })}
