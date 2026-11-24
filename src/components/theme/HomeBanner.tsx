@@ -60,13 +60,32 @@ function BannerLink({ href, children }: { href: string | null; children: ReactNo
   );
 }
 
+/**
+ * Where the product rows (Inicio's collection rows) put their arrows, from the row's own box.
+ * The banners use the very same classes so their arrows sit in exactly the same place on
+ * every screen (Lucia, 2026-11-24). Change them here and both follow.
+ */
+export const ROW_ARROW_PREV = "-left-2 sm:-left-4 md:-left-2 lg:-left-3 xl:-left-16";
+export const ROW_ARROW_NEXT = "-right-2 sm:-right-4 md:-right-2 lg:-right-3 xl:-right-16";
+
 function BannerSlides({
   banners,
   priority,
   strip = false,
+  boxClassName,
+  rowInset = false,
+  children,
 }: {
   banners: Banner[];
   priority: boolean;
+  /** The banner's own box (rounded, clipped). The arrows sit outside it, like the rows'. */
+  boxClassName: string;
+  /**
+   * Inicio: the banner spans the page with the same 1rem gutter as the rows, but from xl the
+   * rows step in to 5cm; the arrows step in with them. (Tienda's banner is already in that box.)
+   */
+  rowInset?: boolean;
+  children?: ReactNode;
   /** Tienda: a fixed-height strip the image fills (cropped), whatever its shape. */
   strip?: boolean;
 }) {
@@ -87,53 +106,81 @@ function BannerSlides({
     setManual((count) => count + 1);
   };
   const arrow =
-    "ui-circle absolute top-1/2 z-[3] flex h-11 w-11 -translate-y-1/2 items-center justify-center bg-white/90 text-[#121212] shadow-md transition hover:bg-[#121212] hover:text-white";
+    "ui-circle pointer-events-auto absolute top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center bg-white/90 text-[#121212] shadow-md transition hover:bg-[#121212] hover:text-white";
 
   return (
-    <>
-      {/* Every slide sits in the same grid cell, so the box is as tall as the tallest one
+    <div className="relative">
+      <div className={boxClassName}>
+        {/* Every slide sits in the same grid cell, so the box is as tall as the tallest one
           and nothing below moves when they change. */}
-      <div className="grid">
-        {banners.map((banner, index) => (
-          <div
-            key={`${banner.desktop.url}-${index}`}
-            className="col-start-1 row-start-1 transition-opacity duration-700 ease-out motion-reduce:transition-none"
-            style={{ opacity: index === active ? 1 : 0, zIndex: index === active ? 1 : 0 }}
-            aria-hidden={index === active ? undefined : true}
-            inert={index === active ? undefined : true}
-          >
-            <BannerLink href={banner.href}>
-              <picture>
-                <source media="(min-width: 60rem)" srcSet={srcSet(banner.desktop)} sizes="100vw" />
-                <img
-                  src={banner.phone.url}
-                  srcSet={srcSet(banner.phone)}
-                  sizes="100vw"
-                  width={banner.phone.width}
-                  height={banner.phone.height}
-                  alt={banner.alt}
-                  fetchPriority={priority && index === 0 ? "high" : undefined}
-                  loading={index === 0 ? undefined : "lazy"}
-                  decoding="async"
-                  className={
-                    strip
-                      ? "block h-[clamp(7.5rem,18vw,17rem)] w-full object-cover"
-                      : "block h-auto w-full"
-                  }
-                />
-              </picture>
-            </BannerLink>
+        <div className="grid">
+          {banners.map((banner, index) => (
+            <div
+              key={`${banner.desktop.url}-${index}`}
+              className="col-start-1 row-start-1 transition-opacity duration-700 ease-out motion-reduce:transition-none"
+              style={{ opacity: index === active ? 1 : 0, zIndex: index === active ? 1 : 0 }}
+              aria-hidden={index === active ? undefined : true}
+              inert={index === active ? undefined : true}
+            >
+              <BannerLink href={banner.href}>
+                <picture>
+                  <source
+                    media="(min-width: 60rem)"
+                    srcSet={srcSet(banner.desktop)}
+                    sizes="100vw"
+                  />
+                  <img
+                    src={banner.phone.url}
+                    srcSet={srcSet(banner.phone)}
+                    sizes="100vw"
+                    width={banner.phone.width}
+                    height={banner.phone.height}
+                    alt={banner.alt}
+                    fetchPriority={priority && index === 0 ? "high" : undefined}
+                    loading={index === 0 ? undefined : "lazy"}
+                    decoding="async"
+                    className={
+                      strip
+                        ? "block h-[clamp(7.5rem,18vw,17rem)] w-full object-cover"
+                        : "block h-auto w-full"
+                    }
+                  />
+                </picture>
+              </BannerLink>
+            </div>
+          ))}
+        </div>
+        {banners.length > 1 ? (
+          <div className="absolute inset-x-0 bottom-3 z-[3] flex justify-center gap-2">
+            {banners.map((banner, index) => (
+              <button
+                key={`${banner.desktop.url}-dot-${index}`}
+                type="button"
+                aria-label={`Ver banner ${index + 1}`}
+                aria-current={index === active ? "true" : undefined}
+                onClick={() => go(index)}
+                className={`ui-nav-rounded h-2 bg-white shadow-[0_0_0_1px_rgb(0_0_0/0.25)] transition-[width,opacity] duration-300 ${
+                  index === active ? "w-6 opacity-100" : "w-2 opacity-60 hover:opacity-90"
+                }`}
+              />
+            ))}
           </div>
-        ))}
+        ) : null}
+        {children}
       </div>
       {banners.length > 1 ? (
-        // Like the collection rows: one arrow on each side.
-        <>
+        // In the product rows' own spot (ROW_ARROW_PREV/NEXT): outside the clipped box, so
+        // they can hang past its edge the way the rows' do.
+        <div
+          className={`pointer-events-none absolute inset-y-0 left-0 right-0 z-10 ${
+            rowInset ? "xl:left-[calc(5cm-1rem)] xl:right-[calc(5cm-1rem)]" : ""
+          }`}
+        >
           <button
             type="button"
             aria-label="Banner anterior"
             onClick={() => go(active - 1)}
-            className={`${arrow} left-3`}
+            className={`${arrow} ${ROW_ARROW_PREV}`}
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
@@ -141,29 +188,13 @@ function BannerSlides({
             type="button"
             aria-label="Banner siguiente"
             onClick={() => go(active + 1)}
-            className={`${arrow} right-3`}
+            className={`${arrow} ${ROW_ARROW_NEXT}`}
           >
             <ChevronRight className="h-5 w-5" />
           </button>
-        </>
-      ) : null}
-      {banners.length > 1 ? (
-        <div className="absolute inset-x-0 bottom-3 z-[3] flex justify-center gap-2">
-          {banners.map((banner, index) => (
-            <button
-              key={`${banner.desktop.url}-dot-${index}`}
-              type="button"
-              aria-label={`Ver banner ${index + 1}`}
-              aria-current={index === active ? "true" : undefined}
-              onClick={() => go(index)}
-              className={`ui-nav-rounded h-2 bg-white shadow-[0_0_0_1px_rgb(0_0_0/0.25)] transition-[width,opacity] duration-300 ${
-                index === active ? "w-6 opacity-100" : "w-2 opacity-60 hover:opacity-90"
-              }`}
-            />
-          ))}
         </div>
       ) : null}
-    </>
+    </div>
   );
 }
 
@@ -171,14 +202,18 @@ export function HomeBanner({ banner, stacked = false }: { banner: Banner[]; stac
   return (
     // Stacked: "Elige tu Tienda" follows right below and carries the effect itself.
     <section className={`w-full px-4 pt-10 ${stacked ? "pb-0" : "pb-16 md:pb-20"}`}>
-      <div className="relative w-full overflow-hidden rounded-[2rem] border border-[#ebebeb]/10">
-        <BannerSlides banners={banner} priority />
+      <BannerSlides
+        banners={banner}
+        priority
+        rowInset
+        boxClassName="relative w-full overflow-hidden rounded-[2rem] border border-[#ebebeb]/10"
+      >
         {stacked ? null : (
           <div className="pointer-events-none absolute inset-0 z-[2]">
             <HeroEffect hero="home" />
           </div>
         )}
-      </div>
+      </BannerSlides>
     </section>
   );
 }
@@ -188,10 +223,13 @@ export function TiendaBanner({ className = "" }: { className?: string }) {
   const banners = useThemeBanners("tienda");
   if (!banners.length) return null;
   return (
-    <div
-      className={`relative w-full overflow-hidden rounded-xl border-2 border-[color:var(--t-outline,var(--foreground))] ${className}`}
-    >
-      <BannerSlides banners={banners} priority={false} strip />
+    <div className={className}>
+      <BannerSlides
+        banners={banners}
+        priority={false}
+        strip
+        boxClassName="relative w-full overflow-hidden rounded-xl border-2 border-[color:var(--t-outline,var(--foreground))]"
+      />
     </div>
   );
 }

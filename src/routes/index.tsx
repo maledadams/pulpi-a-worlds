@@ -1,5 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { HomeBanner, useHomeBanner } from "@/components/theme/HomeBanner";
+import {
+  HomeBanner,
+  ROW_ARROW_NEXT,
+  ROW_ARROW_PREV,
+  useHomeBanner,
+} from "@/components/theme/HomeBanner";
 import { HeroWaveTransition } from "@/components/collections/HeroWaveTransition";
 import { useActiveTheme } from "@/context/theme";
 import { HeroEffect } from "@/components/theme/HeroEffect";
@@ -203,7 +208,7 @@ function HomeRailSection({
             aria-label={`Anterior en ${title}`}
             disabled={!canScrollPrev}
             onClick={() => api?.scrollPrev()}
-            className="ui-circle absolute -left-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-background/90 disabled:hover:text-foreground sm:-left-4 md:-left-2 lg:-left-3 xl:-left-16"
+            className={`ui-circle absolute top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-background/90 disabled:hover:text-foreground ${ROW_ARROW_PREV}`}
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
@@ -212,7 +217,7 @@ function HomeRailSection({
             aria-label={`Siguiente en ${title}`}
             disabled={!canScrollNext}
             onClick={() => api?.scrollNext()}
-            className="ui-circle absolute -right-2 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-background/90 disabled:hover:text-foreground sm:-right-4 md:-right-2 lg:-right-3 xl:-right-16"
+            className={`ui-circle absolute top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-foreground hover:text-background disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-background/90 disabled:hover:text-foreground ${ROW_ARROW_NEXT}`}
           >
             <ChevronRight className="h-5 w-5" />
           </button>
