@@ -11,6 +11,7 @@ const slice = (slots: ThemeSlice["slots"], assets: ThemeSlice["assets"] = {}): T
   stickers: {},
   heroEffect: null,
   heroWave: null,
+  heroGradient: {},
   homeBanners: [],
   keepStorePicker: false,
   tiendaBanners: [],

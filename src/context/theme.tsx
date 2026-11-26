@@ -53,6 +53,7 @@ function sliceFromDraft(
     stickers: theme.stickers,
     heroEffect: theme.heroEffect,
     heroWave: theme.heroWave,
+    heroGradient: theme.heroGradient,
     // Preview only: the admin picked the targets from the live list, so they exist.
     keepStorePicker: theme.keepStorePicker,
     homeBanners: theme.homeBanners.map((banner) => ({ ...banner, href: bannerPath(banner.link, true) })),

@@ -10,7 +10,12 @@ import {
 import { enforceAdminAccess } from "@/lib/admin-access";
 import type { AdminProductRecord, AdminStockMovement } from "@/lib/admin-types";
 import { toAdminProductRecord } from "@/lib/admin-service";
-import { convertChildBlock, convertMotherBlock, familyColorKey } from "@/lib/product-families";
+import {
+  colorlessSizeClash,
+  convertChildBlock,
+  convertMotherBlock,
+  familyColorKey,
+} from "@/lib/product-families";
 import { getProductColorHex, normalizeProductColorName } from "@/lib/product-colors";
 import { normalizeSizeList } from "@/lib/product-sizing";
 import { applyDiscountsToProducts, listActiveDiscountsInternal } from "@/lib/store-discounts";
@@ -89,12 +94,14 @@ const adminProductSchema = z.object({
   images: z.array(productImageSchema),
   featuredImage: productImageSchema.nullable(),
   sizes: z.array(z.string().trim().min(1)).min(1).max(20),
-  colors: z.array(productColorSchema).min(1).max(15),
+  // Empty only for a sub-product "Sin color" (checked in saveCatalogProductInternal).
+  colors: z.array(productColorSchema).max(15),
   variants: z.array(productVariantSchema),
   tags: z.array(z.string().trim().min(1)),
   createdAt: z.string().trim().min(1),
   // Sub-products: only read when the product is first created (see saveCatalogProductInternal).
   motherId: z.string().trim().min(1).nullable().optional(),
+  sizeFormat: z.string().trim().min(1).max(80).nullable().optional(),
 });
 
 const deleteProductSchema = z.object({
@@ -179,9 +186,12 @@ function localizeStoredProduct(product: Product): Product {
     name: normalizeProductColorName(color.name),
     hex: getProductColorHex(color.name, color.hex),
   }));
-  const fallbackColorName =
-    localizedColors[0]?.name ??
-    normalizeProductColorName(product.options.find((option) => option.name === "Color")?.values[0] ?? getDefaultColorName(product.vibe));
+  // A sub "Sin color" has no color anywhere; never give it a made-up one.
+  const colorless = Boolean(product.motherId) && localizedColors.length === 0;
+  const fallbackColorName = colorless
+    ? ""
+    : localizedColors[0]?.name ??
+      normalizeProductColorName(product.options.find((option) => option.name === "Color")?.values[0] ?? getDefaultColorName(product.vibe));
   const localizedOptions = product.options.map((option) =>
     option.name === "Color"
       ? { ...option, values: option.values.map((value) => normalizeProductColorName(value)) }
@@ -567,6 +577,8 @@ function normalizeVariants(record: AdminProductRecord, swatch: [string, string],
     .map((variant) => variant.selectedOptions.find((option) => option.name === "Talla")?.value)
     .filter((value): value is string => Boolean(value));
   const sizes = normalizeSizeList(record.sizes.length > 0 ? record.sizes : (fallbackSizes.length > 0 ? fallbackSizes : ["Unica"]));
+  // A sub "Sin color": no color at all (its variants are its sizes only).
+  const colorless = Boolean(record.motherId) && record.colors.length === 0;
 
   const fallbackColorSource =
     record.colors[0]?.name ??
@@ -575,12 +587,14 @@ function normalizeVariants(record: AdminProductRecord, swatch: [string, string],
       .find((value): value is string => Boolean(value)) ??
     getDefaultColorName(record.vibe);
   const colorName = normalizeProductColorName(fallbackColorSource);
-  const colors = [
-    {
-      name: colorName,
-      hex: getProductColorHex(fallbackColorSource, record.colors[0]?.hex || swatch[0]),
-    },
-  ];
+  const colors = colorless
+    ? []
+    : [
+        {
+          name: colorName,
+          hex: getProductColorHex(fallbackColorSource, record.colors[0]?.hex || swatch[0]),
+        },
+      ];
 
   const existingVariantsBySize = new Map(
     record.variants.map((variant) => {
@@ -619,10 +633,12 @@ function normalizeVariants(record: AdminProductRecord, swatch: [string, string],
       // cover. Keeping a variant's old image let it outlive the photo it
       // pointed to (deleted from storage), and carts showed a broken image.
       image: featuredImage,
-      selectedOptions: [
-        { name: "Talla", value: size },
-        { name: "Color", value: colorName },
-      ],
+      selectedOptions: colorless
+        ? [{ name: "Talla", value: size }]
+        : [
+            { name: "Talla", value: size },
+            { name: "Color", value: colorName },
+          ],
     } satisfies ProductVariant;
   });
 
@@ -671,16 +687,19 @@ function normalizeProduct(record: AdminProductRecord, existing?: Product) {
     swatch,
     images: trimmedImages,
     featuredImage,
-    options: [
-      { name: "Talla", values: sizes },
-      { name: "Color", values: colors.map((color) => color.name) },
-    ],
+    options: colors.length
+      ? [
+          { name: "Talla", values: sizes },
+          { name: "Color", values: colors.map((color) => color.name) },
+        ]
+      : [{ name: "Talla", values: sizes }],
     variants,
     createdAt: existing?.createdAt ?? record.createdAt ?? new Date().toISOString(),
     sizes,
     colors,
     salePrice: productCompareAtPrice ? productPrice : null,
     motherId: record.motherId?.trim() || null,
+    sizeFormat: record.sizeFormat?.trim() || null,
   } satisfies Product;
 }
 
@@ -781,6 +800,8 @@ function inheritFromMother(record: AdminProductRecord, mother: Product): AdminPr
     categories: mother.categories?.length ? [...mother.categories] : [mother.category],
     description: mother.description,
     featured: false,
+    // One family, one size format (a colorless sub's sizes sit next to her mother's).
+    sizeFormat: mother.sizeFormat ?? null,
   };
 }
 
@@ -829,16 +850,22 @@ export async function saveCatalogProductInternal(
     }
     record = inheritFromMother(record, mother);
     const color = colorKeyOf(record);
-    const sameColor = currentProducts.find(
-      (product) =>
-        product.id !== record.id.trim() &&
-        (product.id === motherId || product.motherId === motherId) &&
-        colorKeyOf(product) === color,
-    );
+    // Several subs can be "Sin color" (Lucia, 2026-11-26); a real color only once.
+    const sameColor = color
+      ? currentProducts.find(
+          (product) =>
+            product.id !== record.id.trim() &&
+            (product.id === motherId || product.motherId === motherId) &&
+            colorKeyOf(product) === color,
+        )
+      : undefined;
     if (sameColor) {
       throw new Error(`El color ${record.colors[0]?.name} ya lo tiene "${sameColor.name}" en esta familia. Elige otro color.`);
     }
   } else {
+    if (!colorKeyOf(record)) {
+      throw new Error("Solo un sub-producto puede ir sin color. Elige un color para este producto.");
+    }
     // A mother can't switch to a color one of its subs already has.
     const color = colorKeyOf(record);
     const subWithColor = currentProducts.find(
@@ -846,6 +873,22 @@ export async function saveCatalogProductInternal(
     );
     if (subWithColor) {
       throw new Error(`El color ${record.colors[0]?.name} ya lo tiene el sub-producto "${subWithColor.name}". Elige otro color.`);
+    }
+  }
+  // A colorless sub's sizes open her from her mother's color, so in a family no size repeats
+  // among the mother and her colorless subs. Checked on the mother's and those subs' saves.
+  if (!motherId || !colorKeyOf(record)) {
+    const familyId = motherId ?? record.id.trim();
+    const clash = colorlessSizeClash([
+      { ...record, id: record.id.trim(), sizes: normalizeSizeList(record.sizes), options: [] },
+      ...currentProducts.filter(
+        (product) => product.id !== record.id.trim() && (product.id === familyId || product.motherId === familyId),
+      ),
+    ]);
+    if (clash) {
+      throw new Error(
+        `La talla ${clash.size} la tienen "${clash.first}" y "${clash.second}" en la misma familia. Un sub-producto sin color necesita tallas propias: elige un color o cambia sus tallas.`,
+      );
     }
   }
 
@@ -1037,9 +1080,27 @@ export async function deleteCatalogProductInternal(id: string) {
 
   // Deleting a mother: its oldest sub becomes the mother and the other subs
   // are re-pointed to it, so no sub is ever left without a mother.
-  const subs = (await listCatalogProductsInternal())
+  const allProducts = await listCatalogProductsInternal();
+  const subsByAge = allProducts
     .filter((product) => product.motherId === normalizedId)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  // A product with no color can't be a mother: the oldest sub WITH a color takes her place.
+  // Checked before anything is written, so a refused delete changes nothing.
+  const heir = subsByAge.find((product) => familyColorKey(product));
+  if (subsByAge.length > 0 && !heir) {
+    throw new Error(
+      "No se puede borrar: sus sub-productos no tienen color, y un producto sin color no puede ser madre. Dale color a uno de ellos o bórralos primero.",
+    );
+  }
+  const subs = heir ? [heir, ...subsByAge.filter((product) => product.id !== heir.id)] : [];
+  if (heir) {
+    const clash = colorlessSizeClash([{ ...heir, motherId: null }, ...subs.slice(1)]);
+    if (clash) {
+      throw new Error(
+        `No se puede borrar: "${heir.name}" pasaría a ser la madre, y la talla ${clash.size} la tienen "${clash.first}" y "${clash.second}". Cambia una de esas tallas primero.`,
+      );
+    }
+  }
   if (subs.length > 0) {
     const [newMother, ...rest] = subs;
     await saveCatalogProductInternal(toAdminProductRecord(newMother!), { keepStoredStock: true, forceMotherId: null });

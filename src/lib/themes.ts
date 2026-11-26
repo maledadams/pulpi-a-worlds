@@ -194,6 +194,7 @@ export type ThemeSlice = {
   stickers: Partial<Record<StickerArea, ThemeSticker[]>>;
   heroEffect: Theme["heroEffect"];
   heroWave: Theme["heroWave"];
+  heroGradient: Theme["heroGradient"];
   /** Banners for Inicio and for Tienda (only the current page's are sent), each with its link. */
   homeBanners: ThemeSliceBanner[];
   /** Inicio: banners above "Elige tu Tienda" instead of in its place. */
@@ -289,6 +290,7 @@ export const getActiveThemeSlice = createServerFn({ method: "GET" })
         stickers: theme.stickers,
         heroEffect: theme.heroEffect,
         heroWave: theme.heroWave,
+        heroGradient: theme.heroGradient,
         homeBanners,
         keepStorePicker: theme.keepStorePicker,
         tiendaBanners,

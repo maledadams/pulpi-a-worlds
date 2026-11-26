@@ -149,6 +149,58 @@ function SlotEditor({ id, label, ...shared }: Shared & { id: ThemeSlotId; label:
   );
 }
 
+const GRADIENT_HEROES = [
+  { id: "moon", label: "Moon" },
+  { id: "sunshine", label: "Sunshine" },
+  { id: "men", label: "Men" },
+] as const;
+
+/** The sub-store heroes' gradient, per hero (Lucia, 2026-11-26). 100 = as without a theme. */
+function HeroGradientEditor({ doc, update }: Pick<Shared, "doc" | "update">) {
+  return (
+    <div className="grid gap-3 py-3">
+      <div>
+        <span className="text-sm font-medium">Degradado encima de la foto</span>
+        <p className="mt-1 text-xs text-[var(--admin-faint)]">
+          100% se ve como siempre. Al bajarlo, el degradado se va quitando y la foto se ve más
+          clara; en 0% solo queda la foto.
+        </p>
+      </div>
+      {GRADIENT_HEROES.map((hero) => {
+        const value = doc.heroGradient?.[hero.id] ?? 100;
+        return (
+          <label
+            key={hero.id}
+            className="grid grid-cols-[5rem_minmax(0,1fr)_3rem] items-center gap-3 text-sm"
+          >
+            <span>{hero.label}</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={value}
+              aria-label={`Degradado de ${hero.label}`}
+              className="w-full accent-[var(--admin-accent)]"
+              onChange={(event) => {
+                const next = Number(event.target.value);
+                update((current) => {
+                  const heroGradient = { ...current.heroGradient };
+                  // 100 is the default: not stored, so the theme stays as it was.
+                  if (next >= 100) delete heroGradient[hero.id];
+                  else heroGradient[hero.id] = next;
+                  return { ...current, heroGradient };
+                });
+              }}
+            />
+            <span className="text-right tabular-nums text-[var(--admin-muted)]">{value}%</span>
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
 export function ThemeImagesTab(shared: Shared) {
   return (
     <>
@@ -158,6 +210,9 @@ export function ThemeImagesTab(shared: Shared) {
             {group.slots.map((slot) => (
               <SlotEditor key={slot.id} {...shared} id={slot.id} label={slot.label} />
             ))}
+            {group.title === "Fotos de las subtiendas" ? (
+              <HeroGradientEditor doc={shared.doc} update={shared.update} />
+            ) : null}
           </div>
         </AdminPanel>
       ))}

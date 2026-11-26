@@ -23,6 +23,7 @@ import { compressImageForUpload } from "@/lib/image-resize";
 import {
   deleteAdminCategoryImage,
   deleteAdminCategory,
+  deleteAdminSizeFormat,
   getAdminCategories,
   getAdminSizeFormats,
   saveAdminCategory,
@@ -33,7 +34,11 @@ import { getAdminCatalogProducts } from "@/lib/catalog";
 import {
   cloneSizeFormat,
   getSizeFormatRecord,
+  isBuiltInSizeFormat,
+  newSizeFormatId,
   normalizeSizeLabel,
+  normalizeSizeList,
+  productSizeFormatId,
 } from "@/lib/product-sizing";
 import { getVibeLabel } from "@/lib/admin-service";
 import type { AdminCategoryRecord, AdminSizeFormatRecord } from "@/lib/admin-types";
@@ -80,7 +85,11 @@ export const Route = createFileRoute("/admin/categorias")({
 });
 
 function AdminCategoriesPage() {
-  const { categories, products, sizeFormats: initialSizeFormats } = Route.useLoaderData();
+  const { categories, products: initialProducts, sizeFormats: initialSizeFormats } = Route.useLoaderData();
+  // Re-read after a category's format change, which changes its products' formats.
+  const [products, setProducts] = useState(initialProducts);
+  const [newFormatName, setNewFormatName] = useState("");
+  const [newFormatSizes, setNewFormatSizes] = useState("");
   const [rows, setRows] = useState(() => categories.map(cloneCategory));
   const [sizeFormats, setSizeFormats] = useState(() => initialSizeFormats.map(cloneSizeFormat));
   const [query, setQuery] = useState("");
@@ -113,17 +122,87 @@ function AdminCategoriesPage() {
   const paged = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
   const selected = rows.find((category) => category.id === selectedId) ?? null;
   const selectedFormat = sizeFormats.find((format) => format.id === selectedFormatId) ?? getSizeFormatRecord(selectedFormatId, sizeFormats);
-  const usedSizesForSelectedFormat = useMemo(() => {
-    const categoryById = new Map(rows.map((category) => [category.id, category]));
-    return new Set(
-      products
-        .filter((product) => {
-          const category = categoryById.get(product.primaryCategory);
-          return (category?.sizeFormat ?? "standard") === selectedFormatId;
-        })
-        .flatMap((product) => product.sizes),
-    );
-  }, [products, rows, selectedFormatId]);
+  const usedSizesForSelectedFormat = useMemo(
+    () =>
+      new Set(
+        products
+          .filter((product) => productSizeFormatId(product, rows) === selectedFormatId)
+          .flatMap((product) => product.sizes),
+      ),
+    [products, rows, selectedFormatId],
+  );
+
+  /**
+   * Changing a category's format changes it for all its products, those with their own
+   * format too (Lucia, 2026-11-26). Asked first: autosave would save it right away.
+   */
+  const changeCategoryFormat = async (nextFormatId: string) => {
+    if (!draft || nextFormatId === draft.sizeFormat) return;
+    const next = getSizeFormatRecord(nextFormatId, sizeFormats);
+    const own = products.filter((product) => product.primaryCategory === draft.id);
+    if (own.length > 0) {
+      const withOwnFormat = own.filter((product) => product.sizeFormat && !product.motherId).length;
+      const outside = own.filter((product) => product.sizes.some((size) => !next.sizes.includes(size))).length;
+      const lines = [
+        `Vas a cambiar el formato de "${draft.label}" a "${next.label}".`,
+        `Sus ${own.length} ${own.length === 1 ? "producto pasará" : "productos pasarán"} a usar "${next.label}".`,
+        withOwnFormat
+          ? `${withOwnFormat} ${withOwnFormat === 1 ? "tiene" : "tienen"} su propio formato y también ${withOwnFormat === 1 ? "cambia" : "cambian"}.`
+          : "",
+        outside
+          ? `${outside} ${outside === 1 ? "tiene tallas" : "tienen tallas"} que "${next.label}" no tiene: se quedan igual, con su stock, hasta que las cambies en Productos.`
+          : "",
+        "¿Quieres continuar?",
+      ];
+      if (!(await confirmAdminDestructiveAction(lines.filter(Boolean).join(" ")))) return;
+    }
+    setDraft((current) => (current ? { ...current, sizeFormat: nextFormatId } : current));
+  };
+
+  const handleCreateFormat = async () => {
+    const label = newFormatName.trim();
+    const sizes = normalizeSizeList(newFormatSizes.split(","));
+    if (!label || sizes.length === 0) {
+      showToast("Escribe el nombre del formato y al menos una talla.", "error");
+      return;
+    }
+    if (sizeFormats.some((format) => format.label.toLowerCase() === label.toLowerCase())) {
+      showToast(`Ya existe un formato llamado "${label}".`, "error");
+      return;
+    }
+    try {
+      const saved = await saveAdminSizeFormat({
+        data: {
+          id: newSizeFormatId(label, sizeFormats.map((format) => format.id)),
+          label,
+          sizes,
+          sortOrder: sizeFormats.length,
+        },
+      });
+      setSizeFormats((current) => [...current, cloneSizeFormat(saved)]);
+      setSelectedFormatId(saved.id);
+      setNewFormatName("");
+      setNewFormatSizes("");
+      showToast(`Formato "${saved.label}" creado.`, "success");
+    } catch (error) {
+      showToast(getAdminErrorMessage(error, "No se pudo crear el formato."), "error");
+    }
+  };
+
+  const handleDeleteFormat = async () => {
+    if (isBuiltInSizeFormat(selectedFormat.id)) return;
+    if (!(await confirmAdminDestructiveAction(`Vas a borrar el formato "${selectedFormat.label}". ¿Quieres continuar?`))) {
+      return;
+    }
+    try {
+      await deleteAdminSizeFormat({ data: { id: selectedFormat.id } });
+      setSizeFormats((current) => current.filter((format) => format.id !== selectedFormat.id));
+      setSelectedFormatId("standard");
+      showToast("Formato borrado.", "success");
+    } catch (error) {
+      showToast(getAdminErrorMessage(error, "No se pudo borrar el formato."), "error");
+    }
+  };
 
   useEffect(() => {
     setPage(0);
@@ -245,7 +324,13 @@ function AdminCategoriesPage() {
         : value.id,
     };
 
+    const formatChanged = Boolean(selected && selected.sizeFormat !== value.sizeFormat);
     return saveAdminCategory({ data: normalized }).then((saved) => {
+      if (formatChanged) {
+        void getAdminCatalogProducts()
+          .then(setProducts)
+          .catch(() => {});
+      }
       setRows((current) => {
         const exists = current.some((category) => category.id === value.id || category.id === saved.id);
         if (!exists) return [saved, ...current];
@@ -451,7 +536,13 @@ function AdminCategoriesPage() {
             <div className="flex flex-wrap items-center gap-2">
               <AdminButton tone="save" onClick={handleSaveFormat}>
                 Guardar formato
-              </AdminButton>            </div>
+              </AdminButton>
+              {!isBuiltInSizeFormat(selectedFormat.id) ? (
+                <AdminButton tone="danger" onClick={() => void handleDeleteFormat()}>
+                  Borrar formato
+                </AdminButton>
+              ) : null}
+            </div>
           }
         >
           <div className="grid gap-4">
@@ -514,6 +605,36 @@ function AdminCategoriesPage() {
                   Agregar talla
                 </AdminButton>
               </div>
+            </div>
+
+            <div className="grid gap-3 border-t border-[var(--admin-line)] pt-4">
+              <AdminSectionLabel>Crear formato nuevo</AdminSectionLabel>
+              <div className="grid gap-3 amd:grid-cols-2">
+                <AdminField label="Nombre">
+                  <AdminInput
+                    value={newFormatName}
+                    maxLength={40}
+                    onChange={(event) => setNewFormatName(event.target.value)}
+                    placeholder="Ej: Signos"
+                  />
+                </AdminField>
+                <AdminField label="Tallas, separadas por comas">
+                  <AdminInput
+                    value={newFormatSizes}
+                    onChange={(event) => setNewFormatSizes(event.target.value)}
+                    placeholder="Ej: Virgo, Sagitario, Leo"
+                  />
+                </AdminField>
+              </div>
+              <div>
+                <AdminButton tone="add" onClick={() => void handleCreateFormat()}>
+                  Crear formato
+                </AdminButton>
+              </div>
+              <p className="text-xs text-[var(--admin-faint)]">
+                Después se elige en una categoría (para todos sus productos) o en un solo producto, en
+                Productos.
+              </p>
             </div>
           </div>
         </AdminPanel>
@@ -648,7 +769,7 @@ function AdminCategoriesPage() {
                 </div>
 
                 <AdminField label="Formato de tallas">
-                  <AdminSelect value={draft.sizeFormat} onChange={(event) => setDraft((current) => (current ? { ...current, sizeFormat: event.target.value as AdminCategoryRecord["sizeFormat"] } : current))}>
+                  <AdminSelect value={draft.sizeFormat} onChange={(event) => void changeCategoryFormat(event.target.value)}>
                     {sizeFormats.map((format) => (
                       <option key={format.id} value={format.id}>
                         {format.label}
