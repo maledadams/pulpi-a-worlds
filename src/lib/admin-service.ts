@@ -57,6 +57,7 @@ export function toAdminProductRecord(product: Product): AdminProductRecord {
     tags: product.tags,
     createdAt: product.createdAt,
     motherId: product.motherId ?? null,
+    sizeFormat: product.sizeFormat ?? null,
   };
 }
 

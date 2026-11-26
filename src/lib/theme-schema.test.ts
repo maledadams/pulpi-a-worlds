@@ -353,6 +353,25 @@ describe("hero wave", () => {
   });
 });
 
+describe("hero gradient", () => {
+  it("is empty (100% everywhere) by default and keeps only valid 0-100 values", () => {
+    expect(parseTheme({ schemaVersion: 1, name: "X" })?.heroGradient).toEqual({});
+    expect(
+      parseTheme({
+        schemaVersion: 1,
+        name: "X",
+        heroGradient: { moon: 0, sunshine: 140, men: "50", home: 20 },
+      })?.heroGradient,
+    ).toEqual({ moon: 0 });
+    expect(
+      themeSchema.safeParse({ schemaVersion: 1, name: "X", heroGradient: { moon: 101 } }).success,
+    ).toBe(false);
+    expect(
+      themeSchema.safeParse({ schemaVersion: 1, name: "X", heroGradient: { moon: 35 } }).success,
+    ).toBe(true);
+  });
+});
+
 describe("per-hero particle colors", () => {
   it("uses a hero's own look, else the shared one", async () => {
     const { particleLookFor } = await import("@/lib/theme-schema");

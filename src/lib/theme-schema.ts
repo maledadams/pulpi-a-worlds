@@ -213,6 +213,20 @@ const heroWaveSchema = z.object({
 });
 export type ThemeHeroWave = z.infer<typeof heroWaveSchema>;
 
+/**
+ * How strong each sub-store hero's background gradient is, 0-100 (Lucia, 2026-11-26).
+ * Missing = 100, as without a theme. Lower, the photo behind it shows clearer.
+ */
+const heroGradientValue = z.number().int().min(0).max(100);
+const heroGradientSchema = z
+  .object({
+    moon: heroGradientValue.optional(),
+    sunshine: heroGradientValue.optional(),
+    men: heroGradientValue.optional(),
+  })
+  .strict();
+export type ThemeHeroGradient = z.infer<typeof heroGradientSchema>;
+
 const bannerSchema = z.object({
   desktopAsset: assetId,
   mobileAsset: assetId,
@@ -304,6 +318,7 @@ export const themeSchema = z.object({
     .default({}),
   heroEffect: heroEffectSchema.nullable().default(null),
   heroWave: heroWaveSchema.nullable().default(null),
+  heroGradient: heroGradientSchema.default({}),
   homeBanners: bannerListSchema.default([]),
   /**
    * Inicio banners show above "Elige tu Tienda" instead of replacing it (Lucia,
@@ -325,6 +340,7 @@ export type Theme = {
   stickers: Partial<Record<StickerArea, ThemeSticker[]>>;
   heroEffect: ThemeHeroEffect | null;
   heroWave: ThemeHeroWave | null;
+  heroGradient: ThemeHeroGradient;
   homeBanners: ThemeHomeBanner[];
   keepStorePicker: boolean;
   tiendaBanners: ThemeHomeBanner[];
@@ -382,6 +398,13 @@ export function parseTheme(input: unknown): Theme | null {
 
   const heroEffect = heroEffectSchema.safeParse(input.heroEffect);
   const heroWave = heroWaveSchema.safeParse(input.heroWave);
+  const heroGradient: ThemeHeroGradient = {};
+  if (isRecord(input.heroGradient)) {
+    for (const hero of ["moon", "sunshine", "men"] as const) {
+      const value = heroGradientValue.safeParse(input.heroGradient[hero]);
+      if (value.success) heroGradient[hero] = value.data;
+    }
+  }
   const banners = (list: unknown) =>
     (Array.isArray(list) ? list : [])
       .flatMap((entry) => {
@@ -408,6 +431,7 @@ export function parseTheme(input: unknown): Theme | null {
     stickers,
     heroEffect: heroEffect.success ? heroEffect.data : null,
     heroWave: heroWave.success ? heroWave.data : null,
+    heroGradient,
     homeBanners,
     keepStorePicker: input.keepStorePicker === true,
     tiendaBanners,

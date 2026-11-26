@@ -3,6 +3,7 @@ import { HeroEffect } from "@/components/theme/HeroEffect";
 import { ThemeImage } from "@/components/theme/ThemeImage";
 import { CatalogBrowser } from "@/components/catalog/CatalogBrowser";
 import { useCatalogProducts } from "@/context/catalog";
+import { useActiveTheme } from "@/context/theme";
 import { useVibe } from "@/hooks/use-vibe";
 import { type CatalogSearch } from "@/lib/store-filters";
 import { useMemo, type ReactNode } from "react";
@@ -37,26 +38,54 @@ export function VibePage({
 }) {
   useVibe(cfg.vibe);
   const allProducts = useCatalogProducts();
+  const activeTheme = useActiveTheme();
   const products = useMemo(
-    () => allProducts.filter((product) => product.vibe === cfg.vibe || product.secondaryVibe === cfg.vibe),
+    () =>
+      allProducts.filter(
+        (product) => product.vibe === cfg.vibe || product.secondaryVibe === cfg.vibe,
+      ),
     [allProducts, cfg.vibe],
   );
   const catalogHeading = /^toda la linea$/i.test(cfg.catalogHeading.trim())
     ? "Toda la Linea"
     : cfg.catalogHeading;
 
+  const hero = cfg.vibe as "moon" | "sunshine" | "men";
+  // A theme can fade the gradient (Lucia, 2026-11-26): as it fades, the photo shows clear
+  // underneath; at 0 only the photo. At 100 (and with no theme) it's exactly as before.
+  const gradient = (activeTheme?.heroGradient?.[hero] ?? 100) / 100;
+
   return (
     <div>
       <section className="relative z-10">
-        <div className="absolute inset-0" style={{ background: cfg.bg }} />
+        {gradient < 1 && cfg.mood ? (
+          <ThemeImage
+            slot={`subbrand.mood.${hero}`}
+            src={cfg.mood}
+            alt=""
+            aria-hidden="true"
+            decoding="async"
+            className="absolute inset-0 h-full w-full object-cover"
+            style={{ opacity: 1 - gradient }}
+          />
+        ) : null}
+        <div
+          className="absolute inset-0"
+          style={gradient < 1 ? { background: cfg.bg, opacity: gradient } : { background: cfg.bg }}
+        />
         {cfg.mood && (
           <ThemeImage
-            slot={`subbrand.mood.${cfg.vibe as "moon" | "sunshine" | "men"}`}
+            slot={`subbrand.mood.${hero}`}
             src={cfg.mood}
             alt=""
             fetchPriority="high"
             decoding="async"
-            className="absolute inset-0 h-full w-full object-cover opacity-30 mix-blend-overlay"
+            className={
+              gradient < 1
+                ? "absolute inset-0 h-full w-full object-cover mix-blend-overlay"
+                : "absolute inset-0 h-full w-full object-cover opacity-30 mix-blend-overlay"
+            }
+            style={gradient < 1 ? { opacity: 0.3 * gradient } : undefined}
           />
         )}
         {/* Theme hero effect: above the background and photo, below the logo. */}
@@ -71,9 +100,7 @@ export function VibePage({
             />
           </div>
         </div>
-        <HeroWaveTransition
-          lineColor={cfg.heroWaveColor ?? "currentColor"}
-        />
+        <HeroWaveTransition lineColor={cfg.heroWaveColor ?? "currentColor"} />
       </section>
 
       <section

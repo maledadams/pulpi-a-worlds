@@ -185,3 +185,58 @@ export function familyColorsOf(product: Product, catalog: Product[]): SwatchColo
   }
   return result;
 }
+
+// Sin color (Lucia, 2026-11-26): a sub can have no color. It hangs from her mother's color:
+// the mother's page lists the mother's sizes and then each colorless sub's sizes, and a
+// size of a sub opens that sub (its photos). A product with no color can't be a mother.
+
+type SizedMember = Pick<Product, "id" | "name" | "motherId" | "colors" | "options"> & {
+  sizes?: string[];
+};
+
+/** A product's sizes, as the store shows them. */
+export function memberSizes(product: Pick<Product, "options"> & { sizes?: string[] }) {
+  return product.sizes ?? product.options.find((option) => option.name === "Talla")?.values ?? ["Unica"];
+}
+
+/**
+ * The first size that repeats between a mother and her colorless subs (each such size must
+ * open one product only), or null. `members` is the mother and her subs; colored subs are
+ * ignored, they have their own color.
+ */
+export function colorlessSizeClash(
+  members: SizedMember[],
+): { size: string; first: string; second: string } | null {
+  const owners = new Map<string, SizedMember>();
+  for (const member of members) {
+    if (member.motherId && familyColorKey(member)) continue;
+    for (const size of memberSizes(member)) {
+      const key = size.trim().toLowerCase();
+      const owner = owners.get(key);
+      if (owner && owner.id !== member.id) return { size, first: owner.name, second: member.name };
+      if (!owner) owners.set(key, member);
+    }
+  }
+  return null;
+}
+
+/**
+ * What a product page offers: the colors (one per colored member; a colorless sub shows her
+ * mother's as picked) and the sizes, each with the member it belongs to. `family` is
+ * familyMembers(product, all), mother first.
+ */
+export function familyPageChoices<T extends SizedMember>(product: T, family: T[]) {
+  const mother = family.find((member) => !member.motherId);
+  const anchor = familyColorKey(product) || !mother ? product : mother;
+  const colored = family.filter((member) => familyColorKey(member));
+  let sizeOwners =
+    anchor.id === mother?.id
+      ? family.filter((member) => member.id === anchor.id || !familyColorKey(member))
+      : [anchor];
+  if (!sizeOwners.some((member) => member.id === product.id)) sizeOwners = [product];
+  return {
+    colorId: anchor.id,
+    colored,
+    sizes: sizeOwners.flatMap((member) => memberSizes(member).map((size) => ({ size, member }))),
+  };
+}

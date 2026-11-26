@@ -62,6 +62,8 @@ export type Product = {
   salePrice?: number | null;
   /** Sub-products: the mother product's id; empty for a normal product. */
   motherId?: string | null;
+  /** Its own size format (Lucia, 2026-11-26); empty = its main category's. */
+  sizeFormat?: string | null;
 };
 
 export type CategoryImages = Partial<Record<SubstoreVibe, ProductImage>>;

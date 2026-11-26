@@ -4,7 +4,12 @@ import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { WhatsAppIcon } from "@/components/layout/Footer";
 import { ProductCard } from "@/components/product/ProductCard";
-import { collapseFamilies, familyIdOf, familyMembers } from "@/lib/product-families";
+import {
+  collapseFamilies,
+  familyIdOf,
+  familyMembers,
+  familyPageChoices,
+} from "@/lib/product-families";
 import { useCatalogProducts } from "@/context/catalog";
 import { useIsVerifiedAdult } from "@/lib/age-verification";
 import { isNsfwProduct } from "@/lib/store-filters";
@@ -141,6 +146,14 @@ export const Route = createFileRoute("/producto/$slug")({
 });
 
 const RELATED_PRODUCT_COUNT = 6;
+
+/** Same rule as the cards: switched on AND at least one in stock. */
+function sizeInStock(product: Product, size: string) {
+  const variant = product.variants.find(
+    (entry) => entry.selectedOptions.find((option) => option.name === "Talla")?.value === size,
+  );
+  return Boolean(variant?.available) && (variant?.quantityAvailable ?? 0) > 0;
+}
 
 function getProductCategorySet(entry: Product) {
   return new Set([entry.category, ...(entry.categories ?? [])].map((value) => value.trim().toLowerCase()));
@@ -332,8 +345,20 @@ function ProductDetails({ product }: { product: Product }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product.id]);
 
-  // Sub-products: every color of the family (mother first), each its own page.
+  // Sub-products: every color of the family (mother first), each its own page. A sub
+  // "Sin color" shows under her mother's color, through her sizes (Lucia, 2026-11-26).
   const family = useMemo(() => familyMembers(product, products), [product, products]);
+  const choices = useMemo(
+    () => (family.length > 1 ? familyPageChoices(product, family) : null),
+    [product, family],
+  );
+  const sizeChoices = choices?.sizes ?? sizes.map((entry) => ({ size: entry, member: product }));
+  // AGOTADO over the photo (Lucia, 2026-11-26): only when this product has nothing left in
+  // any size. Each family member is its own page, so a sold-out sub never marks the others.
+  const soldOut = !product.variants.some(
+    (variant) => variant.available && (variant.quantityAvailable ?? 0) > 0,
+  );
+  const accent = product.vibe === "men" ? "#8f2015" : "var(--primary)";
 
   const selectedVariant = useMemo(
     () =>
@@ -385,7 +410,7 @@ function ProductDetails({ product }: { product: Product }) {
                   alt={currentImage.altText ?? product.name}
                   fetchPriority="high"
                   decoding="async"
-                  className="h-full w-full object-cover"
+                  className={`h-full w-full object-cover ${soldOut ? "opacity-55" : ""}`}
                 />
               </button>
             ) : (
@@ -397,6 +422,19 @@ function ProductDetails({ product }: { product: Product }) {
                   .join("")}
               </span>
             )}
+            {soldOut ? (
+              <span
+                aria-hidden="true"
+                className="product-sold-out-stamp pointer-events-none absolute inset-0 flex items-center justify-center"
+              >
+                <span
+                  className="block -rotate-[35deg] select-none whitespace-nowrap font-body text-[clamp(3.5rem,15vw,7.5rem)] font-black uppercase leading-none tracking-tight opacity-80 md:text-[clamp(3.5rem,8.5vw,7.5rem)]"
+                  style={{ color: accent }}
+                >
+                  Agotado
+                </span>
+              </span>
+            ) : null}
             {galleryImages.length > 1 ? (
               <>
                 <button
@@ -451,18 +489,18 @@ function ProductDetails({ product }: { product: Product }) {
           <div className="mt-3 flex min-h-0 flex-1 flex-col">
             <div className="my-auto py-4">
               {/* Color first: it decides the sizes shown below. */}
-              <div>
+              <div className={(choices ? choices.colored.length : colors.length) > 0 ? undefined : "hidden"}>
                 <div className="mb-2 text-sm font-bold uppercase">Colores</div>
                 <div className="flex flex-wrap gap-2">
-                  {family.length > 1
+                  {choices
                     ? // A product with sub-products: every color of the family,
                       // each opening that color's own page (name, photos, price).
-                      family.map((member) => {
+                      choices.colored.map((member) => {
                         const memberColor = buildProductColorRecord(
                           member.colors?.[0]?.name ?? "Unica",
                           member.colors?.[0]?.hex ?? member.swatch[0],
                         );
-                        const current = member.id === product.id;
+                        const current = member.id === choices.colorId;
                         return (
                           <Link
                             key={member.id}
@@ -495,17 +533,40 @@ function ProductDetails({ product }: { product: Product }) {
               <div className="mt-5">
                 <div className="mb-2 text-sm font-bold uppercase">Tallas</div>
                 <div className="flex flex-wrap gap-2">
-                  {sizes.map((entry) => (
-                    <button
-                      key={entry}
-                      onClick={() => setSize(entry)}
-                      className={`rounded-full border border-foreground/20 px-4 py-2 text-sm font-bold ${
-                        size === entry ? "bg-foreground text-background" : "bg-card"
-                      }`}
-                    >
-                      {entry}
-                    </button>
-                  ))}
+                  {sizeChoices.map(({ size: entry, member }) => {
+                    const picked = member.id === product.id && size === entry;
+                    // Sold out: faded, still clickable to ask for a restock (Lucia, 2026-11-26).
+                    const out = !sizeInStock(member, entry);
+                    const className = `rounded-full border border-foreground/20 px-4 py-2 text-sm font-bold ${
+                      picked ? "bg-foreground text-background" : "bg-card"
+                    } ${out ? "opacity-40" : ""}`;
+                    const label = out ? `${entry} (agotada)` : undefined;
+                    // A size of another family member (a sub "Sin color") opens that member.
+                    return member.id === product.id ? (
+                      <button
+                        key={`${member.id}-${entry}`}
+                        type="button"
+                        aria-label={label}
+                        aria-pressed={picked}
+                        onClick={() => setSize(entry)}
+                        className={className}
+                      >
+                        {entry}
+                      </button>
+                    ) : (
+                      <Link
+                        key={`${member.id}-${entry}`}
+                        to="/producto/$slug"
+                        params={{ slug: member.slug }}
+                        resetScroll={false}
+                        aria-label={label}
+                        onClick={() => setSize(entry)}
+                        className={className}
+                      >
+                        {entry}
+                      </Link>
+                    );
+                  })}
                 </div>
               </div>
             </div>

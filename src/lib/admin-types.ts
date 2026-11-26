@@ -68,6 +68,8 @@ export type AdminProductRecord = {
   createdAt: string;
   /** Sub-products: set once at creation, never editable. */
   motherId?: string | null;
+  /** Its own size format; null = its main category's (Lucia, 2026-11-26). */
+  sizeFormat?: string | null;
 };
 
 export type AdminCategoryRecord = {

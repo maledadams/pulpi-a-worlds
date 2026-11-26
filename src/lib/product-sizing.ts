@@ -1,4 +1,11 @@
-export type AdminSizeFormat = "standard" | "shoes" | "onesize";
+/** A size format's id: one of the three built-in ones, or one the admin created (Lucia, 2026-11-26). */
+export type AdminSizeFormat = string;
+
+export const BUILT_IN_SIZE_FORMAT_IDS = ["standard", "shoes", "onesize"] as const;
+
+export function isBuiltInSizeFormat(id: string) {
+  return (BUILT_IN_SIZE_FORMAT_IDS as readonly string[]).includes(id);
+}
 
 export type AdminSizeFormatRecord = {
   id: AdminSizeFormat;
@@ -36,7 +43,12 @@ export function normalizeSizeLabel(value: string) {
   if (!trimmed) return "";
 
   const lowered = trimmed.toLowerCase();
-  if (lowered === "única" || lowered === "unica" || lowered === "one size" || lowered === "one-size") {
+  if (
+    lowered === "única" ||
+    lowered === "unica" ||
+    lowered === "one size" ||
+    lowered === "one-size"
+  ) {
     return "Unica";
   }
 
@@ -44,11 +56,23 @@ export function normalizeSizeLabel(value: string) {
     return trimmed;
   }
 
-  return trimmed.toUpperCase();
+  // Clothing letters (s, xl, 3xl...) are written in capitals; any other size is kept as
+  // typed, so a format's "Virgo" doesn't turn into "VIRGO".
+  if (/^\d*x*[sml]$/i.test(trimmed)) return trimmed.toUpperCase();
+  return trimmed;
 }
 
+/** Normalized, once each (ignoring capitals: "virgo" and "Virgo" are the same size). */
 export function normalizeSizeList(sizes: string[]) {
-  return Array.from(new Set(sizes.map(normalizeSizeLabel).filter(Boolean)));
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const size of sizes.map(normalizeSizeLabel)) {
+    const key = size.toLowerCase();
+    if (!size || seen.has(key)) continue;
+    seen.add(key);
+    result.push(size);
+  }
+  return result;
 }
 
 export function cloneSizeFormat(format: AdminSizeFormatRecord): AdminSizeFormatRecord {
@@ -73,7 +97,42 @@ export function getSizeFormatRecord(
   formatId: AdminSizeFormat,
   formats: AdminSizeFormatRecord[] = DEFAULT_SIZE_FORMATS,
 ) {
-  return formats.find((format) => format.id === formatId) ?? DEFAULT_SIZE_FORMATS.find((format) => format.id === formatId)!;
+  return (
+    formats.find((format) => format.id === formatId) ??
+    DEFAULT_SIZE_FORMATS.find((format) => format.id === formatId) ??
+    // A format deleted elsewhere (or never loaded): the normal sizes, never a crash.
+    DEFAULT_SIZE_FORMATS[0]!
+  );
+}
+
+/**
+ * The size format a product uses (Lucia, 2026-11-26): its own when it has one, else its
+ * main category's.
+ */
+export function productSizeFormatId(
+  product: { sizeFormat?: string | null; primaryCategory: string },
+  categories: Array<{ id: string; sizeFormat: string }>,
+) {
+  if (product.sizeFormat) return product.sizeFormat;
+  const category =
+    categories.find((entry) => entry.id === product.primaryCategory) ?? categories[0];
+  return category?.sizeFormat ?? "standard";
+}
+
+/** A new format's id from its name, not taken by any of `existingIds`. */
+export function newSizeFormatId(label: string, existingIds: string[]) {
+  const base =
+    "formato-" +
+    (label
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 40) || "nuevo");
+  let id = base;
+  for (let n = 2; existingIds.includes(id); n++) id = `${base}-${n}`;
+  return id;
 }
 
 export function getSizeOptionsForFormat(

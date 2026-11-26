@@ -41,7 +41,12 @@ import {
 import { convertChildBlock, convertMotherBlock, familyColorKey } from "@/lib/product-families";
 import { formatPrice, getCategoryLabel } from "@/data/products";
 import { PRODUCT_COLOR_PRESETS, buildProductColorRecord, normalizeProductColorName } from "@/lib/product-colors";
-import { getSizeOptionsForFormat, normalizeSizeList } from "@/lib/product-sizing";
+import {
+  getSizeFormatRecord,
+  getSizeOptionsForFormat,
+  normalizeSizeList,
+  productSizeFormatId,
+} from "@/lib/product-sizing";
 import { getInventoryStatus, getInventoryStatusTone, getVibeLabel } from "@/lib/admin-service";
 import type { AdminCategoryRecord, AdminProductRecord, AdminSizeFormatRecord } from "@/lib/admin-types";
 
@@ -77,7 +82,7 @@ function buildVariantId(slug: string, size: string) {
 // and preserved purely by their Talla value, regardless of what color they had.
 function syncDraftVariants(product: AdminProductRecord): AdminProductRecord {
   const slug = product.slug || product.name || product.id;
-  const colorName = normalizeProductColorName(product.colors[0]?.name ?? "Unica");
+  const colorName = product.colors[0] ? normalizeProductColorName(product.colors[0].name) : "";
   const currentVariantsBySize = new Map(
     product.variants.map((variant) => {
       const size = variant.selectedOptions.find((option) => option.name === "Talla")?.value ?? "Unica";
@@ -96,10 +101,13 @@ function syncDraftVariants(product: AdminProductRecord): AdminProductRecord {
       compareAtPrice: existing?.compareAtPrice ?? product.compareAtPrice,
       currencyCode: existing?.currencyCode ?? "DOP",
       image: existing?.image ?? product.featuredImage ?? null,
-      selectedOptions: [
-        { name: "Talla", value: size },
-        { name: "Color", value: colorName },
-      ],
+      // A sub "Sin color" has sizes only.
+      selectedOptions: colorName
+        ? [
+            { name: "Talla", value: size },
+            { name: "Color", value: colorName },
+          ]
+        : [{ name: "Talla", value: size }],
     };
   });
 
@@ -143,13 +151,17 @@ function getCategoryRecord(categories: AdminCategoryRecord[], categoryId: string
   return categories.find((category) => category.id === categoryId) ?? categories[0] ?? null;
 }
 
+/** The sizes a product can pick: its own format's, else its main category's. */
 function getAllowedSizes(
   categories: AdminCategoryRecord[],
   sizeFormats: AdminSizeFormatRecord[],
-  categoryId: string,
+  product: Pick<AdminProductRecord, "primaryCategory" | "sizeFormat">,
 ) {
-  const category = getCategoryRecord(categories, categoryId);
-  return getSizeOptionsForFormat(category?.sizeFormat ?? "standard", sizeFormats);
+  const category = getCategoryRecord(categories, product.primaryCategory);
+  return getSizeOptionsForFormat(
+    product.sizeFormat || (category?.sizeFormat ?? "standard"),
+    sizeFormats,
+  );
 }
 
 function normalizeDraftForSave(draft: AdminProductRecord) {
@@ -185,7 +197,9 @@ function normalizeDraftForSave(draft: AdminProductRecord) {
     images: trimmedImages,
     featuredImage,
     sizes: normalizeSizeList(draft.sizes),
-    colors: normalizedColors.length > 0 ? normalizedColors : [buildProductColorRecord("black")],
+    // Only a sub can be "Sin color"; any other product without one gets Negro, as before.
+    colors:
+      normalizedColors.length > 0 || draft.motherId ? normalizedColors : [buildProductColorRecord("black")],
     variants: draft.variants.map((variant) => ({
       ...variant,
       available: variant.available,
@@ -356,7 +370,14 @@ function AdminProductsPage() {
   const safePage = Math.min(page, pages - 1);
   const paged = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
   const selected = rows.find((product) => product.id === selectedId) ?? null;
-  const sizeOptions = getAllowedSizes(categories, sizeFormats, draft?.primaryCategory ?? "tops");
+  const sizeOptions = getAllowedSizes(categories, sizeFormats, draft ?? { primaryCategory: "tops" });
+  const categoryFormatId = productSizeFormatId(
+    { primaryCategory: draft?.primaryCategory ?? "", sizeFormat: null },
+    categories,
+  );
+  // Sizes it still has from another format (its category's format changed): shown so they
+  // can be taken off; nothing is ever removed on its own.
+  const outOfFormatSizes = draft ? draft.sizes.filter((size) => !sizeOptions.includes(size)) : [];
   const activeColorName = normalizeProductColorName(draft?.colors[0]?.name ?? "").toLowerCase();
   // Sub-products: inherited fields are greyed out; a family can't repeat a color.
   const isSub = Boolean(draft?.motherId);
@@ -425,9 +446,15 @@ function AdminProductsPage() {
 
   // Asks before changing state: the confirmation is an async dialog, which
   // can't run inside a setDraft updater (and updaters may run twice).
-  const applyPrimaryCategory = async (nextCategoryId: string) => {
+  const applyPrimaryCategory = (nextCategoryId: string) =>
+    applySizeSource({ primaryCategory: nextCategoryId, sizeFormat: draft?.sizeFormat ?? null });
+
+  // A new main category or a new size format: sizes the new format doesn't have are taken
+  // off, after asking.
+  const applySizeSource = async (next: { primaryCategory: string; sizeFormat: string | null }) => {
     if (!draft) return;
-    const allowedSizes = getAllowedSizes(categories, sizeFormats, nextCategoryId);
+    const nextCategoryId = next.primaryCategory;
+    const allowedSizes = getAllowedSizes(categories, sizeFormats, next);
     const droppedSizes = draft.sizes.filter((size) => !allowedSizes.includes(size));
 
     if (droppedSizes.length > 0) {
@@ -436,8 +463,8 @@ function AdminProductsPage() {
         return droppedSizes.includes(size) && (variant.quantityAvailable ?? 0) > 0;
       });
       const warning = droppedHasStock
-        ? `Esta categoria usa otro formato de tallas: se van a quitar ${droppedSizes.join(", ")}, incluyendo variantes con stock. Esta accion no se puede deshacer facilmente. ¿Quieres continuar?`
-        : `Esta categoria usa otro formato de tallas: se van a quitar ${droppedSizes.join(", ")}. ¿Quieres continuar?`;
+        ? `El nuevo formato de tallas no tiene ${droppedSizes.join(", ")}: se van a quitar, incluyendo variantes con stock. Esta accion no se puede deshacer facilmente. ¿Quieres continuar?`
+        : `El nuevo formato de tallas no tiene ${droppedSizes.join(", ")}: se van a quitar. ¿Quieres continuar?`;
       if (!(await confirmAdminDestructiveAction(warning))) return;
     }
 
@@ -448,6 +475,7 @@ function AdminProductsPage() {
       return syncDraftVariants({
         ...current,
         primaryCategory: nextCategoryId,
+        sizeFormat: next.sizeFormat,
         categories: current.categories.includes(nextCategoryId) ? current.categories : [nextCategoryId, ...current.categories],
         sizes: nextSizes.length > 0 ? nextSizes : [allowedSizes[0]!],
       });
@@ -1246,6 +1274,34 @@ function AdminProductsPage() {
 
                 <div>
                   <AdminSectionLabel>Formato de tallas</AdminSectionLabel>
+                  <div className="mt-2 max-w-sm">
+                    <AdminSelect
+                      aria-label="Formato de tallas"
+                      value={draft.sizeFormat ?? ""}
+                      disabled={isSub}
+                      className={lockedClass}
+                      onChange={(event) =>
+                        void applySizeSource({
+                          primaryCategory: draft.primaryCategory,
+                          sizeFormat: event.target.value || null,
+                        })
+                      }
+                    >
+                      <option value="">
+                        El de su categoría ({getSizeFormatRecord(categoryFormatId, sizeFormats).label})
+                      </option>
+                      {sizeFormats.map((format) => (
+                        <option key={format.id} value={format.id}>
+                          Solo este producto: {format.label}
+                        </option>
+                      ))}
+                    </AdminSelect>
+                  </div>
+                  <p className="mt-1 text-xs text-[var(--admin-faint)]">
+                    {isSub
+                      ? "Lo hereda de su producto madre."
+                      : "Los formatos se crean y se editan en Categorías."}
+                  </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {sizeOptions.map((size) => (
                       <button
@@ -1257,6 +1313,17 @@ function AdminProductsPage() {
                         {size}
                       </button>
                     ))}
+                    {outOfFormatSizes.map((size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        title="Esta talla no está en su formato. Tócala para quitarla."
+                        onClick={() => toggleSize(size)}
+                        className={getAdminChipClassName(true, "border-dashed")}
+                      >
+                        {size} · fuera del formato
+                      </button>
+                    ))}
                   </div>
                 </div>
 
@@ -1265,7 +1332,23 @@ function AdminProductsPage() {
                   <p className="mt-1 text-xs text-[var(--admin-faint)]">
                     Cada producto tiene un solo color. Cambiarlo solo actualiza como se muestra - no afecta el stock.
                   </p>
+                  {isSub ? (
+                    <p className="mt-1 text-xs text-[var(--admin-faint)]">
+                      Sin color: no sale en la barra de colores; sus tallas salen debajo del color de la
+                      madre y abren este producto. Sus tallas no pueden repetir las de la madre ni las de
+                      otro sub-producto sin color.
+                    </p>
+                  ) : null}
                   <div className="mt-2 flex flex-wrap gap-2">
+                    {isSub ? (
+                      <button
+                        type="button"
+                        onClick={() => setDraft((current) => (current ? syncDraftVariants({ ...current, colors: [] }) : current))}
+                        className={getAdminChipClassName(draft.colors.length === 0)}
+                      >
+                        Sin color
+                      </button>
+                    ) : null}
                     {PRODUCT_COLOR_PRESETS.map((preset) => {
                       const active = activeColorName === preset.label.toLowerCase();
                       // Each family member has its own color.

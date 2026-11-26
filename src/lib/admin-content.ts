@@ -24,6 +24,7 @@ import {
   cloneSizeFormat,
   getCategorySizeFormat,
   getDefaultSizeFormats,
+  isBuiltInSizeFormat,
   normalizeSizeList,
 } from "@/lib/product-sizing";
 import {
@@ -97,7 +98,7 @@ const categorySchema = z.object({
   label: z.string().trim().min(1),
   isNsfw: z.boolean(),
   vibes: z.array(z.enum(["men", "moon", "sunshine"])).min(1),
-  sizeFormat: z.enum(["standard", "shoes", "onesize"]),
+  sizeFormat: z.string().trim().min(1).max(80),
   productCount: z.number().int().nonnegative(),
   sortOrder: z.number().int().nonnegative(),
   images: z.object({
@@ -108,9 +109,14 @@ const categorySchema = z.object({
 });
 
 const sizeFormatSchema = z.object({
-  id: z.enum(["standard", "shoes", "onesize"]),
-  label: z.string().trim().min(1),
-  sizes: z.array(z.string().trim().min(1)).min(1),
+  id: z
+    .string()
+    .trim()
+    .min(1)
+    .max(80)
+    .regex(/^[a-z0-9-]+$/),
+  label: z.string().trim().min(1, "Ponle un nombre al formato.").max(40),
+  sizes: z.array(z.string().trim().min(1).max(30)).min(1, "El formato necesita al menos una talla.").max(40),
   sortOrder: z.number().int().nonnegative(),
 });
 
@@ -661,7 +667,7 @@ function parseCategoryRow(row: CategoryRow): AdminCategoryRecord {
       ),
     ),
   );
-  const sizeFormat = (row.size_format?.trim() || getCategorySizeFormat(row.id)) as AdminSizeFormat;
+  const sizeFormat: AdminSizeFormat = row.size_format?.trim() || getCategorySizeFormat(row.id);
   const images = parseCategoryImages(row.images_json);
 
   return {
@@ -669,7 +675,7 @@ function parseCategoryRow(row: CategoryRow): AdminCategoryRecord {
     label: row.name_es,
     isNsfw: row.is_nsfw === 1,
     vibes: vibes.length > 0 ? vibes : ["moon"],
-    sizeFormat: sizeFormat === "shoes" || sizeFormat === "onesize" ? sizeFormat : "standard",
+    sizeFormat,
     productCount: 0,
     sortOrder: row.sort_order ?? 0,
     images,
@@ -759,7 +765,7 @@ function parseSizeFormatRow(row: SizeFormatRow): AdminSizeFormatRecord {
   const fallback = getDefaultSizeFormats().find((format) => format.id === row.id);
 
   return {
-    id: (row.id === "shoes" || row.id === "onesize" ? row.id : "standard") as AdminSizeFormat,
+    id: row.id,
     label: row.label?.trim() || fallback?.label || row.id,
     sizes: normalizeSizeList(parsedSizes.length > 0 ? parsedSizes : fallback?.sizes ?? ["Unica"]),
     sortOrder: row.sort_order ?? fallback?.sortOrder ?? 0,
@@ -788,11 +794,15 @@ async function listSizeFormatsInternal() {
 }
 
 async function assertSizesNotInUse(formatId: string, removedSizes: string[], categoryIds: string[]) {
-  if (removedSizes.length === 0 || categoryIds.length === 0) return;
+  if (removedSizes.length === 0) return;
   const products = await listCatalogProductsInternal();
   const inUse = products.some((product) => {
+    // A product with its own format uses that one; otherwise its categories' format.
     const productCategories = product.categories && product.categories.length > 0 ? product.categories : [product.category];
-    if (!productCategories.some((category) => categoryIds.includes(category))) return false;
+    const usesFormat = product.sizeFormat
+      ? product.sizeFormat === formatId
+      : productCategories.some((category) => categoryIds.includes(category));
+    if (!usesFormat) return false;
     return (product.sizes ?? []).some((size) => removedSizes.includes(size));
   });
   if (inUse) {
@@ -808,6 +818,11 @@ async function saveSizeFormatInternal(input: AdminSizeFormatRecord) {
     label: input.label.trim(),
     sizes: normalizeSizeList(input.sizes),
   });
+  // Two formats with one name can't be told apart in the pickers.
+  const sameName = (await listSizeFormatsInternal()).find(
+    (format) => format.id !== normalized.id && format.label.toLowerCase() === normalized.label.toLowerCase(),
+  );
+  if (sameName) throw new Error(`Ya existe un formato llamado "${sameName.label}".`);
 
   const db = await getDatabase();
   if (!db) {
@@ -857,6 +872,56 @@ async function saveSizeFormatInternal(input: AdminSizeFormatRecord) {
     .run();
 
   return cloneSizeFormat(normalized);
+}
+
+/**
+ * Who uses a format: the categories set to it and the products with it as their own.
+ * A format in use can't be deleted (Lucia, 2026-11-26).
+ */
+async function sizeFormatUsers(formatId: string) {
+  const [categories, products] = await Promise.all([listCategoriesInternal(), listCatalogProductsInternal()]);
+  return {
+    categories: categories.filter((category) => category.sizeFormat === formatId).map((category) => category.label),
+    products: products.filter((product) => product.sizeFormat === formatId).map((product) => product.name),
+  };
+}
+
+async function deleteSizeFormatInternal(formatId: string) {
+  if (isBuiltInSizeFormat(formatId)) throw new Error("Los formatos de la tienda no se pueden borrar.");
+  const users = await sizeFormatUsers(formatId);
+  const list = (names: string[]) => names.slice(0, 5).join(", ") + (names.length > 5 ? "..." : "");
+  if (users.categories.length) {
+    throw new Error(`No se puede borrar: lo usan estas categorías: ${list(users.categories)}.`);
+  }
+  if (users.products.length) {
+    throw new Error(`No se puede borrar: lo usan estos productos: ${list(users.products)}.`);
+  }
+
+  const db = await getDatabase();
+  if (!db) {
+    seedMemoryContent();
+    memorySizeFormats.delete(formatId);
+    return { success: true };
+  }
+  await ensureAdminContentReady(db);
+  await db.prepare("DELETE FROM size_formats WHERE id = ?").bind(formatId).run();
+  return { success: true };
+}
+
+/**
+ * A category's format changed: every product of that category follows it, the ones that had
+ * their own format too (Lucia, 2026-11-26: "si se cambia por categoría que cambie a todos").
+ * Only mothers and normal products are saved; a mother's save carries it to her subs.
+ * Sizes and stock are never touched.
+ */
+async function resetCategoryProductFormats(categoryId: string) {
+  const products = await listCatalogProductsInternal();
+  for (const product of products) {
+    if (product.category !== categoryId || product.motherId || !product.sizeFormat) continue;
+    await saveCatalogProductInternal(toAdminProductRecord({ ...product, sizeFormat: null }), {
+      keepStoredStock: true,
+    });
+  }
 }
 
 export async function listCategoriesInternal() {
@@ -958,9 +1023,15 @@ async function saveCategoryInternal(input: AdminCategoryRecord) {
     images: normalizedImages,
   } satisfies AdminCategoryRecord;
 
+  const formats = await listSizeFormatsInternal();
+  if (!formats.some((format) => format.id === normalized.sizeFormat)) {
+    throw new Error("Ese formato de tallas ya no existe. Elige otro.");
+  }
+
   const db = await getDatabase();
   if (!db) {
     seedMemoryContent();
+    const previousFormat = memoryCategories.get(normalized.previousId ?? normalized.id)?.sizeFormat;
     const previousImages = memoryCategories.get(normalized.previousId ?? normalized.id)?.images ?? {};
     if (normalized.previousId && normalized.previousId !== normalized.id) {
       const existing = memoryCategories.get(normalized.previousId);
@@ -973,6 +1044,9 @@ async function saveCategoryInternal(input: AdminCategoryRecord) {
     }
     memoryCategories.set(normalized.id, cloneCategory(normalized));
     await cleanupCategoryImages(previousImages, normalized.images);
+    if (previousFormat && previousFormat !== normalized.sizeFormat) {
+      await resetCategoryProductFormats(normalized.id);
+    }
     const products = await listCatalogProductsInternal();
     return withCategoryStats([cloneCategory(normalized)], products)[0]!;
   }
@@ -980,9 +1054,9 @@ async function saveCategoryInternal(input: AdminCategoryRecord) {
   await ensureAdminContentReady(db);
   const currentId = normalized.previousId ?? normalized.id;
   const existing = await db
-    .prepare("SELECT id, images_json FROM categories WHERE id = ? LIMIT 1")
+    .prepare("SELECT id, images_json, size_format FROM categories WHERE id = ? LIMIT 1")
     .bind(currentId)
-    .first<{ id: string; images_json: string | null }>();
+    .first<{ id: string; images_json: string | null; size_format: string | null }>();
   const conflicting = normalized.previousId && normalized.previousId !== normalized.id
     ? await db.prepare("SELECT id FROM categories WHERE id = ? LIMIT 1").bind(normalized.id).first()
     : null;
@@ -1027,6 +1101,9 @@ async function saveCategoryInternal(input: AdminCategoryRecord) {
     .run();
 
   await cleanupCategoryImages(parseCategoryImages(existing?.images_json), normalized.images);
+  if (existing && (existing.size_format?.trim() || getCategorySizeFormat(existing.id)) !== normalized.sizeFormat) {
+    await resetCategoryProductFormats(normalized.id);
+  }
 
   const products = await listCatalogProductsInternal();
   return withCategoryStats([cloneCategory(normalized)], products)[0]!;
@@ -1842,6 +1919,15 @@ export const saveAdminSizeFormat = createServerFn({ method: "POST" })
     await enforceAdminAccess();
     setResponseHeader("Cache-Control", "private, no-store");
     return saveSizeFormatInternal(data);
+  });
+
+export const deleteAdminSizeFormat = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string }) => z.object({ id: z.string().trim().min(1) }).parse(data))
+  .handler(async ({ data }) => {
+    const { setResponseHeader } = await import("@tanstack/react-start/server");
+    await enforceAdminAccess();
+    setResponseHeader("Cache-Control", "private, no-store");
+    return deleteSizeFormatInternal(data.id);
   });
 
 export const saveAdminCategory = createServerFn({ method: "POST" })
