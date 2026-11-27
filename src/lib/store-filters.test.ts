@@ -90,7 +90,7 @@ describe("orderForSubstore", () => {
     // Own group keeps its own sold-out item (today's behavior); hidden is excluded.
     expect(result.slice(0, 3)).toEqual(["sun-corset", "sun-corset-soldout", "dual-corset"]);
     expect(result).toContain("moon-corset");
-    expect(result).toContain("men-corset");
+    expect(result).not.toContain("men-corset");
     expect(result).toContain("general-corset");
     expect(result).not.toContain("hidden-corset");
   });
@@ -118,6 +118,36 @@ describe("orderForSubstore", () => {
       const result = ids(orderForSubstore(sorted, parseCatalogSearch({ category: "corsets", sort }), "moon"));
       expect(result[result.length - 1]).toBe("sun-cheapest");
     }
+  });
+
+  it("never shows Men products on Sunshine, nor Sunshine products on Men", () => {
+    const sun = ids(orderForSubstore(catalog, parseCatalogSearch({ q: "corset" }), "sunshine"));
+    expect(sun).not.toContain("men-corset");
+    expect(sun).toContain("moon-corset");
+    expect(sun).toContain("general-corset");
+    const men = ids(orderForSubstore(catalog, parseCatalogSearch({ category: "corsets" }), "men"));
+    expect(men).not.toContain("sun-corset");
+    // dual-corset is Sunshine + Moon: still a Sunshine product, so not on Men.
+    expect(men).not.toContain("dual-corset");
+    expect(men).toContain("moon-corset");
+  });
+
+  it("still shows a product shared between Sunshine and Men in both", () => {
+    const shared = [
+      ...catalog,
+      product("sun-men-corset", { vibe: "sunshine", secondaryVibe: "men" }),
+    ];
+    for (const vibe of ["sunshine", "men"] as const) {
+      expect(ids(orderForSubstore(shared, parseCatalogSearch({ q: "corset" }), vibe))).toContain(
+        "sun-men-corset",
+      );
+    }
+  });
+
+  it("keeps showing Men and Sunshine products on Moon", () => {
+    const moon = ids(orderForSubstore(catalog, parseCatalogSearch({ q: "corset" }), "moon"));
+    expect(moon).toContain("men-corset");
+    expect(moon).toContain("sun-corset");
   });
 
   it("ignores the department (shop) filter for other stores", () => {
