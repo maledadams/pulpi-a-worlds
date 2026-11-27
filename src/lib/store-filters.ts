@@ -366,6 +366,11 @@ export function filterCatalogProducts(
   return result;
 }
 
+const RIVAL_STORE: Partial<Record<SubstoreVibe, SubstoreVibe>> = {
+  sunshine: "men",
+  men: "sunshine",
+};
+
 export function isOwnStoreProduct(product: Product, vibe: SubstoreVibe) {
   return product.vibe === vibe || product.secondaryVibe === vibe;
 }
@@ -390,7 +395,14 @@ export function orderForSubstore(
   const ownGroup = filterCatalogProducts(ownProducts, filters, options);
   if (!isCrossStoreTriggered(filters)) return ownGroup;
 
-  const foreignProducts = allProducts.filter((product) => !isOwnStoreProduct(product, vibe));
+  // Sunshine and Men never show each other's products (Lucia, 2026-11-26), unless
+  // a product is shared with this store, which puts it in the own group above.
+  const rival = RIVAL_STORE[vibe];
+  const foreignProducts = allProducts.filter(
+    (product) =>
+      !isOwnStoreProduct(product, vibe) &&
+      !(rival && getProductDepartments(product).includes(rival)),
+  );
   const foreignGroup = filterCatalogProducts(foreignProducts, {
     ...filters,
     departments: new Set(),
